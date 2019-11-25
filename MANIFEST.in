@@ -1,0 +1,7 @@
+include LICENSE
+include README.rst
+include CHANGELOG.rst
+include fedmsg.d/sync2jira.py
+include requirements.txt
+include test-requirements.txt
+include systemd/sync2jira.service

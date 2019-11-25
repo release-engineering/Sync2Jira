@@ -1,0 +1,89 @@
+# Template to produce a new BuildConfig and ImageStream for sync2jira container builds.
+
+---
+apiVersion: v1
+kind: Template
+metadata:
+  name: sync2jira-container-template
+labels:
+  template: "sync2jira-container-template"
+parameters:
+- name: NAME
+  displayName: Short unique identifier for the templated instances.
+  required: true
+  value: "sync2jira-container"
+- name: SYNC2JIRA_GIT_REPO
+  displayName: sync2jira Git repo URL
+  description: Default sync2jira Git repo URL in which to run dev tests against
+  required: true
+  value: https://pagure.io/sync-to-jira
+- name: SYNC2JIRA_GIT_REF
+  displayName: sync2jira Git repo ref
+  description: Default sync2jira Git repo ref in which to run dev tests against
+  required: true
+  value: develop
+- name: SYNC2JIRA_IMAGESTREAM_NAME
+  displayName: ImageStream name of the resulting image
+  required: true
+  value: sync2jira
+- name: SYNC2JIRA_IMAGE_TAG
+  displayName: Tag of resulting image
+  required: true
+  value: latest
+- name: SYNC2JIRA_IMAGESTREAM_NAMESPACE
+  displayName: Namespace of ImageStream for sync2jira container images
+  required: false
+- name: SYNC2JIRA_VERSION
+  displayName: sync2jira app version
+  required: false
+  value: ''
+- name: SYNC2JIRA_CACERT_URL
+  displayName: URL to an additional CA cert to pull down and trust.
+  required: true
+  value: https://password.corp.redhat.com/RH-IT-Root-CA.crt
+objects:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: "${SYNC2JIRA_IMAGESTREAM_NAME}"
+    labels:
+      app: "${NAME}"
+- kind: "BuildConfig"
+  apiVersion: "v1"
+  metadata:
+    name: "${NAME}"
+    metadata:
+      labels:
+        app: "${NAME}"
+  spec:
+    runPolicy: "Parallel"
+    completionDeadlineSeconds: 1800
+    strategy:
+      dockerStrategy:
+        forcePull: true
+        buildArgs:
+        - name: "SYNC2JIRA_GIT_REPO"
+          value: "${SYNC2JIRA_GIT_REPO}"
+        - name: "SYNC2JIRA_GIT_REF"
+          value: "${SYNC2JIRA_GIT_REF}"
+        - name: "SYNC2JIRA_VERSION"
+          value: "${SYNC2JIRA_VERSION}"
+        - name: "SYNC2JIRA_CACERT_URL"
+          value: "${SYNC2JIRA_CACERT_URL}"
+        dockerfilePath: openshift/containers/sync2jira/Dockerfile
+    resources:
+      requests:
+        memory: "768Mi"
+        cpu: "300m"
+      limits:
+       memory: "1Gi"
+       cpu: "500m"
+    source:
+      git:
+        uri: "${SYNC2JIRA_GIT_REPO}"
+        ref: "${SYNC2JIRA_GIT_REF}"
+    output:
+      to:
+        kind: "ImageStreamTag"
+        name: "${SYNC2JIRA_IMAGESTREAM_NAME}:${SYNC2JIRA_IMAGE_TAG}"
+        namespace: "${SYNC2JIRA_IMAGESTREAM_NAMESPACE}"

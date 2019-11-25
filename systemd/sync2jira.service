@@ -1,0 +1,14 @@
+[Unit]
+Description=Synchronizes a JIRA instance with tickets filed on pagure and github
+After=network.target
+Documentation=https://pagure.io/sync-to-jira
+
+[Service]
+ExecStart=/usr/bin/sync2jira
+Type=simple
+User=fedmsg
+Group=fedmsg
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

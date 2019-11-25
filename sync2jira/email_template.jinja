@@ -1,0 +1,29 @@
+<html>
+  <body style="font-family: Arial; font-size: 14px;">
+    <p> Hello {{ user['name'] }}, <br>It looks like you have some duplicate issues for
+        upstream issue <a href="{{ issue.url }}">{{ issue._title }}</a></p>
+    <p>This issue was selected:</p>
+     <ul>
+         <li>
+             <a href="{{ selected_issue['url'] }}">{{ selected_issue['title'] }}</a>
+         </li>
+     </ul>
+  <p>But these issues were also found:</p>
+    <ul>
+      {% for duplicate in duplicate_issues %}
+          <li>
+            <a  style="" href="{{ duplicate['url'] }}">{{ duplicate['title'] }}</a>
+          </li>
+      {% endfor %}
+    </ul>
+  <p>Make sure to mark these duplicate issues as 'Closed' to avoid these emails!</p>
+    {% if admins|length > 0 %}
+            <p>Questions? Get in contact with one of the admins:
+                {% for admin in admins %}
+                    <a href="mailto:{{ admin.email }}">{{ admin.name }}</a>
+                    {{ "," if not loop.last }}
+                {% endfor %}
+            </p>
+    {% endif %}
+  </body>
+</html>
