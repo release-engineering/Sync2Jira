@@ -37,7 +37,6 @@ from sync2jira.mailer import send_mail
 
 # Set up our logging
 FORMAT = "[%(asctime)s] %(levelname)s: %(message)s"
-# FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 logging.basicConfig(format=FORMAT, level=logging.WARNING)
