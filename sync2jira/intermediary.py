@@ -32,7 +32,7 @@ class Issue(object):
         self.tags = tags
         self.fixVersion = fixVersion
         self.priority = priority
-        self.content = content
+        self.content = content.encode('ascii', errors='replace').decode('ascii')
         self.reporter = reporter
         self.assignee = assignee
         self.status = status

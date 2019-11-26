@@ -854,7 +854,7 @@ def _update_title(issue, existing):
         )
 
         # Now we can update the JIRA issue if we need to
-        if new_description != existing.fields.description:
+        if new_description.replace(' ', '') != existing.fields.description.replace(' ', ''):
             data = {'description': new_description}
             existing.update(data)
             log.info('Updated description')
