@@ -30,7 +30,7 @@ from datetime import datetime
 import jinja2
 import pypandoc
 
-from sync2jira.intermediary import Issue
+from sync2jira.intermediary import Issue, PR
 from sync2jira.mailer import send_mail
 
 # The date the service was upgraded
@@ -89,7 +89,7 @@ def _comment_format_legacy(comment):
         comment['name'], comment['body'])
 
 
-def _get_jira_client(issue, config):
+def get_jira_client(issue, config):
     """
     Function to match and create JIRA client.
 
@@ -103,7 +103,7 @@ def _get_jira_client(issue, config):
     # It is conveniently added to the Issue object from intermediary.py
     # so we can use it here:
 
-    if not isinstance(issue, Issue):
+    if not isinstance(issue, Issue) and not isinstance(issue, PR):
         log.error("passed in issue is not an Issue instance")
         log.error("It is a %s" % type(issue).__name__)
         raise TypeError("Got %s, expected Issue" % type(issue).__name__)
@@ -1128,7 +1128,7 @@ def sync_with_jira(issue, config):
     log.info("Considering upstream %s, %s", issue.url, issue.title)
 
     # Create a client connection for this issue
-    client = _get_jira_client(issue, config)
+    client = get_jira_client(issue, config)
 
     # Check the status of the JIRA client
     if not config['sync2jira']['develop'] and not check_jira_status(client):
@@ -1235,7 +1235,7 @@ def close_duplicates(issue, config):
     :returns: Nothing
     """
     # Create a client connection for this issue
-    client = _get_jira_client(issue, config)
+    client = get_jira_client(issue, config)
 
     # Check the status of the JIRA client
     if not config['sync2jira']['develop'] and not check_jira_status(client):

@@ -36,12 +36,13 @@ import sync2jira.intermediary as i
 log = logging.getLogger(__name__)
 
 
-def handle_github_message(msg, config):
+def handle_github_message(msg, config, pr_filter=True):
     """
     Handle GitHub message from FedMsg.
 
     :param Dict msg: FedMsg Message
     :param Dict config: Config File
+    :param Bool pr_filter: Switch to ignore pull_requests
     :returns: Issue object
     :rtype: sync2jira.intermediary.Issue
     """
@@ -74,7 +75,7 @@ def handle_github_message(msg, config):
                           key, actual, expected, upstream)
                 return None
 
-    if 'pull_request' in msg['msg']['issue']:
+    if pr_filter and 'pull_request' in msg['msg']['issue']:
         if not msg['msg']['issue'].get('closed_at', None):
             log.debug("%r is a pull request.  Ignoring.", msg['msg']['issue'].get('html_url'))
             return None
@@ -280,7 +281,7 @@ def github_issues(upstream, config):
     if _filter:
         url += '?' + urlencode(_filter)
 
-    issues = _get_all_github_issues(url, headers)
+    issues = get_all_github_data(url, headers)
 
     # Initialize Github object so we can get their full name (instead of their username)
     # And get comments if needed
@@ -351,7 +352,7 @@ def github_issues(upstream, config):
         yield issue
 
 
-def _get_all_github_issues(url, headers):
+def get_all_github_data(url, headers):
     """ Pagination utility.  Obnoxious. """
     link = dict(next=url)
     while 'next' in link:

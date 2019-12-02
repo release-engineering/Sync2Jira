@@ -53,12 +53,12 @@ config = {
         'map': {
             'pagure': {
                 'Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
-                                 'updates': [...]},
+                                 'updates': [...], 'sync': ['pullrequest', 'issue']},
                 # 'koji': { 'project': 'BREW', 'component': None, },
             },
             'github': {
                 'GITHUB_USERNAME/Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
-                                                 'updates': [...]},
+                                                 'updates': [...], 'sync': ['pullrequest', 'issue']},
             },
         },
         'filters': {

@@ -31,8 +31,10 @@ import fedmsg
 import fedmsg.config
 import jinja2
 
-import sync2jira.upstream as u
-import sync2jira.downstream as d
+import sync2jira.upstream_issue as u_issue
+import sync2jira.upstream_pr as u_pr
+import sync2jira.downstream_issue as d_issue
+import sync2jira.downstream_pr as d_pr
 from sync2jira.mailer import send_mail
 
 # Set up our logging
@@ -49,32 +51,44 @@ fedmsg_log.setLevel(50)
 remote_link_title = "Upstream issue"
 failure_email_subject = "Sync2Jira Has Failed!"
 
-handlers = {
-    # Example: https://apps.fedoraproject.org/datagrepper/id?id=2016-895ed21e-5d53-4fde-86ac-64dab36a14ad&is_raw=true&size=extra-large
-    'github.issue.opened': u.handle_github_message,
-    # Example: https://apps.fedoraproject.org/datagrepper/id?id=2017-ef579c6c-c391-449b-8cc2-837c41bd6c85&is_raw=true&size=extra-large
-    'github.issue.reopened': u.handle_github_message,
-    # Example: https://apps.fedoraproject.org/datagrepper/id?id=2017-a053e0c2-f514-47d6-8cb2-f7b2858f7052&is_raw=true&size=extra-large
-    'github.issue.labeled': u.handle_github_message,
-    'github.issue.assigned': u.handle_github_message,
-    'github.issue.unassigned': u.handle_github_message,
-    'github.issue.closed': u.handle_github_message,
-    'github.issue.comment': u.handle_github_message,
-    'github.issue.unlabeled': u.handle_github_message,
-    'github.issue.milestoned': u.handle_github_message,
-    'github.issue.demilestoned': u.handle_github_message,
-    'github.issue.edited': u.handle_github_message,
-    # Example: https://apps.fedoraproject.org/datagrepper/id?id=2016-d578d8f6-0c4c-493d-9535-4e138a03e197&is_raw=true&size=extra-large
-    'pagure.issue.new': u.handle_pagure_message,
-    # Example: https://apps.fedoraproject.org/datagrepper/id?id=2017-c2e81259-8576-41a9-83c6-6db2cbcf67d3&is_raw=true&size=extra-large
-    'pagure.issue.tag.added': u.handle_pagure_message,
-    'pagure.issue.comment.added': u.handle_pagure_message,
-    'pagure.issue.comment.edited': u.handle_pagure_message,
-    'pagure.issue.assigned.added': u.handle_pagure_message,
-    'pagure.issue.assigned.reset': u.handle_pagure_message,
-    'pagure.issue.edit': u.handle_pagure_message,
-    'pagure.issue.drop': u.handle_pagure_message,
-    'pagure.issue.tag.removed': u.handle_pagure_message,
+# Issue related handlers
+issue_handlers = {
+    # GitHub
+    'github.issue.opened': u_issue.handle_github_message,
+    'github.issue.reopened': u_issue.handle_github_message,
+    'github.issue.labeled': u_issue.handle_github_message,
+    'github.issue.assigned': u_issue.handle_github_message,
+    'github.issue.unassigned': u_issue.handle_github_message,
+    'github.issue.closed': u_issue.handle_github_message,
+    'github.issue.comment': u_issue.handle_github_message,
+    'github.issue.unlabeled': u_issue.handle_github_message,
+    'github.issue.milestoned': u_issue.handle_github_message,
+    'github.issue.demilestoned': u_issue.handle_github_message,
+    'github.issue.edited': u_issue.handle_github_message,
+    # Pagure
+    'pagure.issue.new': u_issue.handle_pagure_message,
+    'pagure.issue.tag.added': u_issue.handle_pagure_message,
+    'pagure.issue.comment.added': u_issue.handle_pagure_message,
+    'pagure.issue.comment.edited': u_issue.handle_pagure_message,
+    'pagure.issue.assigned.added': u_issue.handle_pagure_message,
+    'pagure.issue.assigned.reset': u_issue.handle_pagure_message,
+    'pagure.issue.edit': u_issue.handle_pagure_message,
+    'pagure.issue.drop': u_issue.handle_pagure_message,
+    'pagure.issue.tag.removed': u_issue.handle_pagure_message,
+}
+
+# PR related handlers
+pr_handlers = {
+    # GitHub
+    'github.pull_request.opened': u_pr.handle_github_message,
+    'github.pull_request.edited': u_pr.handle_github_message,
+    'github.issue.comment': u_pr.handle_github_message,
+    'github.pull_request.reopened': u_pr.handle_github_message,
+    'github.pull_request.closed': u_pr.handle_github_message,
+    # Pagure
+    'pagure.pull-request.new': u_pr.handle_pagure_message,
+    'pagure.pull-request.comment.added': u_pr.handle_pagure_message,
+    'pagure.pull-request.initial_comment.edited': u_pr.handle_pagure_message,
 }
 
 
@@ -87,7 +101,6 @@ def load_config(loader=fedmsg.config.load_config):
     :returns: The config dict to be used later in the program
     :rtype: Dict
     """
-
     config = loader()
 
     # Force some vars that we like
@@ -141,23 +154,41 @@ def listen(config):
         suffix = ".".join(topic.split('.')[3:])
         log.debug("Encountered %r %r %r", suffix, topic, idx)
 
-        if suffix not in handlers:
+        if suffix not in issue_handlers and suffix not in pr_handlers:
             continue
 
         log.debug("Handling %r %r %r", suffix, topic, idx)
 
-        if 'pagure' in suffix:
-            issue = u.handle_pagure_message(msg, config)
-        elif 'github' in suffix:
-            issue = u.handle_github_message(msg, config)
+        issue = None
+        pr = None
 
-        if not issue:
+        # Github '.issue.' is used for both PR and Issue
+        # Check for that edge case
+        if suffix == 'github.issue.comment':
+            if 'pull_request' in msg['msg']['issue']:
+                # pr_filter turns on/off the filtering of PRs
+                pr = issue_handlers[suffix](msg, config, pr_filter=False)
+                if not pr:
+                    continue
+                # Issues do not have suffix and reporter needs to be reformatted
+                pr.suffix = suffix
+                pr.reporter = pr.reporter.get('fullname')
+            else:
+                issue = issue_handlers[suffix](msg, config)
+        elif suffix in issue_handlers:
+            issue = issue_handlers[suffix](msg, config)
+        elif suffix in pr_handlers:
+            pr = pr_handlers[suffix](msg, config, suffix)
+
+        if not issue and not pr:
             continue
+        if issue:
+            d_issue.sync_with_jira(issue, config)
+        elif pr:
+            d_pr.sync_with_jira(pr, config)
 
-        d.sync_with_jira(issue, config)
 
-
-def initialize(config, testing=False):
+def initialize_issues(config, testing=False):
     """
     Initial initialization needed to sync any upstream \
     repo with JIRA. Goes through all issues and \
@@ -172,20 +203,24 @@ def initialize(config, testing=False):
     log.info("Testing flag is %r", config['sync2jira']['testing'])
     mapping = config['sync2jira']['map']
     for upstream in mapping.get('pagure', {}).keys():
-        for issue in u.pagure_issues(upstream, config):
+        if 'issue' not in mapping.get('pagure', {}).get(upstream, {}).get('sync', []):
+            continue
+        for issue in u_issue.pagure_issues(upstream, config):
             try:
-                d.sync_with_jira(issue, config)
+                d_issue.sync_with_jira(issue, config)
             except Exception:
                 log.error("   Failed on %r", issue)
                 raise
-    log.info("Done with pagure initialization.")
+    log.info("Done with pagure issue initialization.")
 
     for upstream in mapping.get('github', {}).keys():
+        if 'issue' not in mapping.get('github', {}).get(upstream, {}).get('sync', []):
+            continue
         # Try and except for github API limit
         try:
-            for issue in u.github_issues(upstream, config):
+            for issue in u_issue.github_issues(upstream, config):
                 try:
-                    d.sync_with_jira(issue, config)
+                    d_issue.sync_with_jira(issue, config)
                 except Exception:
                     log.error("   Failed on %r", issue)
                     raise
@@ -196,14 +231,65 @@ def initialize(config, testing=False):
                 log.info("Hit Github API limit. Sleeping for 1 hour...")
                 sleep(3600)
                 if not testing:
-                    initialize(config)
+                    initialize_issues(config)
                 return
             else:
                 if not config['sync2jira']['develop']:
                     # Only send the failure email if we are not developing
                     report_failure(config)
                     raise
-    log.info("Done with github initialization.")
+    log.info("Done with github issue initialization.")
+
+
+def initialize_pr(config, testing=False):
+    """
+    Initial initialization needed to sync any upstream \
+    repo with JIRA. Goes through all PRs and \
+    checks if they're already on JIRA / Need to be \
+    created.
+
+    :param Dict config: Config dict for JIRA
+    :param Bool testing: Flag to indicate if we are testing. Default false
+    :returns: Nothing
+    """
+    log.info("Running initialization to sync all PRs from upstream to jira")
+    log.info("Testing flag is %r", config['sync2jira']['testing'])
+    mapping = config['sync2jira']['map']
+    for upstream in mapping.get('pagure', {}).keys():
+        if 'pullrequest' not in mapping.get('pagure', {}).get(upstream, {}).get('sync', []):
+            continue
+        for pr in u_pr.pagure_prs(upstream, config):
+            if pr:
+                d_pr.sync_with_jira(pr, config)
+    log.info("Done with pagure PR initialization.")
+
+    for upstream in mapping.get('github', {}).keys():
+        if 'pullrequest' not in mapping.get('github', {}).get(upstream, {}).get('sync', []):
+            continue
+        # Try and except for github API limit
+        try:
+            for pr in u_pr.github_prs(upstream, config):
+                try:
+                    if pr:
+                        d_pr.sync_with_jira(pr, config)
+                except Exception:
+                    log.error("   Failed on %r", pr)
+                    raise
+        except Exception as e:
+            if "API rate limit exceeded" in e.__str__():
+                # If we've hit out API limit:
+                # Sleep for 1 hour and call our function again
+                log.info("Hit Github API limit. Sleeping for 1 hour...")
+                sleep(3600)
+                if not testing:
+                    initialize_pr(config)
+                return
+            else:
+                if not config['sync2jira']['develop']:
+                    # Only send the failure email if we are not developing
+                    report_failure(config)
+                    raise
+    log.info("Done with github PR initialization.")
 
 
 def main(runtime_test=False, runtime_config=None):
@@ -215,7 +301,6 @@ def main(runtime_test=False, runtime_config=None):
     :param Dict runtime_config: Config file to be used if it is a runtime test. runtime_test must be true
     :return: Nothing
     """
-
     # Load config and disable warnings
     if not runtime_test or not runtime_config:
         config = load_config()
@@ -228,8 +313,10 @@ def main(runtime_test=False, runtime_config=None):
 
     try:
         if config['sync2jira'].get('initialize'):
-            log.info("Initializing...")
-            initialize(config)
+            log.info("Initializing Issues...")
+            initialize_issues(config)
+            log.info("Initializing PRs...")
+            initialize_pr(config)
             if runtime_test:
                 return
         try:
@@ -280,11 +367,11 @@ def list_managed():
     warnings.simplefilter("ignore")
 
     for upstream in mapping.get('pagure', {}).keys():
-        for issue in u.pagure_issues(upstream, config):
+        for issue in u_issue.pagure_issues(upstream, config):
             print(issue.url)
 
     for upstream in mapping.get('github', {}).keys():
-        for issue in u.github_issues(upstream, config):
+        for issue in u_issue.github_issues(upstream, config):
             print(issue.url)
 
 
@@ -301,18 +388,18 @@ def close_duplicates():
     warnings.simplefilter("ignore")
 
     for upstream in mapping.get('pagure', {}).keys():
-        for issue in u.pagure_issues(upstream, config):
+        for issue in u_issue.pagure_issues(upstream, config):
             try:
-                d.close_duplicates(issue, config)
+                d_issue.close_duplicates(issue, config)
             except Exception:
                 log.error("Failed on %r", issue)
                 raise
     log.info("Done with pagure duplicates.")
 
     for upstream in mapping.get('github', {}).keys():
-        for issue in u.github_issues(upstream, config):
+        for issue in u_issue.github_issues(upstream, config):
             try:
-                d.close_duplicates(issue, config)
+                d_issue.close_duplicates(issue, config)
             except Exception:
                 log.error("Failed on %r", issue)
                 raise

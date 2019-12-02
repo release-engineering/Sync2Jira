@@ -29,8 +29,8 @@ class TestMain(unittest.TestCase):
                 'testing': {},
                 'legacy_matching': False,
                 'map': {
-                    'pagure': {'key_pagure': 'value1'},
-                    'github': {'key_github': 'value1'}
+                    'pagure': {'key_pagure': {'sync': ['issue', 'pullrequest']}},
+                    'github': {'key_github': {'sync': ['issue', 'pullrequest']}}
                 },
                 'initialize': True,
                 'listen': True,
@@ -40,7 +40,8 @@ class TestMain(unittest.TestCase):
 
         # Mock Fedmsg Message
         self.mock_message = {
-            'msg_id': 'mock_id'
+            'msg_id': 'mock_id',
+            'msg': {'issue': 'mock_issue'}
         }
 
     def _check_for_exception(self, loader, target, exc=ValueError):
@@ -70,8 +71,8 @@ class TestMain(unittest.TestCase):
         loader = lambda: {'sync2jira': {'map': {'pagure': {}}, 'jira': {}}}
         m.load_config(loader)  # ahhh, no exception.
 
-    @mock.patch(PATH + 'u')
-    @mock.patch(PATH + 'd')
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
     @mock.patch(PATH + 'load_config')
     def test_close_duplicates(self,
                               mock_load_config,
@@ -95,8 +96,8 @@ class TestMain(unittest.TestCase):
         mock_d.close_duplicates.assert_any_call('mock_issue_github', self.mock_config)
         mock_d.close_duplicates.assert_any_call('mock_issue_pagure', self.mock_config)
 
-    @mock.patch(PATH + 'u')
-    @mock.patch(PATH + 'd')
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
     @mock.patch(PATH + 'load_config')
     def test_close_duplicates_errors(self,
                               mock_load_config,
@@ -122,7 +123,7 @@ class TestMain(unittest.TestCase):
         mock_d.close_duplicates.assert_called_with('mock_issue', self.mock_config)
 
     @mock.patch(PATH + 'load_config')
-    @mock.patch(PATH + 'u')
+    @mock.patch(PATH + 'u_issue')
     def test_list_managed(self,
                           mock_u,
                           mock_load_config):
@@ -140,13 +141,15 @@ class TestMain(unittest.TestCase):
         mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
 
-    @mock.patch(PATH + 'initialize')
+    @mock.patch(PATH + 'initialize_issues')
+    @mock.patch(PATH + 'initialize_pr')
     @mock.patch(PATH + 'load_config')
     @mock.patch(PATH + 'listen')
     def test_main(self,
                   mock_listen,
                   mock_load_config,
-                  mock_initialize):
+                  mock_initialize_pr,
+                  mock_initialize_issues):
         """
         This tests the 'main' function
         """
@@ -160,10 +163,11 @@ class TestMain(unittest.TestCase):
         mock_load_config.assert_called_once()
         mock_listen.assert_called_with(self.mock_config)
         mock_listen.assert_called_with(self.mock_config)
-        mock_initialize.assert_called_with(self.mock_config)
+        mock_initialize_issues.assert_called_with(self.mock_config)
+        mock_initialize_pr.assert_called_with(self.mock_config)
 
-    @mock.patch(PATH + 'u')
-    @mock.patch(PATH + 'd')
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
     def test_initialize(self,
                         mock_d,
                         mock_u):
@@ -175,7 +179,7 @@ class TestMain(unittest.TestCase):
         mock_u.github_issues.return_value = ['mock_issue_github']
 
         # Call the function
-        m.initialize(self.mock_config)
+        m.initialize_issues(self.mock_config)
 
         # Assert everything was called correctly
         mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
@@ -183,8 +187,8 @@ class TestMain(unittest.TestCase):
         mock_d.sync_with_jira.assert_any_call('mock_issue_pagure', self.mock_config)
         mock_d.sync_with_jira.assert_any_call('mock_issue_github', self.mock_config)
 
-    @mock.patch(PATH + 'u')
-    @mock.patch(PATH + 'd')
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
     def test_initialize_errors(self,
                                mock_d,
                                mock_u):
@@ -198,14 +202,14 @@ class TestMain(unittest.TestCase):
 
         # Call the function
         with self.assertRaises(Exception):
-            m.initialize(self.mock_config)
+            m.initialize_issues(self.mock_config)
 
         # Assert everything was called correctly
         mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
         mock_d.sync_with_jira.assert_any_call('mock_issue_pagure', self.mock_config)
 
-    @mock.patch(PATH + 'u')
-    @mock.patch(PATH + 'd')
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
     @mock.patch(PATH + 'sleep')
     @mock.patch(PATH + 'report_failure')
     def test_initialize_api_limit(self,
@@ -222,7 +226,7 @@ class TestMain(unittest.TestCase):
         mock_u.github_issues.side_effect = mock_error
 
         # Call the function
-        m.initialize(self.mock_config, testing=True)
+        m.initialize_issues(self.mock_config, testing=True)
 
         # Assert everything was called correctly
         mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
@@ -231,8 +235,8 @@ class TestMain(unittest.TestCase):
         mock_sleep.assert_called_with(3600)
         mock_report_failure.assert_not_called()
 
-    @mock.patch(PATH + 'u')
-    @mock.patch(PATH + 'd')
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
     @mock.patch(PATH + 'sleep')
     @mock.patch(PATH + 'report_failure')
     def test_initialize_github_error(self,
@@ -250,7 +254,7 @@ class TestMain(unittest.TestCase):
 
         # Call the function
         with self.assertRaises(Exception):
-            m.initialize(self.mock_config, testing=True)
+            m.initialize_issues(self.mock_config, testing=True)
 
         # Assert everything was called correctly
         mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
@@ -259,9 +263,8 @@ class TestMain(unittest.TestCase):
         mock_sleep.assert_not_called()
         mock_report_failure.assert_called_with(self.mock_config)
 
-
-    @mock.patch(PATH + 'u')
-    @mock.patch(PATH + 'd')
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
     @mock.patch(PATH + 'fedmsg')
     def test_listen_no_handlers(self,
                                 mock_fedmsg,
@@ -281,19 +284,22 @@ class TestMain(unittest.TestCase):
         mock_u.handle_github_message.assert_not_called()
         mock_u.handle_pagure_message.assert_not_called()
 
-    @mock.patch(PATH + 'u')
-    @mock.patch(PATH + 'd')
+
+    @mock.patch(PATH + 'issue_handlers')
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
     @mock.patch(PATH + 'fedmsg')
     def test_listen_no_issue(self,
                              mock_fedmsg,
                              mock_d,
-                             mock_u):
+                             mock_u,
+                             mock_handlers_issue):
         """
         Test 'listen' function where the handler returns none
         """
         # Set up return values
+        mock_handlers_issue['github.issue.comment'].return_value = None
         mock_fedmsg.tail_messages.return_value = [("dummy", "dummy", "d.d.d.pagure.issue.drop", self.mock_message)]
-        mock_u.handle_pagure_message.return_value = None
 
         # Call the function
         m.listen(self.mock_config)
@@ -301,19 +307,21 @@ class TestMain(unittest.TestCase):
         # Assert everything was called correctly
         mock_d.sync_with_jira.assert_not_called()
         mock_u.handle_github_message.assert_not_called()
-        mock_u.handle_pagure_message.assert_called_with(self.mock_message, self.mock_config)
 
-    @mock.patch(PATH + 'u')
-    @mock.patch(PATH + 'd')
+    @mock.patch(PATH + 'issue_handlers')
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
     @mock.patch(PATH + 'fedmsg')
     def test_listen(self,
                     mock_fedmsg,
                     mock_d,
-                    mock_u):
+                    mock_u,
+                    mock_handlers_issue):
         """
         Test 'listen' function where everything goes smoothly
         """
         # Set up return values
+        mock_handlers_issue['github.issue.comment'].return_value = 'dummy_issue'
         mock_fedmsg.tail_messages.return_value = [("dummy", "dummy", "d.d.d.github.issue.comment", self.mock_message)]
         mock_u.handle_github_message.return_value = 'dummy_issue'
 
@@ -322,7 +330,6 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_d.sync_with_jira.assert_called_with('dummy_issue', self.mock_config)
-        mock_u.handle_github_message.assert_called_with(self.mock_message, self.mock_config)
         mock_u.handle_pagure_message.assert_not_called()
 
     @mock.patch(PATH + 'send_mail')

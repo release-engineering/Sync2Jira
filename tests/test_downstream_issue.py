@@ -5,21 +5,21 @@ try:
     from unittest.mock import MagicMock  # noqa: F401
 except ImportError:
     from mock import MagicMock  # noqa: F401
-from datetime import  datetime
+from datetime import datetime
 
-import sync2jira.downstream as d
+import sync2jira.downstream_issue as d
 from sync2jira.intermediary import Issue
 
 from nose.tools import eq_
 import jira.client
 from jira import JIRAError
 
-PATH = 'sync2jira.downstream.'
+PATH = 'sync2jira.downstream_issue.'
 
 
-class TestDownstream(unittest.TestCase):
+class TestDownstreamIssue(unittest.TestCase):
     """
-    This class tests the downstream.py file under sync2jira
+    This class tests the downstream_issue.py file under sync2jira
     """
     def setUp(self):
         """
@@ -106,12 +106,12 @@ class TestDownstream(unittest.TestCase):
     def test_get_jira_client_not_issue(self,
                                        mock_client):
         """
-        This tests '_get_jira_client' function where the passed in
+        This tests 'get_jira_client' function where the passed in
         argument is not an Issue instance
         """
         # Call the function
         with self.assertRaises(Exception):
-            d._get_jira_client(
+            d.get_jira_client(
                 issue='string',
                 config=self.mock_config
             )
@@ -123,7 +123,7 @@ class TestDownstream(unittest.TestCase):
     def test_get_jira_client_not_instance(self,
                                           mock_client):
         """
-        This tests '_get_jira_client' function there is no JIRA instance
+        This tests 'get_jira_client' function there is no JIRA instance
         """
         # Set up return values
         self.mock_issue.downstream = {}
@@ -131,7 +131,7 @@ class TestDownstream(unittest.TestCase):
 
         # Call the function
         with self.assertRaises(Exception):
-            d._get_jira_client(
+            d.get_jira_client(
                 issue=self.mock_issue,
                 config=self.mock_config
             )
@@ -143,7 +143,7 @@ class TestDownstream(unittest.TestCase):
     def test_get_jira_client(self,
                              mock_client):
         """
-        This tests '_get_jira_client' function where everything goes smoothly
+        This tests 'get_jira_client' function where everything goes smoothly
         """
         # Set up return values
         mock_issue = MagicMock(spec=Issue)
@@ -152,7 +152,7 @@ class TestDownstream(unittest.TestCase):
 
         # Call the function
 
-        response = d._get_jira_client(
+        response = d.get_jira_client(
             issue=mock_issue,
             config=self.mock_config
         )
@@ -419,7 +419,7 @@ class TestDownstream(unittest.TestCase):
         self.assertEqual(response, self.mock_downstream)
 
 
-    @mock.patch(PATH + '_get_jira_client')
+    @mock.patch(PATH + 'get_jira_client')
     @mock.patch(PATH + '_get_existing_jira_issue')
     @mock.patch(PATH + '_update_jira_issue')
     @mock.patch(PATH + '_create_jira_issue')
@@ -455,7 +455,7 @@ class TestDownstream(unittest.TestCase):
         mock_create_jira_issue.assert_not_called()
         mock_existing_jira_issue_legacy.assert_not_called()
 
-    @mock.patch(PATH + '_get_jira_client')
+    @mock.patch(PATH + 'get_jira_client')
     @mock.patch(PATH + '_get_existing_jira_issue')
     @mock.patch(PATH + '_update_jira_issue')
     @mock.patch(PATH + '_create_jira_issue')
@@ -491,7 +491,7 @@ class TestDownstream(unittest.TestCase):
         mock_create_jira_issue.assert_not_called()
         mock_existing_jira_issue_legacy.assert_not_called()
 
-    @mock.patch(PATH + '_get_jira_client')
+    @mock.patch(PATH + 'get_jira_client')
     @mock.patch(PATH + '_get_existing_jira_issue')
     @mock.patch(PATH + '_update_jira_issue')
     @mock.patch(PATH + '_create_jira_issue')
@@ -982,7 +982,7 @@ class TestDownstream(unittest.TestCase):
         # Assert everything was called correctly
         self.assertEqual(response, ['this_is_a_tag'])
 
-    @mock.patch(PATH + '_get_jira_client')
+    @mock.patch(PATH + 'get_jira_client')
     @mock.patch(PATH + '_matching_jira_issue_query')
     @mock.patch(PATH + '_close_as_duplicate')
     @mock.patch('jira.client.JIRA')
@@ -1018,7 +1018,7 @@ class TestDownstream(unittest.TestCase):
         mock_close_as_duplicate.assert_not_called()
         self.assertEqual(None, response)
 
-    @mock.patch(PATH + '_get_jira_client')
+    @mock.patch(PATH + 'get_jira_client')
     @mock.patch(PATH + '_matching_jira_issue_query')
     @mock.patch(PATH + '_close_as_duplicate')
     @mock.patch('jira.client.JIRA')
