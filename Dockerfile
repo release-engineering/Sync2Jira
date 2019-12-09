@@ -25,26 +25,22 @@ ARG SYNC2JIRA_VERSION=
 ENV SYNC2JIRA_VERSION=$SYNC2JIRA_VERSION
 ENV SYNC2JIRA_CACERT_URL=$SYNC2JIRA_CACERT_URL
 
-# Installing CA certificate
-RUN if [ -n "$SYNC2JIRA_CACERT_URL" ]; then \
-        cd /etc/pki/ca-trust/source/anchors \
-        && curl -O --insecure --location "$SYNC2JIRA_CACERT_URL" \
-        && update-ca-trust extract; \
-    fi
+USER root
 
-# Installing sync2jira
-RUN mkdir -p /usr/local/src \
-  && git clone "$SYNC2JIRA_GIT_REPO" /usr/local/src/sync2jira \
-  && cd /usr/local/src/sync2jira \
-  && git fetch origin "$SYNC2JIRA_GIT_REF" \
-  && git checkout -f "$SYNC2JIRA_GIT_REF" \
-  && pip3 install --no-deps -v . \
-  && test -f /usr/local/bin/sync2jira \
-  && cd /
+# Create Sync2Jira folder
+RUN mkdir -p /usr/local/src/sync2jira
 
+# Copy over our repo
+COPY . /usr/local/src/sync2jira
+
+# Install Sync2Jira
+RUN  pip3 install --no-deps -v /usr/local/src/sync2jira
+
+# To deal with JIRA issues (i.e. SSL errors)
 RUN chmod 777 /etc/pki/tls/certs/ca-bundle.crt
 
 USER 1001
 
 ENTRYPOINT ["/usr/local/src/sync2jira/openshift/containers/sync2jira/docker-entrypoint.sh"]
+
 CMD ["/usr/local/bin/sync2jira"]
