@@ -163,4 +163,5 @@ class Issue(object):
             fixVersion_map = filter(lambda d: "fixVersion" in d, mapping)[0]['fixVersion']
 
         # Now update the fixVersion
-        issue['milestone'] = fixVersion_map.replace('XXX', issue['milestone'])
+        if issue.get('milestone'):
+            issue['milestone'] = fixVersion_map.replace('XXX', issue['milestone'])
