@@ -42,6 +42,8 @@ RUN mkdir -p /usr/local/src \
   && test -f /usr/local/bin/sync2jira \
   && cd /
 
+RUN chmod 777 /etc/pki/tls/certs/ca-bundle.crt
+
 USER 1001
 
 ENTRYPOINT ["/usr/local/src/sync2jira/openshift/containers/sync2jira/docker-entrypoint.sh"]
