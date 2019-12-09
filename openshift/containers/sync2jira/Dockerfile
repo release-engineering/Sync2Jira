@@ -18,8 +18,8 @@ RUN dnf -y install \
     python3-pypandoc \
   && dnf -y clean all
 
-ARG SYNC2JIRA_GIT_REPO=https://pagure.io/sync-to-jira
-ARG SYNC2JIRA_GIT_REF=develop
+ARG SYNC2JIRA_GIT_REPO=https://github.com/sidpremkumar/Sync2Jira.git
+ARG SYNC2JIRA_GIT_REF=master
 ARG SYNC2JIRA_CACERT_URL=
 ARG SYNC2JIRA_VERSION=
 ENV SYNC2JIRA_VERSION=$SYNC2JIRA_VERSION

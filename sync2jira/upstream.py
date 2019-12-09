@@ -337,7 +337,7 @@ def github_issues(upstream, config):
             issue['labels'] = new_label
 
         # Update milestone:
-        if issue['milestone']:
+        if issue.get('milestone', None):
             issue['milestone'] = issue['milestone']['title']
 
         final_issues.append(issue)
