@@ -44,4 +44,5 @@ RUN mkdir -p /usr/local/src \
 
 USER 1001
 
+ENTRYPOINT ["/usr/local/bin/openshift/containers/sync2jira/docker-entrypoint.sh"]
 CMD ["/usr/local/bin/sync2jira"]
