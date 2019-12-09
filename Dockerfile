@@ -38,6 +38,7 @@ RUN  pip3 install --no-deps -v /usr/local/src/sync2jira
 
 # To deal with JIRA issues (i.e. SSL errors)
 RUN chmod 777 /etc/pki/tls/certs/ca-bundle.crt
+RUN chmod 777 /usr/local/src/sync2jira/openshift/containers/sync2jira/docker-entrypoint.sh
 
 USER 1001
 
