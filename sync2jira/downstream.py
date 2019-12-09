@@ -965,7 +965,10 @@ def _update_assignee(client, existing, issue, updates):
         except AttributeError:
             update = True
 
-    if not overwrite:
+    if existing.fields.assignee == issue.assignee:
+        # Don't update if the fields are the same
+        return
+    elif not overwrite:
         # Only assign if the existing JIRA issue doesn't have an assignee
         # And the issue has an assignee
         if not existing.fields.assignee and issue.assignee:
