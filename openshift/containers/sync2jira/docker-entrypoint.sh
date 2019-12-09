@@ -15,4 +15,4 @@ main() {
 }
 
 main
-exec "$@
+exec "$@"
