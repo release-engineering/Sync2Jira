@@ -1,4 +1,4 @@
-	#!/bin/bash
+#!/bin/bash
 set -e
 
 # CA_URL is the URL of a custom root CA certificate to be installed at run-time
