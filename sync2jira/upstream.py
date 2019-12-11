@@ -75,8 +75,9 @@ def handle_github_message(msg, config):
                 return None
 
     if 'pull_request' in msg['msg']['issue']:
-        log.debug("%r is a pull request.  Ignoring.", msg['msg']['issue'].get('html_url'))
-        return None
+        if not msg['msg']['issue'].get('closed_at', None):
+            log.debug("%r is a pull request.  Ignoring.", msg['msg']['issue'].get('html_url'))
+            return None
 
     # Initialize Github object so we can get their full name (instead of their username)
     # And get comments if needed
