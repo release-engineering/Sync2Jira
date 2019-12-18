@@ -32,7 +32,14 @@ class Issue(object):
         self.tags = tags
         self.fixVersion = fixVersion
         self.priority = priority
+
+        # JIRA treats utf-8 characters in ways we don't totally understand, so scrub content down to
+        # simple ascii characters right from the start.
         self.content = content.encode('ascii', errors='replace').decode('ascii')
+
+        # We also apply this content in regexs to pattern match, so remove any escape characters
+        self.content = self.content.replace('\\', '')
+
         self.reporter = reporter
         self.assignee = assignee
         self.status = status
