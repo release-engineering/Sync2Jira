@@ -1,0 +1,13 @@
+npm-debug.log
+*.pem
+!mock-cert.pem
+.env
+package-lock.json
+coverage
+.DS_Store
+.idea/
+*/node_modules/
+/dist
+sync2jira.egg-info/
+*venv/
+build/

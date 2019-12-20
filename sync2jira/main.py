@@ -87,6 +87,7 @@ def load_config(loader=fedmsg.config.load_config):
     :returns: The config dict to be used later in the program
     :rtype: Dict
     """
+
     config = loader()
 
     # Force some vars that we like
@@ -205,15 +206,22 @@ def initialize(config, testing=False):
     log.info("Done with github initialization.")
 
 
-def main():
+def main(runtime_test=False, runtime_config=None):
     """
     Main function to check for initial sync
     and listen for fedmgs.
 
+    :param Bool runtime_test: Flag to indicate if we are performing a runtime test. Default false
+    :param Dict runtime_config: Config file to be used if it is a runtime test. runtime_test must be true
     :return: Nothing
     """
+
     # Load config and disable warnings
-    config = load_config()
+    if not runtime_test or not runtime_config:
+        config = load_config()
+    else:
+        config = runtime_config
+
     logging.basicConfig(level=logging.INFO)
     warnings.simplefilter("ignore")
     config['validate_signatures'] = False
@@ -222,6 +230,8 @@ def main():
         if config['sync2jira'].get('initialize'):
             log.info("Initializing...")
             initialize(config)
+            if runtime_test:
+                return
         try:
             listen(config)
         except KeyboardInterrupt:
