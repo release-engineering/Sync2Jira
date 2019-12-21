@@ -21,11 +21,6 @@ import re
 
 from setuptools import setup
 
-
-with open('README.rst', 'rb') as f:
-    long_description = f.read().decode('utf-8').strip()
-    long_description = long_description.split('split here', 1)[-1]
-
 with open('requirements.txt', 'rb') as f:
     install_requires = f.read().decode('utf-8').split('\n')
 
@@ -47,7 +42,6 @@ setup(
     name='sync2jira',
     version=get_project_version(),
     description="Sync pagure and github issues to jira, via fedmsg",
-    long_description=long_description,
     author='Ralph Bean',
     author_email='rbean@redhat.com',
     url='https://pagure.io/sync-to-jira',
