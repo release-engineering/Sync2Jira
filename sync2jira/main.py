@@ -241,7 +241,7 @@ def report_failure(config):
     :param Dict config: Config dict for JIRA
     """
     # Email our admins with the traceback
-    templateLoader = jinja2.FileSystemLoader(searchpath='sync2jira/')
+    templateLoader = jinja2.FileSystemLoader(searchpath='usr/local/src/sync2jira')
     templateEnv = jinja2.Environment(loader=templateLoader)
     template = templateEnv.get_template('failure_template.jinja')
     html_text = template.render(traceback=traceback.format_exc())

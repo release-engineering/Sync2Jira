@@ -280,7 +280,7 @@ def alert_user_of_duplicate_issues(issue, final_result, results_of_query,
         admin_template.append({'name': ret[0].displayName, 'email': ret[0].emailAddress})
 
     # Create and send email
-    templateLoader = jinja2.FileSystemLoader(searchpath='sync2jira/')
+    templateLoader = jinja2.FileSystemLoader(searchpath='usr/local/src/sync2jira/')
     templateEnv = jinja2.Environment(loader=templateLoader)
     template = templateEnv.get_template('email_template.jinja')
     html_text = template.render(user=user,
