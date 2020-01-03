@@ -22,7 +22,9 @@ Sync2Jira documentation
    :caption: Code Documentation
 
    main
-   upstream
-   downstream
+   upstream_pr
+   upstream_issue
+   downstream_pr
+   downstream_issue
    intermediary
    mailer

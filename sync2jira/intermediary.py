@@ -21,7 +21,7 @@ import re
 
 
 class Issue(object):
-    """Issue intermediary object"""
+    """Issue Intermediary object"""
 
     def __init__(self, source, title, url, upstream, comments,
                  config, tags, fixVersion, priority, content,
@@ -62,6 +62,7 @@ class Issue(object):
 
     @classmethod
     def from_pagure(cls, upstream, issue, config):
+        """Helper function to create intermediary object."""
         base = config['sync2jira'].get('pagure_url', 'https://pagure.io')
         upstream_source = 'pagure'
         comments = []
@@ -108,6 +109,7 @@ class Issue(object):
 
     @classmethod
     def from_github(cls, upstream, issue, config):
+        """Helper function to create intermediary object."""
         upstream_source = 'github'
         comments = []
         for comment in issue['comments']:

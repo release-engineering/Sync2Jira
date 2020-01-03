@@ -64,7 +64,7 @@ config = {
         'filters': {
             'github': {
                 # Only sync multi-type tickets from bodhi.
-                'fedora-infra/bodhi': {'state': 'open', 'milestone': 4, },
+                'fedora-infra/bodhi': {'status': 'open', 'milestone': 4, },
             },
         }
     },
