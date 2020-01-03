@@ -4,3 +4,4 @@ source = sync2jira/
 
 [report]
 omit = sync2jira/mailer.py
+fail_under = 70
