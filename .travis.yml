@@ -5,9 +5,12 @@ install:
   - pip install -r requirements.txt
   - pip install tox
   - pip install flake8
+  - pip install coveralls
 jobs:
   include:
     - stage: Linting Tests
-      script: flake8 sync2jira
+      script: flake8 sync2jira --max-line-length=140
     - stage: Unit Tests
       script: tox
+      after_success:
+        - coveralls

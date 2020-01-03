@@ -1,0 +1,6 @@
+[run]
+branch = True
+source = sync2jira/
+
+[report]
+omit = sync2jira/mailer.py
