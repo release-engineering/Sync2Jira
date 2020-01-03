@@ -6,4 +6,4 @@ pypandoc
 urllib3
 jinja2
 python-coveralls
-coverage==5.0.1
+coverage
