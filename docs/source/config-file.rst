@@ -12,7 +12,7 @@ The config file is made up of multiple parts
 
     'initialize': True
 
-* Initilization set to True will ensure that there is an inital sync done when Sync2Jira starts.
+* Initialization set to True will ensure that there is an initial sync done when Sync2Jira starts.
   It is recommended to leave this as True to ensure that all issues are in sync. 
 
 .. code-block:: python
@@ -61,12 +61,12 @@ getting a JIRA client and failure email will be sent anytime the service fails.
     'map': {
             'pagure': {
                 'Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
-                                'updates': [...], 'mapping': [...], 'owner': 'jira_username'},
+                                'updates': [...], 'mapping': [...], 'labels': [...], 'owner': 'jira_username'},
                 # 'koji': { 'project': 'BREW', 'component': None, },
             },
             'github': {
                 'GITHUB_USERNAME/Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
-                                                'updates': [...], 'owner': 'jira_username'},
+                                                'updates': [...], 'mapping': [...], 'labels': [...], 'owner': 'jira_username'},
             },
         },
 
@@ -76,21 +76,25 @@ getting a JIRA client and failure email will be sent anytime the service fails.
         * Downstream project to sync with
     * :code:`'component'`
         * Downstream component to sync with
+    * :code:`sync`
+        * This array contains information on what to sync from upstream repos (i.e. 'issue' and/or 'pullreuest')
     * :code:`'owner'`
         * Optional (Recommended): Alerts the owner of an issue if there are duplicate issues present
     * :code:`'qa-contact'`
         * Optional: Automatically add a QA contact field when issues are created
     * :code:`'epic-link'`
         * Optional: Pass the downstream key to automatically create an epic-link when issues are created
+    * :code:`'labels': ['tag1'..]`
+        * Optional: Field to have custom set labels on all downstream issues created.
 
 * You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with downstream components
   You can add the following to the updates array: 
-    
+
     * :code:`'comments'` 
         * Sync comments and comment edits
     * :code:`{'tags': {'overwrite': True/False}}` 
         * Sync tags, do/don't overwrite downstream tags
-    * :code:`{'fixVersion'; {'overwrite': True/False}}`
+    * :code:`{'fixVersion': {'overwrite': True/False}}`
         * Sync fixVersion (downstream milestone), do/don't overwrite downstream fixVersion
     * :code:`{'assignee': {'overwrite': True/False}}` 
         * Sync assignee (for Github only the first assignee will sync) do/don't overwrite downstream assignee
@@ -100,8 +104,6 @@ getting a JIRA client and failure email will be sent anytime the service fails.
         * Sync title
     * :code:`{'transition': True/'CUSTOM_TRANSITION'}` 
         * Sync status (open/closed), Sync only status/Attempt to transition JIRA ticket to CUSTOM_TRANSITION on upstream closure
-    * :code:`labels': ['tag1'..]`
-        * Optional field to have custom set labels on all downstream issues created.
     * :code:`github_markdown`
         * If description syncing is turned on, this flag will convert Github markdown to plaintext. This uses the pypandoc module.
     * :code:`upstream_id`

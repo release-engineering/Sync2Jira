@@ -17,9 +17,11 @@
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
 from datetime import datetime
+import re
 
 
 class Issue(object):
+    """Issue intermediary object"""
 
     def __init__(self, source, title, url, upstream, comments,
                  config, tags, fixVersion, priority, content,
@@ -84,7 +86,7 @@ class Issue(object):
 
         # Check for fixVersion
         if any('fixVersion' in item for item in mapping):
-            cls.map_fixVersion(cls, mapping, issue)
+            map_fixVersion(mapping, issue)
 
         return Issue(
             source=upstream_source,
@@ -130,7 +132,7 @@ class Issue(object):
 
         # Check for fixVersion
         if any('fixVersion' in item for item in mapping):
-            cls.map_fixVersion(cls, mapping, issue)
+            map_fixVersion(mapping, issue)
 
         # TODO: Priority is broken
         return Issue(
@@ -154,21 +156,212 @@ class Issue(object):
     def __repr__(self):
         return "<Issue %s >" % self.url
 
-    def map_fixVersion(self, mapping, issue):
-        """
-        Helper function to perform any fixVersion mapping.
 
-        :param Dict mapping: Mapping dict we are given
-        :param Dict issue: Upstream issue object
-        """
-        # Get our fixVersion mapping
-        try:
-            # for python 3 >
-            fixVersion_map = list(filter(lambda d: "fixVersion" in d, mapping))[0]['fixVersion']
-        except ValueError:
-            # for python 2.7
-            fixVersion_map = filter(lambda d: "fixVersion" in d, mapping)[0]['fixVersion']
+class PR(object):
+    """PR intermediary object"""
 
-        # Now update the fixVersion
-        if issue.get('milestone'):
-            issue['milestone'] = fixVersion_map.replace('XXX', issue['milestone'])
+    def __init__(self, source, jira_key, title, url, upstream, config,
+                 comments, priority, content, reporter,
+                 assignee, status, id, suffix, downstream=None):
+        self.source = source
+        self.jira_key = jira_key
+        self._title = title
+        self.url = url
+        self.upstream = upstream
+        self.comments = comments
+        # self.tags = tags
+        # self.fixVersion = fixVersion
+        self.priority = priority
+
+        # JIRA treats utf-8 characters in ways we don't totally understand, so scrub content down to
+        # simple ascii characters right from the start.
+        if content:
+            self.content = content.encode('ascii', errors='replace').decode('ascii')
+
+            # We also apply this content in regexs to pattern match, so remove any escape characters
+            self.content = self.content.replace('\\', '')
+        else:
+            self.content = None
+
+        self.reporter = reporter
+        self.assignee = assignee
+        self.status = status
+        self.id = str(id)
+        self.suffix = suffix
+        # self.upstream_id = upstream_id
+
+        if not downstream:
+            self.downstream = config['sync2jira']['map'][self.source][upstream]
+        else:
+            self.downstream = downstream
+        return
+
+    @property
+    def title(self):
+        return u'[%s] %s' % (self.upstream, self._title)
+
+    @classmethod
+    def from_pagure(self, upstream, pr, suffix, config):
+        """Helper function to create intermediary object."""
+        # Set our upstream source
+        upstream_source = 'pagure'
+
+        # Format our comments
+        comments = []
+        for comment in pr['comments']:
+            # Only add comments that are not Metadata updates
+            if '**Metadata Update' in comment['comment']:
+                continue
+            # Else add the comment
+            # Convert the date to datetime
+            comment['date_created'] = datetime.fromtimestamp(
+                float(comment['date_created']))
+            comments.append({
+                'author': comment['user']['name'],
+                'body': comment['comment'],
+                'name': comment['user']['name'],
+                'id': comment['id'],
+                'date_created': comment['date_created'],
+                'changed': None
+            })
+
+        # Build our URL
+        url = f"https://pagure.io/{pr['project']['name']}/pull-request/{pr['id']}"
+
+        # Match a JIRA
+        match = matcher(pr.get('initial_comment'), comments)
+
+        # If there is no JIRA return None
+        if not match:
+            return None
+
+        # Return our PR object
+        return PR(
+            source=upstream_source,
+            jira_key=match,
+            title=pr['title'],
+            url=url,
+            upstream=upstream,
+            config=config,
+            comments=comments,
+            # tags=issue['labels'],
+            # fixVersion=[issue['milestone']],
+            priority=None,
+            content=pr['initial_comment'],
+            reporter=pr['user']['fullname'],
+            assignee=pr['assignee'],
+            status=pr['status'],
+            id=pr['id'],
+            suffix=suffix,
+            # upstream_id=issue['number']
+        )
+
+    @classmethod
+    def from_github(self, upstream, pr, suffix, config):
+        """Helper function to create intermediary object."""
+        # Set our upstream source
+        upstream_source = 'github'
+
+        # Format our comments
+        comments = []
+        for comment in pr['comments']:
+            comments.append({
+                'author': comment['author'],
+                'name': comment['name'],
+                'body': comment['body'],
+                'id': comment['id'],
+                'date_created': comment['date_created'],
+                'changed': None
+            })
+
+        # Build our URL
+        url = pr['html_url']
+
+        # Match to a JIRA
+        match = matcher(pr.get("body"), comments)
+
+        # If there is no JIRA return None
+        if not match:
+            return None
+
+        # Figure out what state we're transitioning too
+        if 'reopened' in suffix:
+            suffix = 'reopened'
+        elif 'closed' in suffix:
+            # Check if we're merging or closing
+            if pr['merged']:
+                suffix = 'merged'
+            else:
+                suffix = 'closed'
+
+        # Return our PR object
+        return PR(
+            source=upstream_source,
+            jira_key=match,
+            title=pr['title'],
+            url=url,
+            upstream=upstream,
+            config=config,
+            comments=comments,
+            # tags=issue['labels'],
+            # fixVersion=[issue['milestone']],
+            priority=None,
+            content=pr.get('body'),
+            reporter=pr['user']['fullname'],
+            assignee=pr['assignee'],
+            # GitHub PRs do not have status
+            status=None,
+            id=pr['number'],
+            # upstream_id=issue['number'],
+            suffix=suffix,
+        )
+
+
+def map_fixVersion(mapping, issue):
+    """
+    Helper function to perform any fixVersion mapping.
+
+    :param Dict mapping: Mapping dict we are given
+    :param Dict issue: Upstream issue object
+    """
+    # Get our fixVersion mapping
+    try:
+        # for python 3 >
+        fixVersion_map = list(filter(lambda d: "fixVersion" in d, mapping))[0]['fixVersion']
+    except ValueError:
+        # for python 2.7
+        fixVersion_map = filter(lambda d: "fixVersion" in d, mapping)[0]['fixVersion']
+
+    # Now update the fixVersion
+    if issue['milestone']:
+        issue['milestone'] = fixVersion_map.replace('XXX', issue['milestone'])
+
+
+def matcher(content, comments):
+    """
+    Helper function to match to a JIRA
+
+    :param String content: PR description
+    :param List comments: Comments
+    :return: JIRA match or None
+    :rtype: Bool
+    """
+    # Build out a string with all comments and initial_comment
+    all_data = " "
+    for comment in reversed(comments):
+        all_data += f" {comment['body']}"
+    if content:
+        all_data += content
+    if all_data:
+        # Parse to extract the JIRA information. 2 types of matches:
+        # 1 - To match to JIRA issue (i.e. Relates to JIRA: FACTORY-1234)
+        # 2 - To match to upstream issue (i.e. Relates to Issue: !5)
+        match_jira = re.findall("Relates to JIRA: ([\w]*-[\d]*)",  # noqa W605
+                                all_data)
+        if match_jira:
+            for match in match_jira:
+                # Assert that the match was correct
+                if re.match("[\w]*-[\d]*", match): # noqa W605
+                    return match
+        else:
+            return None

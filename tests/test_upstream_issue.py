@@ -1,6 +1,5 @@
 import mock
 import unittest
-import json
 try:
     # Python 3.3 >
     from unittest.mock import MagicMock  # noqa: F401
@@ -8,15 +7,15 @@ except ImportError:
     from mock import MagicMock  # noqa: F401
 
 
-import sync2jira.upstream as u
+import sync2jira.upstream_issue as u
 
 
-PATH = 'sync2jira.upstream.'
+PATH = 'sync2jira.upstream_issue.'
 
 
-class TestUpstream(unittest.TestCase):
+class TestUpstreamIssue(unittest.TestCase):
     """
-    This class tests the upstream.py file under sync2jira
+    This class tests the upstream_issue.py file under sync2jira
     """
     def setUp(self):
         self.mock_config = {
@@ -126,9 +125,9 @@ class TestUpstream(unittest.TestCase):
 
     @mock.patch('sync2jira.intermediary.Issue.from_github')
     @mock.patch(PATH + 'Github')
-    @mock.patch(PATH + '_get_all_github_issues')
+    @mock.patch(PATH + 'get_all_github_data')
     def test_github_issues(self,
-                           mock_get_all_github_issues,
+                           mock_get_all_github_data,
                            mock_github,
                            mock_issue_from_github):
         """
@@ -136,7 +135,7 @@ class TestUpstream(unittest.TestCase):
         """
         # Set up return values
         mock_github.return_value = self.mock_github_client
-        mock_get_all_github_issues.return_value = [self.mock_github_issue_raw]
+        mock_get_all_github_data.return_value = [self.mock_github_issue_raw]
         mock_issue_from_github.return_value = 'Successful Call!'
 
         # Call the function
@@ -147,12 +146,12 @@ class TestUpstream(unittest.TestCase):
 
         # Assert that calls were made correctly
         try:
-            mock_get_all_github_issues.assert_called_with(
+            mock_get_all_github_data.assert_called_with(
                 'https://api.github.com/repos/org/repo/issues?labels=custom_tag&filter1=filter1',
                 {'Authorization': 'token mock_token'}
             )
         except AssertionError:
-            mock_get_all_github_issues.assert_called_with(
+            mock_get_all_github_data.assert_called_with(
                 'https://api.github.com/repos/org/repo/issues?filter1=filter1&labels=custom_tag',
                 {'Authorization': 'token mock_token'}
             )
@@ -173,9 +172,9 @@ class TestUpstream(unittest.TestCase):
 
     @mock.patch('sync2jira.intermediary.Issue.from_github')
     @mock.patch(PATH + 'Github')
-    @mock.patch(PATH + '_get_all_github_issues')
+    @mock.patch(PATH + 'get_all_github_data')
     def test_github_issues_no_token(self,
-                                    mock_get_all_github_issues,
+                                    mock_get_all_github_data,
                                     mock_github,
                                     mock_issue_from_github):
         """
@@ -186,7 +185,7 @@ class TestUpstream(unittest.TestCase):
         self.mock_config['sync2jira']['github_token'] = None
         self.mock_github_issue_raw['comments'] = 0
         mock_github.return_value = self.mock_github_client
-        mock_get_all_github_issues.return_value = [self.mock_github_issue_raw]
+        mock_get_all_github_data.return_value = [self.mock_github_issue_raw]
         mock_issue_from_github.return_value = 'Successful Call!'
 
         # Call the function
@@ -197,12 +196,12 @@ class TestUpstream(unittest.TestCase):
 
         # Assert that calls were made correctly
         try:
-            mock_get_all_github_issues.assert_called_with(
+            mock_get_all_github_data.assert_called_with(
                 'https://api.github.com/repos/org/repo/issues?labels=custom_tag&filter1=filter1',
                 {}
             )
         except AssertionError:
-            mock_get_all_github_issues.assert_called_with(
+            mock_get_all_github_data.assert_called_with(
                 'https://api.github.com/repos/org/repo/issues?filter1=filter1&labels=custom_tag',
                 {}
             )
@@ -521,11 +520,11 @@ class TestUpstream(unittest.TestCase):
 
     @mock.patch(PATH + '_fetch_github_data')
     @mock.patch(PATH + '_github_link_field_to_dict')
-    def test_get_all_github_issues(self,
-                                   mock_github_link_field_to_dict,
-                                   mock_fetch_github_data):
+    def test_get_all_github_data(self,
+                                 mock_github_link_field_to_dict,
+                                 mock_fetch_github_data):
         """
-        This tests the '_get_all_github_issues' function
+        This tests the '_get_all_github_data' function
         """
         # Set up return values
         get_return = MagicMock()
@@ -534,7 +533,7 @@ class TestUpstream(unittest.TestCase):
         mock_fetch_github_data.return_value = get_return
 
         # Call the function
-        response = list(u._get_all_github_issues(
+        response = list(u.get_all_github_data(
             url='mock_url',
             headers='mock_headers'
         ))
