@@ -21,6 +21,8 @@ from setuptools import setup
 with open('requirements.txt', 'rb') as f:
     install_requires = f.read().decode('utf-8').split('\n')
 
+with open('test-requirements.txt', 'rb') as f:
+    test_requires = f.read().decode('utf-8').split('\n')
 
 setup(
     name='sync2jira',
@@ -39,6 +41,7 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     install_requires=install_requires,
+    tests_require=test_requires,
     test_suite='nose.collector',
     packages=[
         'sync2jira',
