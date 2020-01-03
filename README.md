@@ -3,7 +3,7 @@
 [![Documentation Status](https://readthedocs.org/projects/sync2jira/badge/?version=master)](https://sync2jira.readthedocs.io/en/master/?badge=master)
 [![Docker Repository on Quay](https://quay.io/repository/redhat-aqe/sync2jira/status "Docker Repository on Quay")](https://quay.io/repository/redhat-aqe/sync2jira)
 [![Build Status](https://travis-ci.org/sidpremkumar/Sync2Jira.svg?branch=master)](https://travis-ci.org/sidpremkumar/Sync2Jira)
-[![Coverage Status](https://coveralls.io/repos/github/sidpremkumar/Sync2Jira/badge.svg?branch=master)](https://coveralls.io/github/sidpremkumar/Sync2Jira?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/sidpremkumar/Sync2Jira/badge.svg?branch=add-coverage-badge)](https://coveralls.io/github/sidpremkumar/Sync2Jira?branch=add-coverage-badge)
 ![Python 3.7](https://img.shields.io/badge/python-3.7-blue.svg)
 ## What is Sync2Jira?
 This is a process that listens to activity on upstream repos on pagure and
