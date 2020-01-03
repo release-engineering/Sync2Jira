@@ -95,7 +95,7 @@ def sync_with_jira(pr, config):
     :param Dict config: Config dict
     :returns: Nothing
     """
-    log.info("Considering upstream %s, %s", pr.url, pr.title)
+    log.info("[PR] Considering upstream %s, %s", pr.url, pr.title)
 
     # Create a client connection for this issue
     client = d_issue.get_jira_client(pr, config)

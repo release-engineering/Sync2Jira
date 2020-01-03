@@ -55,7 +55,10 @@ def handle_pagure_message(msg, config, suffix):
 
     # Check if we should sync this PR
     if upstream not in mapped_repos:
-        log.debug("%r not in pagure map: %r", upstream, mapped_repos.keys())
+        log.debug("%r not in Pagure map: %r", upstream, mapped_repos.keys())
+        return None
+    elif 'pullrequest' not in mapped_repos[upstream]['sync']:
+        log.debug("%r not in Pagure PR map: %r", upstream, mapped_repos.keys())
         return None
 
     # Format the assignee field to match github (i.e. in a list)
@@ -93,7 +96,10 @@ def handle_github_message(msg, config, suffix):
     # Check if upstream is in mapped repos
     mapped_repos = config['sync2jira']['map']['github']
     if upstream not in mapped_repos:
-        log.debug("%r not in github map: %r", upstream, mapped_repos.keys())
+        log.debug("%r not in Github map: %r", upstream, mapped_repos.keys())
+        return None
+    elif 'pullrequest' not in mapped_repos[upstream]['sync']:
+        log.debug("%r not in Github PR map: %r", upstream, mapped_repos.keys())
         return None
 
     # Initialize Github object so we can get their full name (instead of their username)

@@ -22,10 +22,10 @@ class TestUpstreamPR(unittest.TestCase):
             'sync2jira': {
                 'map': {
                     'github': {
-                        'org/repo': {},
+                        'org/repo': {'sync': ['pullrequest']},
                     },
                     'pagure': {
-                        'org/repo': {},
+                        'org/repo': {'sync': ['pullrequest']},
                     },
                 },
                 'jira': {

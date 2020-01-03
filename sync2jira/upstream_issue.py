@@ -52,7 +52,10 @@ def handle_github_message(msg, config, pr_filter=True):
     mapped_repos = config['sync2jira']['map']['github']
 
     if upstream not in mapped_repos:
-        log.debug("%r not in github map: %r", upstream, mapped_repos.keys())
+        log.debug("%r not in Github map: %r", upstream, mapped_repos.keys())
+        return None
+    elif 'issue' not in mapped_repos[upstream]['sync']:
+        log.debug("%r not in Github issue map: %r", upstream, mapped_repos.keys())
         return None
 
     _filter = config['sync2jira']\
@@ -155,7 +158,10 @@ def handle_pagure_message(msg, config):
     mapped_repos = config['sync2jira']['map']['pagure']
 
     if upstream not in mapped_repos:
-        log.debug("%r not in pagure map: %r", upstream, mapped_repos.keys())
+        log.debug("%r not in Pagure map: %r", upstream, mapped_repos.keys())
+        return None
+    elif 'issue' not in mapped_repos[upstream]['sync']:
+        log.debug("%r not in Pagure issue map: %r", upstream, mapped_repos.keys())
         return None
 
     _filter = config['sync2jira']\
