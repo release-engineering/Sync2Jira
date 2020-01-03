@@ -22,10 +22,10 @@ class TestUpstreamIssue(unittest.TestCase):
             'sync2jira': {
                 'map': {
                     'github': {
-                        'org/repo': {},
+                        'org/repo': {'sync': ['issue']},
                     },
                     'pagure': {
-                        'org/repo': {},
+                        'org/repo': {'sync': ['issue']},
                     },
                 },
                 'jira': {

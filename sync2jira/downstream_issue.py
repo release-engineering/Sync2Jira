@@ -1125,7 +1125,7 @@ def sync_with_jira(issue, config):
     :returns: Nothing
     """
 
-    log.info("Considering upstream %s, %s", issue.url, issue.title)
+    log.info("[Issue] Considering upstream %s, %s", issue.url, issue.title)
 
     # Create a client connection for this issue
     client = get_jira_client(issue, config)

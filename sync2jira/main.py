@@ -161,11 +161,10 @@ def listen(config):
 
         issue = None
         pr = None
-
         # Github '.issue.' is used for both PR and Issue
         # Check for that edge case
         if suffix == 'github.issue.comment':
-            if 'pull_request' in msg['msg']['issue']:
+            if 'pull_request' in msg['msg']['issue'] and msg['msg']['action'] != 'deleted':
                 # pr_filter turns on/off the filtering of PRs
                 pr = issue_handlers[suffix](msg, config, pr_filter=False)
                 if not pr:
