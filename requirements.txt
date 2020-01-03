@@ -5,5 +5,3 @@ PyGithub
 pypandoc
 urllib3
 jinja2
-python-coveralls
-coverage
