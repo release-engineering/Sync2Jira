@@ -16,31 +16,15 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110.15.0 USA
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
-
-import re
-
 from setuptools import setup
 
 with open('requirements.txt', 'rb') as f:
     install_requires = f.read().decode('utf-8').split('\n')
 
-with open('test-requirements.txt', 'rb') as f:
-    tests_require = f.read().decode('utf-8').split('\n')
-
-
-def get_project_version(version_file='sync2jira/__init__.py'):
-    with open(version_file, 'r') as f:
-        version_pattern = "^__version__ = '(.+)'$"
-        match = re.search(version_pattern, f.read(), re.MULTILINE)
-    if match is None:
-        err_msg = 'No line matching %r found in %r'
-        raise ValueError(err_msg % (version_pattern, version_file))
-    return match.group(1)
-
 
 setup(
     name='sync2jira',
-    version=get_project_version(),
+    version=2.0,
     description="Sync pagure and github issues to jira, via fedmsg",
     author='Ralph Bean',
     author_email='rbean@redhat.com',
@@ -52,11 +36,9 @@ setup(
             "Public License v2 or later (LGPLv2+)",
         "Intended Audience :: Developers",
         "Intended Audience :: System Administrators",
-        "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 3",
     ],
     install_requires=install_requires,
-    tests_require=tests_require,
     test_suite='nose.collector',
     packages=[
         'sync2jira',
