@@ -97,6 +97,10 @@ def sync_with_jira(pr, config):
     """
     log.info("[PR] Considering upstream %s, %s", pr.url, pr.title)
 
+    if not pr.match:
+        log.info(f"[PR] No match found for {pr.title}")
+        return None
+
     # Create a client connection for this issue
     client = d_issue.get_jira_client(pr, config)
 
