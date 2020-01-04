@@ -162,7 +162,7 @@ class PR(object):
 
     def __init__(self, source, jira_key, title, url, upstream, config,
                  comments, priority, content, reporter,
-                 assignee, status, id, suffix, downstream=None):
+                 assignee, status, id, suffix, match, downstream=None):
         self.source = source
         self.jira_key = jira_key
         self._title = title
@@ -188,6 +188,7 @@ class PR(object):
         self.status = status
         self.id = str(id)
         self.suffix = suffix
+        self.match = match
         # self.upstream_id = upstream_id
 
         if not downstream:
@@ -249,6 +250,7 @@ class PR(object):
             status=pr['status'],
             id=pr['id'],
             suffix=suffix,
+            match=match,
             # upstream_id=issue['number']
         )
 
@@ -306,6 +308,7 @@ class PR(object):
             id=pr['number'],
             # upstream_id=issue['number'],
             suffix=suffix,
+            match=match,
         )
 
 
