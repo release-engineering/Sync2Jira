@@ -231,10 +231,6 @@ class PR(object):
         # Match a JIRA
         match = matcher(pr.get('initial_comment'), comments)
 
-        # If there is no JIRA return None
-        if not match:
-            return None
-
         # Return our PR object
         return PR(
             source=upstream_source,
@@ -279,10 +275,6 @@ class PR(object):
 
         # Match to a JIRA
         match = matcher(pr.get("body"), comments)
-
-        # If there is no JIRA return None
-        if not match:
-            return None
 
         # Figure out what state we're transitioning too
         if 'reopened' in suffix:
