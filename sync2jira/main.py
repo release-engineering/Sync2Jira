@@ -36,6 +36,7 @@ import sync2jira.upstream_pr as u_pr
 import sync2jira.downstream_issue as d_issue
 import sync2jira.downstream_pr as d_pr
 from sync2jira.mailer import send_mail
+from sync2jira.intermediary import matcher
 
 # Set up our logging
 FORMAT = "[%(asctime)s] %(levelname)s: %(message)s"
@@ -172,6 +173,7 @@ def listen(config):
                 # Issues do not have suffix and reporter needs to be reformatted
                 pr.suffix = suffix
                 pr.reporter = pr.reporter.get('fullname')
+                setattr(pr, 'match', matcher(pr.content, pr.comments))
             else:
                 issue = issue_handlers[suffix](msg, config)
         elif suffix in issue_handlers:
