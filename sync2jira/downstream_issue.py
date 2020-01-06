@@ -700,7 +700,7 @@ def _update_jira_issue(existing, issue, client):
     # Only synchronize fixVersion for listings that op-in
     if any('fixVersion' in item for item in updates) and issue.fixVersion:
         log.info("Looking for new fixVersions")
-        _update_fixVersion(updates, existing, issue)
+        _update_fixVersion(updates, existing, issue, client)
 
     # Only synchronize assignee for listings that op-in
     if any('assignee' in item for item in updates):
@@ -893,13 +893,14 @@ def _update_comments(client, existing, issue):
         log.info("Comments synchronization done on %i comments." % len(comments_d))
 
 
-def _update_fixVersion(updates, existing, issue):
+def _update_fixVersion(updates, existing, issue, client):
     """
     Helper function to sync comments between existing JIRA issue and upstream issue.
 
     :param List updates: Downstream updates requested by the user
     :param jira.resource.Issue existing: Existing JIRA issue
     :param sync2jira.intermediary.Issue issue: Upstream issue
+    :param jira.client.JIRA client: JIRA client
     :returns: Nothing
     """
     fix_version = []
@@ -944,6 +945,8 @@ def _update_fixVersion(updates, existing, issue):
             log.info('Updated %s fixVersion(s)' % len(fix_version))
         except JIRAError:
             log.warning('Error updating the fixVersion. %s is an invalid fixVersion.' % issue.fixVersion)
+            # Add a comment to indicate there was an issue
+            client.add_comment(existing, f"Error updating fixVersion: {issue.fixVersion}")
 
 
 def _update_assignee(client, existing, issue, updates):
