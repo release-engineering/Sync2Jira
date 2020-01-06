@@ -569,6 +569,11 @@ def _create_jira_issue(client, issue, config):
     else:
         description = ''
 
+    if any('transition' in item for item in issue.downstream.get('updates', {})):
+        # Just add it to the top of the description
+        formatted_status = "Upstream issue status: %s" % issue.status
+        description = formatted_status + '\n' + description
+
     if issue.reporter:
         # Add to the description
         description = '[%s] Upstream Reporter: %s \n %s' % (
