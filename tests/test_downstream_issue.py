@@ -564,7 +564,8 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_update_fixVersion.assert_called_with(
             self.mock_updates,
             self.mock_downstream,
-            self.mock_issue
+            self.mock_issue,
+            mock_client,
         )
         mock_update_description.assert_called_with(
             self.mock_downstream,
@@ -689,16 +690,20 @@ class TestDownstreamIssue(unittest.TestCase):
         # Set up return values
         self.mock_downstream.update.side_effect = JIRAError
         self.mock_downstream.fields.fixVersions = []
+        mock_client = MagicMock()
 
         # Call the function
         d._update_fixVersion(
             updates=self.mock_updates,
             existing=self.mock_downstream,
-            issue=self.mock_issue
+            issue=self.mock_issue,
+            client=mock_client,
         )
         # Assert all calls were made correctly
         self.mock_downstream.update.assert_called_with(
             {'fixVersions': [{'name': 'fixVersion3'}, {'name': 'fixVersion4'}]})
+        mock_client.add_comment(self.mock_downstream, f"Error updating fixVersion: {self.mock_issue.fixVersion}")
+
 
     def test_update_fixVersion_no_api_call(self):
         """
@@ -707,15 +712,18 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         # Set up return values
         self.mock_downstream.update.side_effect = JIRAError
+        mock_client = MagicMock()
 
         # Call the function
         d._update_fixVersion(
             updates=self.mock_updates,
             existing=self.mock_downstream,
-            issue=self.mock_issue
+            issue=self.mock_issue,
+            client=mock_client,
         )
         # Assert all calls were made correctly
         self.mock_downstream.update.assert_not_called()
+        mock_client.add_comment.assert_not_called()
 
     def test_update_fixVersion_successful(self):
         """
@@ -723,16 +731,19 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         # Set up return values
         self.mock_downstream.fields.fixVersions = []
+        mock_client = MagicMock()
 
         # Call the function
         d._update_fixVersion(
             updates=self.mock_updates,
             existing=self.mock_downstream,
-            issue=self.mock_issue
+            issue=self.mock_issue,
+            client=mock_client,
         )
         # Assert all calls were made correctly
         self.mock_downstream.update.assert_called_with(
             {'fixVersions': [{'name': 'fixVersion3'}, {'name': 'fixVersion4'}]})
+        mock_client.add_comment.assert_not_called()
 
     @mock.patch(PATH + 'assign_user')
     @mock.patch('jira.client.JIRA')
@@ -841,8 +852,8 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + 'verify_tags')
     @mock.patch(PATH + '_label_matching')
     def test_update_tags_no_api_call(self,
-                         mock_label_matching,
-                         mock_verify_tags):
+                                     mock_label_matching,
+                                     mock_verify_tags):
         """
         This function tests the '_update_tags' function where the existing tags are the same
         as the new ones
