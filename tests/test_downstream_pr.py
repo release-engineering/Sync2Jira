@@ -174,7 +174,7 @@ class TestDownstreamPR(unittest.TestCase):
         response = d.format_comment(self.mock_pr, 'closed')
 
         # Assert Everything was called correctly
-        self.assertEqual(response, "merge request [mock_title| mock_url] was closed.")
+        self.assertEqual(response, "Merge request [mock_title| mock_url] was closed.")
 
     def test_format_comment_reopened(self):
         """
@@ -184,7 +184,7 @@ class TestDownstreamPR(unittest.TestCase):
         response = d.format_comment(self.mock_pr, 'reopened')
 
         # Assert Everything was called correctly
-        self.assertEqual(response, "merge request [mock_title| mock_url] was reopened.")
+        self.assertEqual(response, "Merge request [mock_title| mock_url] was reopened.")
 
     def test_format_comment_merged(self):
         """
@@ -194,7 +194,7 @@ class TestDownstreamPR(unittest.TestCase):
         response = d.format_comment(self.mock_pr, 'merged')
 
         # Assert Everything was called correctly
-        self.assertEqual(response, "merge request [mock_title| mock_url] was merged!")
+        self.assertEqual(response, "Merge request [mock_title| mock_url] was merged!")
 
     def test_format_comment_open(self):
         """
