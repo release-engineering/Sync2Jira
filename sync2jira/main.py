@@ -348,7 +348,7 @@ def report_failure(config):
     # Get admin information
     admins = []
     for admin in config['sync2jira']['admins']:
-        admins.append(list(admin.values())[0])
+        admins.extend([admin[name] for name in admin])
 
     # Send mail
     send_mail(recipients=admins,
