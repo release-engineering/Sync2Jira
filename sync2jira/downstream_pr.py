@@ -39,11 +39,11 @@ def format_comment(pr, pr_suffix):
     :rtype: String
     """
     if 'closed' in pr_suffix:
-        comment = f"merge request [{pr.title}| {pr.url}] was closed."
+        comment = f"Merge request [{pr.title}| {pr.url}] was closed."
     elif 'reopened' in pr_suffix:
-        comment = f"merge request [{pr.title}| {pr.url}] was reopened."
+        comment = f"Merge request [{pr.title}| {pr.url}] was reopened."
     elif 'merged' in pr_suffix:
-        comment = f"merge request [{pr.title}| {pr.url}] was merged!"
+        comment = f"Merge request [{pr.title}| {pr.url}] was merged!"
     else:
         comment = f"{pr.reporter} mentioned this issue in " \
             f"merge request [{pr.title}| {pr.url}]."
