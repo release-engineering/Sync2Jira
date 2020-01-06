@@ -622,7 +622,10 @@ def _create_jira_issue(client, issue, config):
             # Try to get and update the custom field
             custom_field = name_map.get('Epic Link', None)
             if custom_field:
-                downstream.update({custom_field: issue.downstream.get('epic-link')})
+                try:
+                    downstream.update({custom_field: issue.downstream.get('epic-link')})
+                except JIRAError:
+                    client.add_comment(downstream, f"Error adding Epic-Link: {issue.downstream.get('epic-link')}")
         if issue.downstream.get('qa-contact', None):
             # Try to get and update the custom field
             custom_field = name_map.get('QA Contact', None)

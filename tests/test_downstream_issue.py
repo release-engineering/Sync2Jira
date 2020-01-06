@@ -372,6 +372,59 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_any_call({'customfield_1': 'DUMMY-1234'})
         self.mock_downstream.update.assert_any_call({'customfield_2': 'dummy@dummy.com'})
         self.assertEqual(response, self.mock_downstream)
+        mock_client.add_comment.assert_not_called()
+
+    @mock.patch(PATH + '_update_jira_issue')
+    @mock.patch(PATH + '_attach_link')
+    @mock.patch('jira.client.JIRA')
+    def test_create_jira_issue_failed_epic_link(self,
+                                                mock_client,
+                                                mock_attach_link,
+                                                mock_update_jira_issue):
+        """
+        Tests '_create_jira_issue' function where we fail updating the epic link
+        """
+        # Set up return values
+        mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {'name': 'Epic Link', 'id': 'customfield_1'},
+            {'name': 'QA Contact', 'id': 'customfield_2'},
+        ]
+        self.mock_downstream.update.side_effect = [JIRAError, 'success']
+
+        # Call the function
+        response = d._create_jira_issue(
+            client=mock_client,
+            issue=self.mock_issue,
+            config=self.mock_config
+        )
+
+        # Assert everything was called correctly
+        mock_client.create_issue.assert_called_with(
+            issuetype={'name': 'Fix'},
+            project={'key': 'mock_project'},
+            somecustumfield='somecustumvalue',
+            description='[1234] Upstream Reporter: mock_user \n Upstream issue status: Open\nUpstream description: {quote}mock_content{quote}',
+            summary='mock_title'
+        )
+        mock_attach_link.assert_called_with(
+            mock_client,
+            self.mock_downstream,
+            {
+                'url': 'mock_url',
+                'title': 'Upstream issue'
+            }
+        )
+        mock_update_jira_issue.assert_called_with(
+            self.mock_downstream,
+            self.mock_issue,
+            mock_client
+        )
+        self.mock_downstream.update.assert_any_call({'customfield_1': 'DUMMY-1234'})
+        self.mock_downstream.update.assert_any_call(
+            {'customfield_2': 'dummy@dummy.com'})
+        self.assertEqual(response, self.mock_downstream)
+        mock_client.add_comment.assert_called_with(self.mock_downstream, f"Error adding Epic-Link: DUMMY-1234")
 
     @mock.patch(PATH + '_update_jira_issue')
     @mock.patch(PATH + '_attach_link')
@@ -417,6 +470,7 @@ class TestDownstreamIssue(unittest.TestCase):
             mock_client
         )
         self.assertEqual(response, self.mock_downstream)
+        mock_client.add_comment.assert_not_called()
 
 
     @mock.patch(PATH + 'get_jira_client')
