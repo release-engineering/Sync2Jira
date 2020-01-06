@@ -50,7 +50,7 @@ class TestDownstreamIssue(unittest.TestCase):
             'type': 'Fix',
             'qa-contact': 'dummy@dummy.com',
             'epic-link': 'DUMMY-1234',
-            'updates': [
+            'issue_updates': [
                 'comments',
                 {'tags': {'overwrite': False}},
                 {'fixVersion': {'overwrite': False}},
@@ -439,7 +439,7 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         # Set up return values
         mock_client.create_issue.return_value = self.mock_downstream
-        self.mock_issue.downstream['updates'] = []
+        self.mock_issue.downstream['issue_updates'] = []
 
         # Call the function
         response = d._create_jira_issue(

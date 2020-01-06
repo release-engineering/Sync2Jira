@@ -61,12 +61,14 @@ The config file is made up of multiple parts
     'map': {
             'pagure': {
                 'Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
-                                'updates': [...], 'mapping': [...], 'labels': [...], 'owner': 'jira_username'},
+                                'issue_updates': [...], 'pr_updates': [...], 'mapping': [...], 'labels': [...],
+                                 'owner': 'jira_username'},
                 # 'koji': { 'project': 'BREW', 'component': None, },
             },
             'github': {
                 'GITHUB_USERNAME/Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
-                                                'updates': [...], 'mapping': [...], 'labels': [...], 'owner': 'jira_username'},
+                                                'issue_updates': [...], 'pr_updates': [...], 'mapping': [...], 'labels': [...],
+                                                'owner': 'jira_username'},
             },
         },
 
@@ -88,7 +90,7 @@ The config file is made up of multiple parts
         * Optional: Field to have custom set labels on all downstream issues created.
 
 * You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with downstream components
-  You can add the following to the updates array:
+  You can add the following to the :code:`issue_updates` array:
 
     * :code:`'comments'`
         * Sync comments and comment edits
@@ -115,6 +117,14 @@ The config file is made up of multiple parts
 
         :Overwrite: Setting this to :code:`True` will ensure that Upstream (GitHub or Pagure) values will overwrite downstream ones (i.e. if its empty upstream it'll be empty downstream)
         :CUSTOM_TRANSITION: Setting this value will get Sync2Jira to automatially transition downstream tickets once their upstream counterparts get closed. Set this to whatever 'closed' means downstream.
+
+* You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with downstream components
+  You can add the following to the :code:`pr_updates` array:
+
+    * :code:`{'merge_transition': 'CUSTOM_TRANSITION'}`
+        * Sync when upstream PR gets merged. Attempts to transition JIRA ticket to CUSTOM_TRANSITION on upstream merge
+    * :code:`{'link_transition': 'CUSTOM_TRANSITION'}`
+        * Sync when upstream PR gets linked. Attempts to transition JIRA ticket to CUSTOM_TRANSITION on upstream link
 
 * You can add the following to the mapping array. This array will map an upstream field to the downstream counterpart with XXX replaced.
 

@@ -90,12 +90,48 @@ def update_jira_issue(existing, pr, client):
     :param jira.client.JIRA client: JIRA Client
     :returns: Nothing
     """
+    # Get our updates array
+    updates = pr.downstream.get('pr_updates', {})
+
     # Format and add comment to indicate PR has been linked
     new_comment = format_comment(pr, pr.suffix, client)
+    # See if the comment exists
+    exists = comment_exists(client, existing, new_comment)
     # Check if the comment if already there
-    if not comment_exists(client, existing, new_comment):
+    if not exists:
         log.info(f"Added comment for PR {pr.title} on JIRA {pr.jira_key}")
         client.add_comment(existing, new_comment)
+
+    # Only synchronize link_transition for listings that op-in
+    if any('merge_transition' in item for item in updates) and 'merged' in pr.suffix:
+        log.info("Looking for new merged_transition")
+        update_transition(client, existing, pr, 'merge_transition')
+
+    # Only synchronize merge_transition for listings that op-in
+    # and a link comment has been created
+    if any('link_transition' in item for item in updates) and \
+            'mentioned' in new_comment and not exists:
+        log.info("Looking for new link_transition")
+        update_transition(client, existing, pr, 'link_transition')
+
+
+def update_transition(client, existing, pr, transition_type):
+    """
+    Helper function to update the transition of a downstream JIRA issue.
+
+    :param jira.client.JIRA client: JIRA client
+    :param jira.resource.Issue existing: Existing JIRA issue
+    :param sync2jira.intermediary.PR pr: Upstream issue
+    :param string transition_type: Transition type (link vs merged)
+    :returns: Nothing
+    """
+    # Get our closed status
+    closed_status = list(filter(lambda d: transition_type in d, pr.downstream.get('pr_updates', {})))[0][transition_type]
+
+    # Update the state
+    d_issue.change_status(client, existing, closed_status, pr)
+
+    log.info(f"Updated {transition_type} for issue {pr.title}")
 
 
 def sync_with_jira(pr, config):

@@ -5,14 +5,8 @@ try:
     from unittest.mock import MagicMock  # noqa: F401
 except ImportError:
     from mock import MagicMock  # noqa: F401
-from datetime import datetime
 
 import sync2jira.downstream_pr as d
-from sync2jira.intermediary import Issue
-
-from nose.tools import eq_
-import jira.client
-from jira import JIRAError
 
 PATH = 'sync2jira.downstream_pr.'
 
@@ -32,6 +26,10 @@ class TestDownstreamPR(unittest.TestCase):
         self.mock_pr.title = 'mock_title'
         self.mock_pr.url = 'mock_url'
         self.mock_pr.reporter = 'mock_reporter'
+        self.mock_pr.downstream = {'pr_updates': [
+            {'merge_transition': 'CUSTOM_TRANSITION1'},
+            {'link_transition': 'CUSTOM_TRANSITION2'},
+        ]}
 
         self.mock_config = {
             'sync2jira': {
@@ -55,11 +53,15 @@ class TestDownstreamPR(unittest.TestCase):
         self.mock_client.search_users.return_value = [mock_user]
         self.mock_client.search_issues.return_value = ['mock_existing']
 
+        self.mock_existing = MagicMock()
+
     @mock.patch(PATH + 'update_jira_issue')
     @mock.patch(PATH + "d_issue")
-    def test_sync_with_jira(self,
-                            mock_d_issue,
-                            mock_update_jira_issue):
+    @mock.patch(PATH + "update_transition")
+    def test_sync_with_jira_link(self,
+                                 mock_update_transition,
+                                 mock_d_issue,
+                                 mock_update_jira_issue):
         """
         This function tests 'sync_with_jira'
         """
@@ -73,6 +75,32 @@ class TestDownstreamPR(unittest.TestCase):
         mock_update_jira_issue.assert_called_with('mock_existing', self.mock_pr, self.mock_client)
         self.mock_client.search_issues.assert_called_with('Key = JIRA-1234')
         mock_d_issue.get_jira_client.assert_called_with(self.mock_pr, self.mock_config)
+        mock_update_transition.mock.asset_called_with(self.mock_client, 'mock_existing', self.mock_pr, 'link_transition')
+
+    @mock.patch(PATH + 'update_jira_issue')
+    @mock.patch(PATH + "d_issue")
+    @mock.patch(PATH + "update_transition")
+    def test_sync_with_jira_merged(self,
+                                   mock_update_transition,
+                                   mock_d_issue,
+                                   mock_update_jira_issue):
+        """
+        This function tests 'sync_with_jira'
+        """
+        # Set up return values
+        mock_client = MagicMock()
+        mock_client.search_issues.return_value = ['mock_existing']
+        mock_d_issue.get_jira_client.return_value = mock_client
+        self.mock_pr.suffix = 'merged'
+
+        # Call the function
+        d.sync_with_jira(self.mock_pr, self.mock_config)
+
+        # Assert everything was called correctly
+        mock_update_jira_issue.assert_called_with('mock_existing', self.mock_pr, mock_client)
+        mock_client.search_issues.assert_called_with('Key = JIRA-1234')
+        mock_d_issue.get_jira_client.assert_called_with(self.mock_pr, self.mock_config)
+        mock_update_transition.mock.asset_called_with(mock_client, 'mock_existing', self.mock_pr, 'merged_transition')
 
     @mock.patch(PATH + 'update_jira_issue')
     @mock.patch(PATH + "d_issue")
@@ -118,9 +146,9 @@ class TestDownstreamPR(unittest.TestCase):
 
     @mock.patch(PATH + 'comment_exists')
     @mock.patch(PATH + 'format_comment')
-    def test_update_jira_issue(self,
-                               mock_format_comment,
-                               mock_comment_exists):
+    def test_update_jira_issue_link(self,
+                                    mock_format_comment,
+                                    mock_comment_exists):
         """
         This function tests 'update_jira_issue'
         """
@@ -135,6 +163,7 @@ class TestDownstreamPR(unittest.TestCase):
         self.mock_client.add_comment.assert_called_with('mock_existing', 'mock_formatted_comment')
         mock_format_comment.assert_called_with(self.mock_pr, self.mock_pr.suffix, self.mock_client)
         mock_comment_exists.assert_called_with(self.mock_client, 'mock_existing', 'mock_formatted_comment')
+
 
     @mock.patch(PATH + 'comment_exists')
     @mock.patch(PATH + 'format_comment')
@@ -241,3 +270,18 @@ class TestDownstreamPR(unittest.TestCase):
 
         # Assert Everything was called correctly
         self.assertEqual(response, "mock_reporter mentioned this issue in merge request [mock_title| mock_url].")
+
+    @mock.patch(PATH + 'd_issue')
+    def test_update_transition(self,
+                               mock_d_issue):
+        """
+        This function tests 'update_transition'
+        """
+        # Set up return values
+        mock_client = MagicMock()
+
+        # Call the function
+        d.update_transition(mock_client, self.mock_existing, self.mock_pr, 'merge_transition')
+
+        # Assert everything was called correctly
+        mock_d_issue.change_status.assert_called_with(mock_client, self.mock_existing, 'CUSTOM_TRANSITION1', self.mock_pr)
