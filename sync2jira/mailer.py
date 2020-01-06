@@ -8,8 +8,8 @@ import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-DEFAULT_FROM = os.environ['DEFAULT_FROM']
-DEFAULT_SERVER = os.environ['DEFAULT_SERVER']
+DEFAULT_FROM = os.environ.get('DEFAULT_FROM')
+DEFAULT_SERVER = os.environ.get('DEFAULT_SERVER')
 
 
 def send_mail(recipients, subject, text, cc):

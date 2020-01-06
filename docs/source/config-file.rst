@@ -27,7 +27,7 @@ The config file is made up of multiple parts
     'develop': False
 
 * If the develop flag is set to :code:`False` then Sync2Jira will perform a sentinel query after
-getting a JIRA client and failure email will be sent anytime the service fails. 
+  getting a JIRA client and failure email will be sent anytime the service fails.
 
 .. code-block:: python
 
@@ -129,7 +129,7 @@ getting a JIRA client and failure email will be sent anytime the service fails.
     'filters': {
             'github': {
                 # Only sync multi-type tickets from bodhi.
-                'fedora-infra/bodhi': {'state': 'open', 'milestone': 4, },
+                'fedora-infra/bodhi': {'status': 'open', 'milestone': 4, },
             },
         }
 
