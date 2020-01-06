@@ -249,7 +249,7 @@ def alert_user_of_duplicate_issues(issue, final_result, results_of_query,
     if not ret:
         message = 'No owner could be found for username %s' % issue.downstream.get('owner')
         log.warning(message.strip())
-        raise ValueError(message)
+        return
 
     user = {'name': ret[0].displayName, 'email': ret[0].emailAddress}
 
@@ -261,7 +261,8 @@ def alert_user_of_duplicate_issues(issue, final_result, results_of_query,
     admins = []
     admin_template = []
     for admin in config['sync2jira']['admins']:
-        ret = client.search_users(list(admin.keys())[0])
+        admin_username = [name for name in admin][0]
+        ret = client.search_users(admin_username)
         if len(ret) > 1:
             log.warning('Found multiple users for admin %s' % list(admin.keys())[0])
             found = False
