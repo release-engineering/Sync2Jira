@@ -353,7 +353,7 @@ class TestDownstreamIssue(unittest.TestCase):
             issuetype={'name': 'Fix'},
             project={'key': 'mock_project'},
             somecustumfield='somecustumvalue',
-            description='[1234] Upstream Reporter: mock_user \n Upstream description: {quote}mock_content{quote}',
+            description='[1234] Upstream Reporter: mock_user \n Upstream issue status: Open\nUpstream description: {quote}mock_content{quote}',
             summary='mock_title'
         )
         mock_attach_link.assert_called_with(
