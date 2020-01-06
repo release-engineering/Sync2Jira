@@ -30,14 +30,26 @@ from sync2jira.intermediary import Issue, matcher
 log = logging.getLogger(__name__)
 
 
-def format_comment(pr, pr_suffix):
+def format_comment(pr, pr_suffix, client):
     """
     Formats comment to link PR.
     :param sync2jira.intermediary.PR pr: Upstream issue we're pulling data from
     :param String pr_suffix: Suffix to indicate what state we're transitioning too
+    :param jira.client.JIRA client: JIRA Client
     :return: Formatted comment
     :rtype: String
     """
+    # Find the pr.reporters JIRA username
+    ret = client.search_users(pr.reporter)
+    if len(ret) > 0:
+        # Loop through ret till we find an match
+        for user in ret:
+            if user.displayName == pr.reporter:
+                reporter = f"[~{user.key}]"
+                break
+    else:
+        reporter = pr.reporter
+
     if 'closed' in pr_suffix:
         comment = f"Merge request [{pr.title}| {pr.url}] was closed."
     elif 'reopened' in pr_suffix:
@@ -45,7 +57,7 @@ def format_comment(pr, pr_suffix):
     elif 'merged' in pr_suffix:
         comment = f"Merge request [{pr.title}| {pr.url}] was merged!"
     else:
-        comment = f"{pr.reporter} mentioned this issue in " \
+        comment = f"{reporter} mentioned this issue in " \
             f"merge request [{pr.title}| {pr.url}]."
     return comment
 
@@ -79,7 +91,7 @@ def update_jira_issue(existing, pr, client):
     :returns: Nothing
     """
     # Format and add comment to indicate PR has been linked
-    new_comment = format_comment(pr, pr.suffix)
+    new_comment = format_comment(pr, pr.suffix, client)
     # Check if the comment if already there
     if not comment_exists(client, existing, new_comment):
         log.info(f"Added comment for PR {pr.title} on JIRA {pr.jira_key}")
