@@ -97,6 +97,11 @@ def sync_with_jira(pr, config):
     """
     log.info("[PR] Considering upstream %s, %s", pr.url, pr.title)
 
+    # Return if testing
+    if config['sync2jira']['testing']:
+        log.info("Testing flag is true.  Skipping actual update.")
+        return None
+
     if not pr.match:
         log.info(f"[PR] No match found for {pr.title}")
         return None

@@ -41,7 +41,7 @@ class TestDownstreamPR(unittest.TestCase):
                     'another_jira_instance': {'basic_auth': ['mock_user'],
                                               'options': {'server': 'mock_server'}}
                 },
-                'testing': {},
+                'testing': False,
                 'legacy_matching': False,
                 'admins': [{'mock_admin': 'mock_email'}],
                 'develop': False
@@ -89,6 +89,28 @@ class TestDownstreamPR(unittest.TestCase):
         mock_update_jira_issue.assert_not_called()
         mock_client.search_issues.assert_called_with('Key = JIRA-1234')
         mock_d_issue.get_jira_client.assert_called_with(self.mock_pr, self.mock_config)
+
+    @mock.patch(PATH + 'update_jira_issue')
+    @mock.patch(PATH + "d_issue")
+    def test_sync_with_jira_testing(self,
+                                    mock_d_issue,
+                                    mock_update_jira_issue):
+        """
+        This function tests 'sync_with_jira' where no issues are found
+        """
+        # Set up return values
+        mock_client = MagicMock()
+        mock_client.search_issues.return_value = []
+        self.mock_config['sync2jira']['testing'] = True
+        mock_d_issue.get_jira_client.return_value = mock_client
+
+        # Call the function
+        d.sync_with_jira(self.mock_pr, self.mock_config)
+
+        # Assert everything was called correctly
+        mock_update_jira_issue.assert_not_called()
+        mock_client.search_issues.assert_not_called()
+        mock_d_issue.get_jira_client.assert_not_called()
 
     @mock.patch(PATH + 'comment_exists')
     @mock.patch(PATH + 'format_comment')
