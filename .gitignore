@@ -12,3 +12,6 @@ sync2jira.egg-info/
 *venv/
 build/
 fedmsg.d/sync2jira.py
+/.tox
+*.pyc
+__pycache__
