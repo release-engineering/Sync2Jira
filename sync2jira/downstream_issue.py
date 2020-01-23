@@ -519,13 +519,13 @@ def assign_user(client, issue, downstream, remove_all=False):
     log.warning('Was not able to assign user %s' % issue.assignee[0]['fullname'])
 
 
-def _change_status(client, downstream, status, issue):
+def change_status(client, downstream, status, issue):
     """
     Change status of JIRA issue.
 
 
     :param jira.client.JIRA client: JIRA client
-    :param jira.resources.Issue downstream: JIRA issue object
+    :param jira.resources.Issue/PR downstream: JIRA issue or PR object
     :param String status: Title of status to which issue should be move
     :param sync2jira.intermediary.Issue issue: Issue object
     """
@@ -565,12 +565,12 @@ def _create_jira_issue(client, issue, config):
     default_type = issue.downstream.get('type', "Bug")
 
     # Build the description of the JIRA issue
-    if 'description' in issue.downstream.get('updates', {}):
+    if 'description' in issue.downstream.get('issue_updates', {}):
         description = "Upstream description: {quote}%s{quote}" % issue.content
     else:
         description = ''
 
-    if any('transition' in item for item in issue.downstream.get('updates', {})):
+    if any('transition' in item for item in issue.downstream.get('issue_updates', {})):
         # Just add it to the top of the description
         formatted_status = "Upstream issue status: %s" % issue.status
         description = formatted_status + '\n' + description
@@ -584,7 +584,7 @@ def _create_jira_issue(client, issue, config):
         )
 
     # Add the url if requested
-    if 'url' in issue.downstream.get('updates', {}):
+    if 'url' in issue.downstream.get('issue_updates', {}):
         description = description + f"\nUpstream URL: {issue.url}"
 
     kwargs = dict(
@@ -633,7 +633,7 @@ def _create_jira_issue(client, issue, config):
                 downstream.update({custom_field: issue.downstream.get('qa-contact')})
 
     # Add upstream issue ID in comment if required
-    if 'upstream_id' in issue.downstream.get('updates', []):
+    if 'upstream_id' in issue.downstream.get('issue_updates', []):
         comment = f"Creating issue for " \
             f"[{issue.upstream}-#{issue.upstream_id}|{issue.url}]"
         client.add_comment(downstream, comment)
@@ -643,7 +643,7 @@ def _create_jira_issue(client, issue, config):
 
     default_status = issue.downstream.get('default_status', None)
     if default_status is not None:
-        _change_status(client, downstream, default_status, issue)
+        change_status(client, downstream, default_status, issue)
 
     # Update relevant information (i.e. tags, assignees etc.) if the
     # User opted in
@@ -683,7 +683,7 @@ def _update_jira_issue(existing, issue, client):
     log.info("Updating information for upstream issue: %s" % issue.title)
 
     # Get a list of what the user wants to update for the upstream issue
-    updates = issue.downstream.get('updates', {})
+    updates = issue.downstream.get('issue_updates', {})
     # Update relevant data if needed
 
     # If the user has specified nothing
@@ -811,10 +811,10 @@ def _update_transition(client, existing, issue):
     # First get the closed status from the config file
     try:
         # For python 3 >
-        closed_status = list(filter(lambda d: "transition" in d, issue.downstream.get('updates', {})))[0]['transition']
+        closed_status = list(filter(lambda d: "transition" in d, issue.downstream.get('issue_updates', {})))[0]['transition']
     except ValueError:
         # for python 2.7
-        closed_status = (filter(lambda d: "transition" in d, issue.downstream.get('updates', {})))[0]['transition']
+        closed_status = (filter(lambda d: "transition" in d, issue.downstream.get('issue_updates', {})))[0]['transition']
     if closed_status is not True and issue.status == 'Closed' \
             and existing.fields.status.name.upper() != closed_status.upper():
         # Now we need to update the status of the JIRA issue
@@ -824,7 +824,7 @@ def _update_transition(client, existing, issue):
         client.add_comment(existing, comment_body)
         # Ensure that closed_status is a valid choice
         # Find all possible transactions (i.e. change states) we could `do
-        _change_status(client, existing, closed_status, issue)
+        change_status(client, existing, closed_status, issue)
 
 
 def _update_title(issue, existing):
@@ -1090,7 +1090,7 @@ def _update_description(existing, issue):
                           (upstream_description, new_description)
     # Now that we've updated the description (i.e. added
     # issue.id) we can delete the link in the description if its still there.
-    if 'url' not in issue.downstream.get('updates', {}):
+    if 'url' not in issue.downstream.get('issue_updates', {}):
         new_description = re.sub(
             r'%s' % issue.url,
             r'',
@@ -1147,9 +1147,9 @@ def sync_with_jira(issue, config):
         log.warning('The JIRA server looks like its down. Shutting down...')
         raise JIRAError
 
-    if issue.downstream.get('updates', None):
+    if issue.downstream.get('issue_updates', None):
         if issue.source == 'github' and issue.content and \
-                'github_markdown' in issue.downstream['updates']:
+                'github_markdown' in issue.downstream['issue_updates']:
             issue.content = pypandoc.convert_text(issue.content, 'plain', format='md')
 
     # First, check to see if we have a matching issue using the new method.
