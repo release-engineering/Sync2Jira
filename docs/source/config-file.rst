@@ -43,6 +43,26 @@ The config file is made up of multiple parts
 
 .. code-block:: python
 
+    'confluence_statistics': False
+
+* Adds the ability to post statistics to confluence. See note below.
+
+.. note:: Optional: Confluence Statistic Support
+
+    a. What is it? If :code:`confluence_statistics` is set to `True` in the config file (default `False`) you can set up a Confluence page and space to post statistic too (i.e. how many comments synced etc)
+
+    b. Set up the following variables:
+        1. :code:`CONFLUENCE_SPACE` :: The Confluence space we're posting too
+        2. :code:`CONFLUENCE_PAGE_TITLE` :: The Confluence page we're posting too
+        3. :code:`CONFLUENCE_URL` :: The Confluence URL
+        4. :code:`CONFLUENCE_USERNAME` :: Confluence username data
+        5. :code:`CONFLUENCE_PASSWORD` :: Confluence password data
+
+    c. Create the related confluence page and space. Make sure to add the template (use :code:`sync2jira/confluence_stat.jinja` and replace the JINJA code with 0's
+
+
+.. code-block:: python
+
     'jira': {
         'example': {
             'options': {

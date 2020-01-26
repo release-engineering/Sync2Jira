@@ -68,4 +68,3 @@ Want to quickly get started working with Sync2Jira? Follow these steps:
         sync2jira
     .. note:: You might have to add `config['validate_signatures'] = False`. 
               You can find out more under the `main <main.html#main-anchor>`_.
-

@@ -17,12 +17,13 @@
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
 
+# Build-In Modules
 import operator
-
 import logging
 import re
 import difflib
 
+# 3rd Party Modules
 import arrow
 import jira.client
 from jira import JIRAError
@@ -30,8 +31,10 @@ from datetime import datetime
 import jinja2
 import pypandoc
 
+# Local Modules
 from sync2jira.intermediary import Issue, PR
 from sync2jira.mailer import send_mail
+from sync2jira.confluence_client import confluence_client
 
 # The date the service was upgraded
 # This is used to ensure legacy comments are not touched
@@ -508,7 +511,7 @@ def assign_user(client, issue, downstream, remove_all=False):
     for user in users:
         if user.displayName == issue.assignee[0]['fullname']:
             # Then we can assign the issue to the user
-            client.assign_issue(downstream.id, user.key)
+            downstream.update({'assignee': {'name': user.key}})
             return
     # If there is an owner, assign it to them
     if issue.downstream.get('owner'):
@@ -539,6 +542,9 @@ def change_status(client, downstream, status, issue):
         try:
             client.transition_issue(downstream, id)
             log.info('Updated downstream to %s status for issue %s' % (status, issue.title))
+            if confluence_client.update_stat:
+                confluence_data = {'Transition': 1}
+                confluence_client.update_page(confluence_data)
         except JIRAError:
             log.error('Updating downstream issue failed for %s: %s' % (status, issue.title))
     else:
@@ -564,9 +570,12 @@ def _create_jira_issue(client, issue, config):
     custom_fields = issue.downstream.get('custom_fields', {})
     default_type = issue.downstream.get('type', "Bug")
 
+    confluence_data = {'Misc. Fields': 0, 'Created Issues': 1}
+
     # Build the description of the JIRA issue
     if 'description' in issue.downstream.get('issue_updates', {}):
         description = "Upstream description: {quote}%s{quote}" % issue.content
+        confluence_data['Descriptions'] = 1
     else:
         description = ''
 
@@ -574,6 +583,7 @@ def _create_jira_issue(client, issue, config):
         # Just add it to the top of the description
         formatted_status = "Upstream issue status: %s" % issue.status
         description = formatted_status + '\n' + description
+        confluence_data['Status'] = 1
 
     if issue.reporter:
         # Add to the description
@@ -582,6 +592,7 @@ def _create_jira_issue(client, issue, config):
             issue.reporter['fullname'],
             description
         )
+        confluence_data['Reporters'] = 1
 
     # Add the url if requested
     if 'url' in issue.downstream.get('issue_updates', {}):
@@ -626,17 +637,20 @@ def _create_jira_issue(client, issue, config):
                     downstream.update({custom_field: issue.downstream.get('epic-link')})
                 except JIRAError:
                     client.add_comment(downstream, f"Error adding Epic-Link: {issue.downstream.get('epic-link')}")
+            confluence_data['Misc. Fields'] += 1
         if issue.downstream.get('qa-contact', None):
             # Try to get and update the custom field
             custom_field = name_map.get('QA Contact', None)
             if custom_field:
                 downstream.update({custom_field: issue.downstream.get('qa-contact')})
+                confluence_data['Misc. Fields'] += 1
 
     # Add upstream issue ID in comment if required
     if 'upstream_id' in issue.downstream.get('issue_updates', []):
         comment = f"Creating issue for " \
             f"[{issue.upstream}-#{issue.upstream_id}|{issue.url}]"
         client.add_comment(downstream, comment)
+        confluence_data['Misc. Fields'] = 1
 
     remote_link = dict(url=issue.url, title=remote_link_title)
     _attach_link(client, downstream, remote_link)
@@ -644,6 +658,11 @@ def _create_jira_issue(client, issue, config):
     default_status = issue.downstream.get('default_status', None)
     if default_status is not None:
         change_status(client, downstream, default_status, issue)
+        confluence_data['Transitions'] = 1
+
+    # Update Confluence Page
+    if confluence_client.update_stat:
+        confluence_client.update_stat_page(confluence_data)
 
     # Update relevant information (i.e. tags, assignees etc.) if the
     # User opted in
@@ -684,8 +703,8 @@ def _update_jira_issue(existing, issue, client):
 
     # Get a list of what the user wants to update for the upstream issue
     updates = issue.downstream.get('issue_updates', {})
-    # Update relevant data if needed
 
+    # Update relevant data if needed
     # If the user has specified nothing
     if not updates:
         return
@@ -756,6 +775,9 @@ def _update_url(existing, issue):
     data = {'description': new_description}
     existing.update(data)
     log.info('Updated description')
+    if confluence_client.update_stat:
+        confluence_data = {'Misc. Fields': 1}
+        confluence_client.update_stat_page(confluence_data)
 
 
 def _update_transition(client, existing, issue):
@@ -767,6 +789,7 @@ def _update_transition(client, existing, issue):
     :param sync2jira.intermediary.Issue issue: Upstream issue
     :returns: Nothing
     """
+    confluence_data = {}
     # Update the issue status in the JIRA description
     # Format the status
     formatted_status = "Upstream issue status: %s" % issue.status
@@ -803,6 +826,9 @@ def _update_transition(client, existing, issue):
         data = {'description': new_description}
         existing.update(data)
         log.info('Updated transition')
+        confluence_data['Status'] = 1
+        if confluence_client.update_stat and confluence_data:
+            confluence_client.update_stat_page(confluence_data)
 
     # If the user just inputted True, only update the description
     # If the user added a custom closed status, attempt to close the
@@ -872,6 +898,9 @@ def _update_title(issue, existing):
     data = {'summary': issue.title}
     existing.update(data)
     log.info('Updated title')
+    if confluence_client.update_stat:
+        confluence_data = {'Title': 1}
+        confluence_client.update_stat_page(confluence_data)
 
 
 def _update_comments(client, existing, issue):
@@ -894,6 +923,9 @@ def _update_comments(client, existing, issue):
         client.add_comment(existing, comment_body)
     if len(comments_d) > 0:
         log.info("Comments synchronization done on %i comments." % len(comments_d))
+        if confluence_client.update_stat:
+            confluence_data = {'Comments': len(comments_d)}
+            confluence_client.update_stat_page(confluence_data)
 
 
 def _update_fixVersion(updates, existing, issue, client):
@@ -946,6 +978,9 @@ def _update_fixVersion(updates, existing, issue, client):
         try:
             existing.update(data)
             log.info('Updated %s fixVersion(s)' % len(fix_version))
+            if confluence_client.update_stat:
+                confluence_data = {'FixVersion': len(fix_version)}
+                confluence_client.update_stat_page(confluence_data)
         except JIRAError:
             log.warning('Error updating the fixVersion. %s is an invalid fixVersion.' % issue.fixVersion)
             # Add a comment to indicate there was an issue
@@ -986,18 +1021,26 @@ def _update_assignee(client, existing, issue, updates):
                 # Update the assignee
                 assign_user(client, issue, existing)
                 log.info('Updated assignee')
+                if confluence_client.update_stat:
+                    confluence_data = {'Assignee': 1}
+                    confluence_client.update_stat_page(confluence_data)
                 return
     else:
         # Update the assignee if we have someone to assignee it too
         if update:
             assign_user(client, issue, existing)
             log.info('Updated assignee')
+            if confluence_client.update_stat:
+                confluence_data = {'Misc. Fields': 1}
         else:
             if existing.fields.assignee:
                 # Else we should remove all assignees
                 # Set removeAll flag to true
                 assign_user(client, issue, existing, remove_all=True)
                 log.info('Updated assignee')
+                if confluence_client.update_stat:
+                    confluence_data = {'Assignee': 1}
+                    confluence_client.update_stat_page(confluence_data)
 
 
 def _update_tags(updates, existing, issue):
@@ -1030,6 +1073,9 @@ def _update_tags(updates, existing, issue):
         data = {'labels': updated_labels}
         existing.update(data)
         log.info('Updated %s tag(s)' % len(updated_labels))
+        if confluence_client.update_stat:
+            confluence_data = {'Tags': len(updated_labels)}
+            confluence_client.update_stat_page(confluence_data)
 
 
 def _update_description(existing, issue):
@@ -1111,6 +1157,9 @@ def _update_description(existing, issue):
         data = {'description': new_description}
         existing.update(data)
         log.info('Updated description')
+        if confluence_client.update_stat:
+            confluence_data = {'Description': 1}
+            confluence_client.update_stat_page(confluence_data)
 
 
 def verify_tags(tags):

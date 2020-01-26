@@ -37,6 +37,9 @@ config = {
         # Your Github token
         'github_token': 'YOUR_TOKEN',
 
+        # If we should update a Confluence page for stats
+        'confluence_statistics': False
+
         'legacy_matching': False,
 
         'default_jira_instance': 'example',

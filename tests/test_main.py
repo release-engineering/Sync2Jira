@@ -141,6 +141,7 @@ class TestMain(unittest.TestCase):
         mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
 
+    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + 'initialize_issues')
     @mock.patch(PATH + 'initialize_pr')
     @mock.patch(PATH + 'load_config')
@@ -149,12 +150,14 @@ class TestMain(unittest.TestCase):
                   mock_listen,
                   mock_load_config,
                   mock_initialize_pr,
-                  mock_initialize_issues):
+                  mock_initialize_issues,
+                  mock_confluence_client):
         """
         This tests the 'main' function
         """
         # Set up return values
         mock_load_config.return_value = self.mock_config
+        self.mock_config['sync2jira']['confluence_statistics'] = True
 
         # Call the function
         m.main()
@@ -165,6 +168,7 @@ class TestMain(unittest.TestCase):
         mock_listen.assert_called_with(self.mock_config)
         mock_initialize_issues.assert_called_with(self.mock_config)
         mock_initialize_pr.assert_called_with(self.mock_config)
+        mock_confluence_client.update_stat_value.assert_called_with(True)
 
     @mock.patch(PATH + 'u_issue')
     @mock.patch(PATH + 'd_issue')
