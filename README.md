@@ -26,3 +26,10 @@ On startup, if the initialize option is set to True in the fedmsg.d/ config, the
 If the testing option is set to True, then the script will perform a "dry run" and not actually add any new issues to Jira.
 
 Please look at our documentation [here](https://sync2jira.readthedocs.io/en/master/config-file.html) for a full list of what can be synced and how to set it up. 
+
+## Branches
+
+We will maintain two branches
+
+1. `master` - This will be where our main code and most up to date code lives
+1. `openshift-build` - This branch will maintain OpenShift-Build related information

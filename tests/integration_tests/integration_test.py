@@ -3,6 +3,7 @@ This is a helper program to listen for UMB trigger. Test and then deploy Sync2Ji
 """
 # Built-In Modules
 import os
+import logging
 
 # Local Modules
 from jira_values import PAGURE, GITHUB
@@ -16,33 +17,42 @@ import jira.client
 URL = os.environ['JIRA_STAGE_URL']
 USERNAME = os.environ['JIRA_USER']
 PASSWORD = os.environ['JIRA_PASS']
+log = logging.getLogger(__name__)
 
 def main():
     """
     Main message to listen and react to messages.
     """
-    print("Running sync2jira.main...")
+    log.info("[OS-BUILD] Running sync2jira.main...")
     # Make our JIRA client
     client = get_jira_client()
 
     # First init with what we have
     m(runtime_test=True, runtime_config=runtime_config)
 
+    failed = False
+
     # Now we need to make sure that Sync2Jira didn't update anything,
     # compare to our old values
-    print("Comparing values with Pagure...")
+    log.info("[OS-BUILD] Comparing values with Pagure...")
     try:
         compare_data(client, PAGURE)
     except Exception as e:
-        print(f'When comparing Pagure something went wrong.\nException {e}')
+        failed = True
+        log.info(f"[OS-BUILD] When comparing Pagure something went wrong.\nException {e}")
 
-    print("Comparing values with Github...")
+    log.info("[OS-BUILD] Comparing values with GitHub...")
     try:
         compare_data(client, GITHUB)
     except Exception as e:
-        print(f'When comparing GitHub something went wrong.\nException {e}')
+        failed = True
+        log.info(f"[OS-BUILD] When comparing GitHub something went wrong.\nException {e}")
 
-    print('Tests have passed :)')
+    if failed:
+        log.info("[OS-BUILD] Tests have failed :(")
+        raise Exception()
+    else:
+        log.info("[OS-BUILD] Tests have passed :)")
 
 
 def compare_data(client, data):
