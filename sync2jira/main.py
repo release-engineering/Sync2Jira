@@ -345,13 +345,8 @@ def report_failure(config):
     template = templateEnv.get_template('failure_template.jinja')
     html_text = template.render(traceback=traceback.format_exc())
 
-    # Get admin information
-    admins = []
-    for admin in config['sync2jira']['admins']:
-        admins.extend([admin[name] for name in admin])
-
     # Send mail
-    send_mail(recipients=admins,
+    send_mail(recipients=[config['sync2jira']['mailing-list']],
               cc=None,
               subject=failure_email_subject,
               text=html_text)
