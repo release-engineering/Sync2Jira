@@ -47,7 +47,7 @@ module.exports = app => {
 
       // Format and return
       if (passed=='success') {
-        data='OpenShift-Build Passed :)';
+        data='OpenShift-Build Passed :)\n' + data;
       }
 
       console.log("Pushing results of test...");
@@ -131,7 +131,7 @@ module.exports = app => {
 
       // Format and return
       if (passed=='success') {
-        data='OpenShift-Build Passed :)';
+        data='OpenShift-Build Passed :)\n' + data;
       }
 
       console.log("Pushing results of test...");
