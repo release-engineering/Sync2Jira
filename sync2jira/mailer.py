@@ -36,6 +36,5 @@ def send_mail(recipients, subject, text, cc):
     server = smtplib.SMTP(_cfg["server"])
     part = MIMEText(text, 'html', 'utf-8')
     msg.attach(part)
-
     server.sendmail(sender, recipients, msg.as_string())
     server.quit()

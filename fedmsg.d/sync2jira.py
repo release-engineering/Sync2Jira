@@ -22,6 +22,9 @@ config = {
         # Admins to be cc'd in duplicate emails
         'admins': [{'admin_username': 'admin_email@demo.com'}],
 
+        # Mailing list email to send failure-email notices too
+        'mailing-list': 'some_email@demo.com',
+
         # Scrape sources at startup
         'initialize': True,
 

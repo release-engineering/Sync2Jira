@@ -350,7 +350,7 @@ class TestMain(unittest.TestCase):
         mock_jinja2.Environment.return_value = mock_templateEnv
 
         # Call the function
-        m.report_failure({'sync2jira': {'admins': [{'mock_user': 'mock_email'}]}})
+        m.report_failure({'sync2jira': {'mailing-list': 'mock_email'}})
 
         # Assert everything was called correctly
         mock_send_mail.assert_called_with(cc=None,

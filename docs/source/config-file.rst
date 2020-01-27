@@ -10,6 +10,12 @@ The config file is made up of multiple parts
 
 .. code-block:: python
 
+    'mailing-list': 'demo_email@demo.com'
+
+* Mailing list is used to alert users when there is a failure. A failure email with the traceback will be sent to the email address. 
+
+.. code-block:: python
+
     'initialize': True
 
 * Initialization set to True will ensure that there is an initial sync done when Sync2Jira starts.
