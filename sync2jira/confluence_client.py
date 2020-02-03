@@ -147,10 +147,8 @@ class ConfluenceClient:
         confluence_data_update["Total Time"] = str(total_time) + " (HR:MIN:SEC)"
 
         # Build our updated HTML page
-        # templateLoader = jinja2.FileSystemLoader(
-        #     searchpath='usr/local/src/sync2jira/sync2jira/')
         templateLoader = jinja2.FileSystemLoader(
-            searchpath='sync2jira/')
+            searchpath='usr/local/src/sync2jira/sync2jira/')
         templateEnv = jinja2.Environment(loader=templateLoader)
         template = templateEnv.get_template('confluence_stat.jinja')
         html_text = template.render(confluence_data=confluence_data_update)
