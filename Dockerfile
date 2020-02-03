@@ -16,6 +16,7 @@ RUN dnf -y install \
     python3-pygithub \
     python3-jinja2 \
     python3-pypandoc \
+    python3-requests-kerberos \
   && dnf -y clean all
 
 ARG SYNC2JIRA_GIT_REPO=https://github.com/sidpremkumar/Sync2Jira.git
