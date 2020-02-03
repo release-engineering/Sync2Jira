@@ -17,9 +17,12 @@
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
 from setuptools import setup
+import os
 
 with open('requirements.txt', 'rb') as f:
     install_requires = f.read().decode('utf-8').split('\n')
+    if not os.getenv('READTHEDOCS'):
+        install_requires.append('requests_kerberos')
 
 with open('test-requirements.txt', 'rb') as f:
     test_requires = f.read().decode('utf-8').split('\n')
