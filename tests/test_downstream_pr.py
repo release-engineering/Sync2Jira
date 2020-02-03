@@ -144,17 +144,20 @@ class TestDownstreamPR(unittest.TestCase):
         mock_client.search_issues.assert_not_called()
         mock_d_issue.get_jira_client.assert_not_called()
 
+    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + 'comment_exists')
     @mock.patch(PATH + 'format_comment')
     def test_update_jira_issue_link(self,
                                     mock_format_comment,
-                                    mock_comment_exists):
+                                    mock_comment_exists,
+                                    mock_confluence_client):
         """
         This function tests 'update_jira_issue'
         """
         # Set up return values
         mock_format_comment.return_value = 'mock_formatted_comment'
         mock_comment_exists.return_value = False
+        mock_confluence_client.update_stat = True
 
         # Call the function
         d.update_jira_issue('mock_existing', self.mock_pr, self.mock_client)
@@ -163,6 +166,7 @@ class TestDownstreamPR(unittest.TestCase):
         self.mock_client.add_comment.assert_called_with('mock_existing', 'mock_formatted_comment')
         mock_format_comment.assert_called_with(self.mock_pr, self.mock_pr.suffix, self.mock_client)
         mock_comment_exists.assert_called_with(self.mock_client, 'mock_existing', 'mock_formatted_comment')
+        mock_confluence_client.update_stat_page.assert_called_with({'Comments': 1})
 
 
     @mock.patch(PATH + 'comment_exists')

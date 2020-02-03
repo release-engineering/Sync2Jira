@@ -21,22 +21,25 @@
 
 Run with systemd, please.
 """
-
+# Build-In Modules
 import logging
 import warnings
 import traceback
 from time import sleep
 
+# 3rd Party Modules
 import fedmsg
 import fedmsg.config
 import jinja2
 
+# Local Modules
 import sync2jira.upstream_issue as u_issue
 import sync2jira.upstream_pr as u_pr
 import sync2jira.downstream_issue as d_issue
 import sync2jira.downstream_pr as d_pr
 from sync2jira.mailer import send_mail
 from sync2jira.intermediary import matcher
+from sync2jira.confluence_client import confluence_client
 
 # Set up our logging
 FORMAT = "[%(asctime)s] %(levelname)s: %(message)s"
@@ -307,6 +310,9 @@ def main(runtime_test=False, runtime_config=None):
         config = load_config()
     else:
         config = runtime_config
+
+    if config['sync2jira']['confluence_statistics']:
+        confluence_client.update_stat_value(True)
 
     logging.basicConfig(level=logging.INFO)
     warnings.simplefilter("ignore")

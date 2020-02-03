@@ -25,6 +25,7 @@ from jira import JIRAError
 # Local Modules
 import sync2jira.downstream_issue as d_issue
 from sync2jira.intermediary import Issue, matcher
+from sync2jira.confluence_client import confluence_client
 
 
 log = logging.getLogger(__name__)
@@ -101,6 +102,9 @@ def update_jira_issue(existing, pr, client):
     if not exists:
         log.info(f"Added comment for PR {pr.title} on JIRA {pr.jira_key}")
         client.add_comment(existing, new_comment)
+        if confluence_client.update_stat:
+            confluence_data = {'Comments': 1}
+            confluence_client.update_stat_page(confluence_data)
 
     # Only synchronize link_transition for listings that op-in
     if any('merge_transition' in item for item in updates) and 'merged' in pr.suffix:

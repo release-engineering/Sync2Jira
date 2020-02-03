@@ -28,3 +28,4 @@ Sync2Jira documentation
    downstream_issue
    intermediary
    mailer
+   confluence_client
