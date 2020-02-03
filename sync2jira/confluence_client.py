@@ -107,7 +107,7 @@ class ConfluenceClient:
         }
         # Use these HTML patterns to search for previous values
         confluence_html_patterns = {
-            'Created Issues': "Created Issues&nbsp;</td><td>",
+            'Created Issues': "Created Issues</td><td>",
             'Descriptions': "Descriptions</td><td>",
             'Comments': "Comments</td><td>",
             'Reporters': "Reporters</td><td>",

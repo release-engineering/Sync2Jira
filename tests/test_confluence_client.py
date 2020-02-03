@@ -268,7 +268,7 @@ class TestConfluenceClient(unittest.TestCase):
         """
         # Set up return values
         mock_html = """
-                        Created Issues&nbsp;</td><td>1<
+                        Created Issues</td><td>1<
                         Descriptions</td><td>1<
                         Comments</td><td>1<
                         Reporters</td><td>1<
