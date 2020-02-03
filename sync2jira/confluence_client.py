@@ -3,12 +3,16 @@
 This script acts as a client to confluence, connects to confluence and create
 pages
 """
+import logging
 import os
 import re
 import requests
 from requests.auth import HTTPBasicAuth
 import jinja2
 import datetime
+
+# Global Variables
+log = logging.getLogger(__name__)
 
 
 class ConfluenceClient:
@@ -123,14 +127,19 @@ class ConfluenceClient:
         total = 0
         for topic, html in confluence_html_patterns.items():
             # Search for previous data
-            ret = re.search(html, page_html)
-            start_index = ret.span()[1]
-            new_val = ""
-            while page_html[start_index] != "<":
-                new_val += page_html[start_index]
-                start_index += 1
-            confluence_data_update[topic] = int(new_val)
-            total += int(new_val)
+            try:
+                ret = re.search(html, page_html)
+                start_index = ret.span()[1]
+                new_val = ""
+                while page_html[start_index] != "<":
+                    new_val += page_html[start_index]
+                    start_index += 1
+                confluence_data_update[topic] = int(new_val)
+                total += int(new_val)
+            except AttributeError:
+                log.warning(f"Confluence failed on parsing {topic}")
+                total += 0
+                confluence_data_update[topic] = 0
 
         # Now add new data
         for topic in confluence_html_patterns.keys():
