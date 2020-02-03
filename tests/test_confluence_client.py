@@ -307,7 +307,7 @@ class TestConfluenceClient(unittest.TestCase):
         self.confluence_client.update_stat_page(mock_confluence_data)
 
         # Assert Everything was called correctly
-        mock_jinja2.FileSystemLoader.assert_called_with(searchpath='sync2jira/')
+        mock_jinja2.FileSystemLoader.assert_called_with(searchpath='usr/local/src/sync2jira/sync2jira/')
         mock_jinja2.Environment.assert_called_with(loader=mock_templateLoader)
         mock_templateEnv.get_template.assert_called_with('confluence_stat.jinja')
         mock_template.render.assert_called_with(confluence_data={
