@@ -681,7 +681,7 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert all calls were made correctly
         self.mock_downstream.update.assert_called_with({'description': 'Upstream issue status: Closed\n'})
         mock_client.transitions.assert_called_with(self.mock_downstream)
-        mock_client.transition_issue.asert_called_with(self.mock_downstream, 1234)
+        mock_client.transition_issue.assert_called_with(self.mock_downstream, 1234)
         mock_confluence_client.update_stat_page.assert_called_with({'Status': 1})
 
 
@@ -711,7 +711,7 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert all calls were made correctly
         self.mock_downstream.update.assert_called_with({'description': 'Upstream issue status: Closed\n'})
         mock_client.transitions.assert_called_with(self.mock_downstream)
-        mock_client.transition_issue.asert_called_with(self.mock_downstream, 1234)
+        mock_client.transition_issue.assert_called_with(self.mock_downstream, 1234)
         mock_confluence_client.update_stat_page.assert_called_with({'Transition': 1})
 
     @mock.patch(PATH + 'confluence_client')
@@ -738,7 +738,7 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert all calls were made correctly
         self.mock_downstream.update.assert_called_with({'description': 'Upstream issue status: Closed'})
         mock_client.transitions.assert_called_with(self.mock_downstream)
-        mock_client.transition_issue.asert_called_with(self.mock_downstream, 1234)
+        mock_client.transition_issue.assert_called_with(self.mock_downstream, 1234)
         mock_confluence_client.update_stat_page.assert_called_with({'Transition': 1})
 
     @mock.patch(PATH + 'confluence_client')
