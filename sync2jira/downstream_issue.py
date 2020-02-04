@@ -544,7 +544,7 @@ def change_status(client, downstream, status, issue):
             log.info('Updated downstream to %s status for issue %s' % (status, issue.title))
             if confluence_client.update_stat:
                 confluence_data = {'Transition': 1}
-                confluence_client.update_page(confluence_data)
+                confluence_client.update_stat_page(confluence_data)
         except JIRAError:
             log.error('Updating downstream issue failed for %s: %s' % (status, issue.title))
     else:
