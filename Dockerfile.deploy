@@ -45,5 +45,5 @@ USER 1001
 
 # Continuous Deployment Info
 ARG RCM_TOOLS_REPO
-ENTRYPOINT ["/usr/local/src/sync2jira/continuous-deployment/entry.sh $RCM_TOOLS_REPO"
+ENTRYPOINT ["/usr/local/src/sync2jira/continuous-deployment/entry.sh", "$RCM_TOOLS_REPO"]
 CMD ["python3", "/usr/local/src/sync2jira/continuous-deployment/continuous_deployment.py"]
