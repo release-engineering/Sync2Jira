@@ -36,8 +36,9 @@ def main():
     Main function to start listening
     """
     try:
-        # Load in config
+
         # Create our consumer
+        print("Connecting to ACTIVEMQ as a consumer...")
         c = AMQConsumer(
             urls=(ACTIVEMQ_URL_1, ACTIVEMQ_URL_2),
             certificate=CERT,
