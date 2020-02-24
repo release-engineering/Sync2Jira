@@ -5,4 +5,3 @@ PyGithub
 pypandoc
 urllib3
 jinja2
-requests_kerberos
