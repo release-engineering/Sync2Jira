@@ -41,7 +41,7 @@ RUN  pip3 install --no-deps -v /usr/local/src/sync2jira
 
 # To deal with JIRA issues (i.e. SSL errors)
 RUN chmod g+w /etc/pki/tls/certs/ca-bundle.crt
-RUN chmod 777 /usr/local/src/sync2jira/openshift/containers/sync2jira/docker-entrypoint.sh
+RUN chmod 777 /usr/local/src/sync2jira/openshift/docker-entrypoint.sh
 
 # Continuous Deployment Info
 ARG RCM_TOOLS_REPO
@@ -49,5 +49,5 @@ RUN chmod 777 /usr/local/src/sync2jira/continuous-deployment/install_rhmsg.sh
 RUN ./usr/local/src/sync2jira/continuous-deployment/install_rhmsg.sh $RCM_TOOLS_REPO
 
 USER 1001
-ENTRYPOINT ["/usr/local/src/sync2jira/openshift/containers/sync2jira/docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/src/sync2jira/openshift/docker-entrypoint.sh"]
 CMD ["python3", "/usr/local/src/sync2jira/continuous-deployment/continuous_deployment.py"]
