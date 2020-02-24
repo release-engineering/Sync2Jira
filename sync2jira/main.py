@@ -26,11 +26,15 @@ import logging
 import warnings
 import traceback
 from time import sleep
+import requests
+from copy import deepcopy
+import os
 
 # 3rd Party Modules
 import fedmsg
 import fedmsg.config
 import jinja2
+from requests_kerberos import HTTPKerberosAuth, OPTIONAL
 
 # Local Modules
 import sync2jira.upstream_issue as u_issue
@@ -94,6 +98,8 @@ pr_handlers = {
     'pagure.pull-request.comment.added': u_pr.handle_pagure_message,
     'pagure.pull-request.initial_comment.edited': u_pr.handle_pagure_message,
 }
+DATAGREPPER_URL = "http://apps.fedoraproject.org/datagrepper/raw"
+INITIALIZE = os.environ['INITIALIZE']
 
 
 def load_config(loader=fedmsg.config.load_config):
@@ -163,33 +169,7 @@ def listen(config):
 
         log.debug("Handling %r %r %r", suffix, topic, idx)
 
-        issue = None
-        pr = None
-        # Github '.issue.' is used for both PR and Issue
-        # Check for that edge case
-        if suffix == 'github.issue.comment':
-            if 'pull_request' in msg['msg']['issue'] and msg['msg']['action'] != 'deleted':
-                # pr_filter turns on/off the filtering of PRs
-                pr = issue_handlers[suffix](msg, config, pr_filter=False)
-                if not pr:
-                    continue
-                # Issues do not have suffix and reporter needs to be reformatted
-                pr.suffix = suffix
-                pr.reporter = pr.reporter.get('fullname')
-                setattr(pr, 'match', matcher(pr.content, pr.comments))
-            else:
-                issue = issue_handlers[suffix](msg, config)
-        elif suffix in issue_handlers:
-            issue = issue_handlers[suffix](msg, config)
-        elif suffix in pr_handlers:
-            pr = pr_handlers[suffix](msg, config, suffix)
-
-        if not issue and not pr:
-            continue
-        if issue:
-            d_issue.sync_with_jira(issue, config)
-        elif pr:
-            d_pr.sync_with_jira(pr, config)
+        handle_msg(msg, suffix, config)
 
 
 def initialize_issues(config, testing=False):
@@ -296,6 +276,122 @@ def initialize_pr(config, testing=False):
     log.info("Done with github PR initialization.")
 
 
+def initialize_recent(config):
+    """
+    Initializes based on the recent history of datagrepper
+
+    :param Dict config: Config dict
+    :return: Nothing
+    """
+    # Query datagrepper
+    ret = query(category=['github', 'pagure'], delta=int(600), rows_per_page=100)
+
+    # Loop and sync
+    for entry in ret:
+        # Extract our topic
+        suffix = ".".join(entry['topic'].split('.')[3:])
+        log.debug("Encountered %r %r", suffix, entry['topic'])
+
+        # Disregard if it's invalid
+        if suffix not in issue_handlers and suffix not in pr_handlers:
+            continue
+
+        # Deal with the message
+        log.debug("Handling %r %r", suffix, entry['topic'])
+        msg = entry['msg']
+        handle_msg(msg, suffix, config)
+
+
+def handle_msg(msg, suffix, config):
+    """
+    Function to handle incomming message from datagrepper
+    :param Dict msg: Incoming message
+    :param String suffix: Incoming suffix
+    :param Dict config: Config dict
+    """
+    issue = None
+    pr = None
+    # Github '.issue.' is used for both PR and Issue
+    # Check for that edge case
+    if suffix == 'github.issue.comment':
+        if 'pull_request' in msg['msg']['issue'] and msg['msg']['action'] != 'deleted':
+            # pr_filter turns on/off the filtering of PRs
+            pr = issue_handlers[suffix](msg, config, pr_filter=False)
+            if not pr:
+                return
+            # Issues do not have suffix and reporter needs to be reformatted
+            pr.suffix = suffix
+            pr.reporter = pr.reporter.get('fullname')
+            setattr(pr, 'match', matcher(pr.content, pr.comments))
+        else:
+            issue = issue_handlers[suffix](msg, config)
+    elif suffix in issue_handlers:
+        issue = issue_handlers[suffix](msg, config)
+    elif suffix in pr_handlers:
+        pr = pr_handlers[suffix](msg, config, suffix)
+
+    if not issue and not pr:
+        return
+    if issue:
+        d_issue.sync_with_jira(issue, config)
+    elif pr:
+        d_pr.sync_with_jira(pr, config)
+
+
+def query(limit=None, **kwargs):
+    """
+    Run query on Datagrepper
+
+    Args:
+        limit: the max number of messages to fetch at a time
+        kwargs: keyword arguments to build request parameters
+    """
+    # Pack up the kwargs into a parameter list for request
+    params = deepcopy(kwargs)
+
+    # Set up for paging requests
+    all_results = []
+    page = params.get('page', 1)
+
+    # Important to set ASC order when paging to avoid duplicates
+    params['order'] = 'asc'
+
+    results = get(params=params)
+
+    # Collect the messages
+    all_results.extend(results['raw_messages'])
+
+    # Set up for loop
+    fetched = results['count']
+    total = limit or results['total']
+
+    # Fetch results until no more are left
+    while fetched < total:
+        page += 1
+        params['page'] = page
+
+        results = get(params=params)
+        count = results['count']
+        fetched += count
+
+        # if we missed the condition and haven't fetched any
+        if count == 0:
+            break
+
+        all_results.extend(results['raw_messages'])
+
+    return all_results
+
+
+def get(params):
+    url = DATAGREPPER_URL
+    headers = {'Accept': 'application/json', }
+
+    response = requests.get(url=url, params=params, headers=headers,
+                            auth=HTTPKerberosAuth(mutual_authentication=OPTIONAL))
+    return response.json()
+
+
 def main(runtime_test=False, runtime_config=None):
     """
     Main function to check for initial sync
@@ -319,13 +415,19 @@ def main(runtime_test=False, runtime_config=None):
     config['validate_signatures'] = False
 
     try:
-        if config['sync2jira'].get('initialize'):
+        if INITIALIZE == 1:
+            log.info("Initialization True")
+            # Initialize issues
             log.info("Initializing Issues...")
             initialize_issues(config)
             log.info("Initializing PRs...")
             initialize_pr(config)
             if runtime_test:
                 return
+        else:
+            # Pool datagrepper from the last 10 mins
+            log.info("Initialization False. Pulling data from datagrepper...")
+            initialize_recent(config)
         try:
             listen(config)
         except KeyboardInterrupt:

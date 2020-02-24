@@ -25,9 +25,6 @@ config = {
         # Mailing list email to send failure-email notices too
         'mailing-list': 'some_email@demo.com',
 
-        # Scrape sources at startup
-        'initialize': True,
-
         # Listen on the message bus
         'listen': True,
 

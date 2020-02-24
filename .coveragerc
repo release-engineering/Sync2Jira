@@ -3,5 +3,8 @@ branch = True
 source = sync2jira/
 
 [report]
-omit = sync2jira/mailer.py
+omit =
+    sync2jira/mailer.py
+    continuous-deployment/continuous_deployment.py
+
 fail_under = 70

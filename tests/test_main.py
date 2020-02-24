@@ -26,6 +26,7 @@ class TestMain(unittest.TestCase):
                 'jira': {
                     'mock_jira_instance': {'mock_jira': 'mock_jira'}
                 },
+                'confluence_statistics': True,
                 'testing': {},
                 'legacy_matching': False,
                 'map': {
@@ -141,17 +142,22 @@ class TestMain(unittest.TestCase):
         mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
 
+    @mock.patch(PATH + 'initialize_recent')
+    @mock.patch(PATH + 'report_failure')
+    @mock.patch(PATH + 'INITIALIZE', 1)
     @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + 'initialize_issues')
     @mock.patch(PATH + 'initialize_pr')
     @mock.patch(PATH + 'load_config')
     @mock.patch(PATH + 'listen')
-    def test_main(self,
-                  mock_listen,
-                  mock_load_config,
-                  mock_initialize_pr,
-                  mock_initialize_issues,
-                  mock_confluence_client):
+    def test_main_initialize(self,
+                             mock_listen,
+                             mock_load_config,
+                             mock_initialize_pr,
+                             mock_initialize_issues,
+                             mock_confluence_client,
+                             mock_report_failure,
+                             mock_initialize_recent):
         """
         This tests the 'main' function
         """
@@ -168,6 +174,43 @@ class TestMain(unittest.TestCase):
         mock_listen.assert_called_with(self.mock_config)
         mock_initialize_issues.assert_called_with(self.mock_config)
         mock_initialize_pr.assert_called_with(self.mock_config)
+        mock_report_failure.assert_not_called()
+        mock_initialize_recent.assert_not_called()
+        mock_confluence_client.update_stat_value.assert_called_with(True)
+
+    @mock.patch(PATH + 'confluence_client')
+    @mock.patch(PATH + 'initialize_recent')
+    @mock.patch(PATH + 'report_failure')
+    @mock.patch(PATH + 'INITIALIZE', 0)
+    @mock.patch(PATH + 'initialize_issues')
+    @mock.patch(PATH + 'initialize_pr')
+    @mock.patch(PATH + 'load_config')
+    @mock.patch(PATH + 'listen')
+    def test_main_no_initialize(self,
+                                mock_listen,
+                                mock_load_config,
+                                mock_initialize_pr,
+                                mock_initialize_issues,
+                                mock_report_failure,
+                                mock_initialize_recent,
+                                mock_confluence_client,):
+        """
+        This tests the 'main' function
+        """
+        # Set up return values
+        mock_load_config.return_value = self.mock_config
+
+        # Call the function
+        m.main()
+
+        # Assert everything was called correctly
+        mock_load_config.assert_called_once()
+        mock_listen.assert_called_with(self.mock_config)
+        mock_listen.assert_called_with(self.mock_config)
+        mock_initialize_issues.assert_not_called()
+        mock_initialize_pr.assert_not_called()
+        mock_report_failure.assert_not_called()
+        mock_initialize_recent.assert_called_with(self.mock_config)
         mock_confluence_client.update_stat_value.assert_called_with(True)
 
     @mock.patch(PATH + 'u_issue')
@@ -267,13 +310,11 @@ class TestMain(unittest.TestCase):
         mock_sleep.assert_not_called()
         mock_report_failure.assert_called_with(self.mock_config)
 
-    @mock.patch(PATH + 'u_issue')
-    @mock.patch(PATH + 'd_issue')
+    @mock.patch(PATH + 'handle_msg')
     @mock.patch(PATH + 'fedmsg')
     def test_listen_no_handlers(self,
                                 mock_fedmsg,
-                                mock_d,
-                                mock_u):
+                                mock_handle_msg):
         """
         Test 'listen' function where suffix is not in handlers
         """
@@ -284,20 +325,15 @@ class TestMain(unittest.TestCase):
         m.listen(self.mock_config)
 
         # Assert everything was called correctly
-        mock_d.sync_with_jira.assert_not_called()
-        mock_u.handle_github_message.assert_not_called()
-        mock_u.handle_pagure_message.assert_not_called()
+        mock_handle_msg.assert_not_called()
 
-
+    @mock.patch(PATH + 'handle_msg')
     @mock.patch(PATH + 'issue_handlers')
-    @mock.patch(PATH + 'u_issue')
-    @mock.patch(PATH + 'd_issue')
     @mock.patch(PATH + 'fedmsg')
     def test_listen_no_issue(self,
                              mock_fedmsg,
-                             mock_d,
-                             mock_u,
-                             mock_handlers_issue):
+                             mock_handlers_issue,
+                             mock_handle_msg):
         """
         Test 'listen' function where the handler returns none
         """
@@ -309,32 +345,29 @@ class TestMain(unittest.TestCase):
         m.listen(self.mock_config)
 
         # Assert everything was called correctly
-        mock_d.sync_with_jira.assert_not_called()
-        mock_u.handle_github_message.assert_not_called()
+        mock_handle_msg.assert_not_called()
 
+    @mock.patch(PATH + 'handle_msg')
     @mock.patch(PATH + 'issue_handlers')
-    @mock.patch(PATH + 'u_issue')
-    @mock.patch(PATH + 'd_issue')
     @mock.patch(PATH + 'fedmsg')
     def test_listen(self,
                     mock_fedmsg,
-                    mock_d,
-                    mock_u,
-                    mock_handlers_issue):
+                    mock_handlers_issue,
+                    mock_handle_msg):
         """
         Test 'listen' function where everything goes smoothly
         """
         # Set up return values
         mock_handlers_issue['github.issue.comment'].return_value = 'dummy_issue'
         mock_fedmsg.tail_messages.return_value = [("dummy", "dummy", "d.d.d.github.issue.comment", self.mock_message)]
-        mock_u.handle_github_message.return_value = 'dummy_issue'
 
         # Call the function
         m.listen(self.mock_config)
 
         # Assert everything was called correctly
-        mock_d.sync_with_jira.assert_called_with('dummy_issue', self.mock_config)
-        mock_u.handle_pagure_message.assert_not_called()
+        mock_handle_msg.assert_called_with(
+            self.mock_message,
+            'github.issue.comment', self.mock_config)
 
     @mock.patch(PATH + 'send_mail')
     @mock.patch(PATH + 'jinja2')
@@ -361,3 +394,146 @@ class TestMain(unittest.TestCase):
                                           recipients=['mock_email'],
                                           subject='Sync2Jira Has Failed!',
                                           text='mock_html')
+
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
+    def test_handle_msg_no_handlers(self,
+                                    mock_d,
+                                    mock_u):
+        """
+        Tests 'handle_msg' function where there are no handlers
+        """
+        # Call the function
+        m.handle_msg(self.mock_message, 'no_handler', self.mock_config)
+
+        # Assert everything was called correctly
+        mock_d.sync_with_jira.assert_not_called()
+        mock_u.handle_github_message.assert_not_called()
+        mock_u.handle_pagure_message.assert_not_called()
+
+    @mock.patch(PATH + 'issue_handlers')
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
+    def test_handle_msg_no_issue(self,
+                                 mock_d,
+                                 mock_u,
+                                 mock_handlers_issue):
+        """
+        Tests 'handle_msg' function where there is no issue
+        """
+        # Set up return values
+        mock_handlers_issue['github.issue.comment'].return_value = None
+
+        # Call the function
+        m.handle_msg(self.mock_message, 'github.issue.comment', self.mock_config)
+
+        # Assert everything was called correctly
+        mock_d.sync_with_jira.assert_not_called()
+        mock_u.handle_github_message.assert_not_called()
+        mock_u.handle_pagure_message.assert_not_called()
+
+    @mock.patch(PATH + 'issue_handlers')
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
+    def test_handle_msg(self,
+                        mock_d,
+                        mock_u,
+                        mock_handlers_issue):
+        """
+        Tests 'handle_msg' function
+        """
+        # Set up return values
+        mock_handlers_issue['github.issue.comment'].return_value = 'dummy_issue'
+        mock_u.handle_github_message.return_value = 'dummy_issue'
+
+        # Call the function
+        m.handle_msg(self.mock_message, 'github.issue.comment', self.mock_config)
+
+        # Assert everything was called correctly
+        mock_d.sync_with_jira.assert_called_with('dummy_issue', self.mock_config)
+        mock_u.handle_pagure_message.assert_not_called()
+
+    @mock.patch(PATH + 'handle_msg')
+    @mock.patch(PATH + 'query')
+    def test_initialize_recent(self,
+                               mock_query,
+                               mock_handle_msg):
+        """
+        Tests 'initialize_recent' function
+        """
+        # Set up return values
+        mock_query.return_value = [{
+            'topic': 'm.m.m.github.issue.comment',
+            'msg': 'mock_msg'
+
+        }]
+
+        # Call the function
+        m.initialize_recent(self.mock_config)
+
+        # Assert everything was called correctly
+        mock_handle_msg.assert_called_with('mock_msg', 'github.issue.comment', self.mock_config)
+
+    @mock.patch(PATH + 'handle_msg')
+    @mock.patch(PATH + 'query')
+    def test_initialize_recent_no_handler(self,
+                                          mock_query,
+                                          mock_handle_msg):
+        """
+        Tests 'initialize_recent' function where the topic is not for a valid handler
+        """
+        # Set up return values
+        mock_query.return_value = [{
+            'topic': 'm.m.m.bad.topic',
+            'msg': 'mock_msg'
+
+        }]
+
+        # Call the function
+        m.initialize_recent(self.mock_config)
+
+        # Assert everything was called correctly
+        mock_handle_msg.assert_not_called()
+
+    @mock.patch(PATH + 'get')
+    def test_query(self,
+                   mock_get):
+        """
+        Tests 'query' function
+        """
+        # Set up return values
+        mock_get.return_value = {
+            'raw_messages': ['test_msg'],
+            'count': 1,
+            'total': 1
+        }
+        # Call the function
+        response = m.query()
+
+        # Assert everything was called correctly
+        mock_get.assert_called_with(params={'order': 'asc'})
+        self.assertEqual(response, ['test_msg'])
+
+    @mock.patch(PATH + 'HTTPKerberosAuth')
+    @mock.patch(PATH + 'requests')
+    def test_get(self,
+                 mock_requests,
+                 mock_kerberos_auth):
+        """
+        Tests 'get' function
+        """
+        # Set up return values
+        mock_response = MagicMock()
+        mock_response.json.return_value = 'mock_return_value'
+        mock_requests.get.return_value = mock_response
+
+        # Call the function
+        response = m.get('mock_params')
+
+        # Assert everything was called correctly
+        self.assertEqual(response, 'mock_return_value')
+        mock_requests.get.assert_called_with(
+            auth=mock_kerberos_auth(),
+            headers={'Accept': 'application/json'},
+            params='mock_params',
+            url=m.DATAGREPPER_URL)
