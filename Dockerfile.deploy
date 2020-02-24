@@ -44,6 +44,6 @@ RUN chmod 777 /usr/local/src/sync2jira/openshift/containers/sync2jira/docker-ent
 USER 1001
 
 # Continuous Deployment Info
-ARG rcm_tools_repos
-ENTRYPOINT ["/usr/local/src/sync2jira/openshift/containers/sync2jira/docker-entrypoint.sh"]
+ARG RCM_TOOLS_REPO
+ENTRYPOINT ["/usr/local/src/sync2jira/continuous-deployment/entry.sh $RCM_TOOLS_REPO"
 CMD ["python3", "/usr/local/src/sync2jira/continuous-deployment/continuous_deployment.py"]
