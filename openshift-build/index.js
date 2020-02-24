@@ -1,8 +1,7 @@
 // Global Variables
 APP_NAME=process.env.APP_NAME;
 TEST_COMMAND=process.env.TEST_COMMAND;
-const shell = require('shelljs');
-var rimraf = require("rimraf");
+const fs = require('fs');
 const childProcess = require("child_process");
 
 module.exports = app => {
@@ -26,44 +25,40 @@ module.exports = app => {
         started_at: startTime,
     }));
 
-    let passed = 'failure';
-    let data = 'N/A';
     try {
-      console.log("Cloning repo...");
-      // Clone the repo first
-      shell.exec(`git clone ${pr.head.repo.git_url} ./temp`);
-
-      // Move into our temp directory
-      shell.cd('temp');
-
-      // Checkout with our Sha
-      shell.exec(`git checkout ${headSha}`);
-
       console.log("Running tests...");
-      // Perform tests and return
-      const response = await perform_test();
-      passed = response[0];
-      data = response[1];
+      await childProcess.exec("/usr/local/src/sync2jira/openshift-build/runTests.sh " + headSha + " \"" + TEST_COMMAND + "\"", function(error, standardOutput, standardError) {
+        console.log("Ran tests. " + standardOutput);
 
-      // Format and return
-      if (passed=='success') {
-        data='OpenShift-Build Passed :)\n' + data;
-      }
-
-      console.log("Pushing results of test...");
-      return await context.github.checks.create(context.repo({
-        name: APP_NAME,
-        head_branch: headBranch,
-        head_sha: headSha,
-        status: 'completed',
-        started_at: startTime,
-        conclusion: passed,
-        completed_at: new Date(),
-        output: {
-          title: passed,
-          summary: data.toString()
+        // Check if failure file exists
+        let passed = 'failure';
+        if(fs.existsSync('/usr/local/src/sync2jira/openshift-build/temp/failure.sync2jira')) {
+          console.log("The failure file exists.");
+          childProcess.exec("rm /usr/local/src/sync2jira/openshift-build/temp/failure.sync2jira", function(error, standardOutput, standardError) {
+            console.log("Deleting sync2jira.failure...");
+            console.log(standardOutput);
+            console.log(standardError);
+          });
+        } else {
+          console.log('The failure file does not exist.');
+          passed = 'success'
         }
-      }))
+
+        console.log("Pushing results of test...");
+        return context.github.checks.create(context.repo({
+          name: APP_NAME,
+          head_branch: headBranch,
+          head_sha: headSha,
+          status: 'completed',
+          started_at: startTime,
+          conclusion: passed,
+          completed_at: new Date(),
+          output: {
+            title: passed,
+            summary: standardOutput.toString()
+          }
+        }))
+      });
     }
     catch {
       return await context.github.checks.create(context.repo({
@@ -79,11 +74,6 @@ module.exports = app => {
           summary: 'Error when cloning or running tests.'
         }
       }))
-    }
-    finally {
-      // Delete our cloned repo
-      shell.cd('..');
-      rimraf("temp", function () { console.log("Deleted cloned repo"); });
     }
   }
 
@@ -110,44 +100,40 @@ module.exports = app => {
         started_at: startTime,
       }));
 
-    let passed = 'failure';
-    let data = 'N/A';
     try {
-      console.log("Cloning repo...");
-      // Clone the repo first
-      shell.exec(`git clone ${context.payload.repository.git_url} ./temp`);
+      console.log("Running Tests...");
+      await childProcess.exec("/usr/local/src/sync2jira/openshift-build/runTests.sh " + headSha + " \"" + TEST_COMMAND + "\"", function(error, standardOutput, standardError) {
+        console.log("Ran tests. " + standardOutput);
 
-      // Move into our temp directory
-      shell.cd('temp');
-
-      // Checkout with our Sha
-      shell.exec(`git checkout ${headSha}`);
-
-      console.log("Running tests...");
-      // Perform tests and return
-      const response = await perform_test();
-      passed = response[0];
-      data = response[1];
-
-      // Format and return
-      if (passed=='success') {
-        data='OpenShift-Build Passed :)\n' + data;
-      }
-
-      console.log("Pushing results of test...");
-      return await context.github.checks.create(context.repo({
-        name: APP_NAME,
-        head_branch: headBranch,
-        head_sha: headSha,
-        status: 'completed',
-        started_at: startTime,
-        conclusion: passed,
-        completed_at: new Date(),
-        output: {
-          title: passed,
-          summary: data.toString()
+        // Check if failure file exists
+        let passed = 'failure';
+        if(fs.existsSync('/usr/local/src/sync2jira/openshift-build/temp/failure.sync2jira')) {
+          console.log("The failure file exists.");
+          childProcess.exec("rm /usr/local/src/sync2jira/openshift-build/temp/failure.sync2jira", function(error, standardOutput, standardError) {
+            console.log("Deleting sync2jira.failure...");
+            console.log(standardOutput);
+            console.log(standardError);
+          });
+        } else {
+          console.log('The failure file does not exist.');
+          passed = 'success'
         }
-      }))
+
+        console.log("Pushing results of test...");
+        return context.github.checks.create(context.repo({
+          name: APP_NAME,
+          head_branch: headBranch,
+          head_sha: headSha,
+          status: 'completed',
+          started_at: startTime,
+          conclusion: passed,
+          completed_at: new Date(),
+          output: {
+            title: passed,
+            summary: standardOutput.toString()
+          }
+        }))
+      });
     }
     catch {
       return await context.github.checks.create(context.repo({
@@ -164,22 +150,5 @@ module.exports = app => {
         }
       }))
     }
-    finally {
-      // Delete our cloned repo
-      shell.cd('..');
-      rimraf("temp", function () { console.log("Deleted cloned repo"); });
-    }
-  }
-
-  function perform_test(){
-    return new Promise(function(resolve, reject) {
-     childProcess.exec(TEST_COMMAND, function(error, standardOutput, standardError) {
-        if (error) {
-          resolve(['failure', error]);
-        } else {
-          resolve(['success', standardOutput]);
-        }
-      });
-    })
   }
 };
