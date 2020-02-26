@@ -192,8 +192,8 @@ def initialize_issues(config, testing=False):
         for issue in u_issue.pagure_issues(upstream, config):
             try:
                 d_issue.sync_with_jira(issue, config)
-            except Exception:
-                log.error("   Failed on %r", issue)
+            except Exception as e:
+                log.error(f"Failed on {issue}\nException: {e}")
                 raise
     log.info("Done with pagure issue initialization.")
 
