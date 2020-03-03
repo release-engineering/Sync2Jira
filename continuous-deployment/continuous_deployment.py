@@ -99,7 +99,7 @@ def update_tag(master=False, stage=False, openshift_build=False):
         namespace = 'sync2jira'
         name = 'sync2jira:latest'
     elif stage:
-        umb_url = f"https://{ENDPOINT}/apis/image.openshift.io/v1/namespaces/sync2jira-stage/imagestreamtags/sync2jira=stage:latest"
+        umb_url = f"https://{ENDPOINT}/apis/image.openshift.io/v1/namespaces/sync2jira-stage/imagestreamtags/sync2jira-stage:latest"
         namespace = 'sync2jira-stage'
         name = 'sync2jira-stage:latest'
     elif openshift_build:
