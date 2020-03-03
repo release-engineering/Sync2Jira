@@ -41,7 +41,7 @@ def main():
     try:
 
         # Create our consumer
-        print("Connecting to ACTIVEMQ as a consumer...")
+        log.info("Connecting to ACTIVEMQ as a consumer...")
         c = AMQConsumer(
             urls=(ACTIVEMQ_URL_1, ACTIVEMQ_URL_2),
             certificate=CERT,
@@ -49,14 +49,14 @@ def main():
             trusted_certificates=CA_CERTS
         )
         # Start listening
-        print('Starting up CD service...')
+        log.info('Starting up CD service...')
         c.consume(
             ACTIVEMQ_QUERY,
             lambda msg, data: handle_message(msg, data)
         )
 
     except:
-        print("Error! Sending email..")
+        log.error("Error! Sending email..")
         report_email('failure', 'Continuous-Deployment-Main', traceback.format_exc())
 
 
@@ -69,7 +69,6 @@ def handle_message(msg, data):
     """
     msg_dict = json.loads(msg.body)
     log.info(f"Encountered message: {msg_dict}")
-
     if msg_dict['repo'] == ACTIVEMQ_REPO_NAME:
         if msg_dict['tag'] == "master":
             ret = update_tag(master=True)
@@ -120,7 +119,8 @@ def update_tag(master=False, stage=False, openshift_build=False):
                                "metadata": {
                                    "name": name,
                                    "namespace": namespace,
-                                   "creationTimestamp": None},
+                                   "creationTimestamp": None
+                               },
                                "tag": {
                                    "name": "",
                                    "annotations": None,
@@ -147,10 +147,13 @@ def update_tag(master=False, stage=False, openshift_build=False):
                                }
                            }))
     except Exception as e:
+        log.error(f"Failure updating image stream tag.\nException: {e}")
         report_email('failure', namespace, e)
     if ret.status_code == 200:
+        log.info(f"Tagged new image for {name}")
         return True, ret
     else:
+        log.error(f"Failure updating image stream tag.\nResponse: {ret}")
         return False, ret
 
 
