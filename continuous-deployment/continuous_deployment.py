@@ -3,6 +3,7 @@ import os
 import requests
 import json
 import traceback
+import logging
 
 # 3rd Party Modules
 import jinja2
@@ -16,6 +17,8 @@ from sync2jira.main import load_config
 handlers = [
     'repotracker.container.tag.updated'
 ]
+# Logging
+log = logging.getLogger(__name__)
 # OpenShift Related
 TOKEN = os.environ['TOKEN']
 ENDPOINT = os.environ['ENDPOINT']
@@ -65,6 +68,7 @@ def handle_message(msg, data):
     :return:
     """
     msg_dict = json.loads(msg.body)
+    log.info(f"Encountered message: {msg_dict}")
 
     if msg_dict['repo'] == ACTIVEMQ_REPO_NAME:
         if msg_dict['tag'] == "master":
