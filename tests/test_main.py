@@ -472,7 +472,7 @@ class TestMain(unittest.TestCase):
         m.initialize_recent(self.mock_config)
 
         # Assert everything was called correctly
-        mock_handle_msg.assert_called_with('mock_msg', 'github.issue.comment', self.mock_config)
+        mock_handle_msg.assert_called_with({'msg': 'mock_msg'}, 'github.issue.comment', self.mock_config)
 
     @mock.patch(PATH + 'handle_msg')
     @mock.patch(PATH + 'query')
