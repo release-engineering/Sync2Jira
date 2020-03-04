@@ -202,7 +202,7 @@ def create_header(namespace):
     else:
         token = TOKEN
     return {
-        'Authorization': f'Bearer {token}',
+        'Authorization': f'Bearer {token.strip()}',
         'Accept': 'application/json',
         'Content-Type': 'application/json',
     }
