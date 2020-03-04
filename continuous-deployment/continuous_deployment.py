@@ -202,7 +202,7 @@ def create_header(namespace):
     :rtype Dict:
     :return: Default header
     """
-    if namespace == 'sync2jira-stage':
+    if namespace in ['sync2jira-stage', 'openshift-build']:
         token = STAGE_TOKEN
     else:
         token = TOKEN
