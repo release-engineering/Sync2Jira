@@ -70,6 +70,7 @@ def handle_message(msg, data):
     """
     msg_dict = json.loads(msg.body)
     log.info(f"Encountered message: {msg_dict}")
+    status = None
     if msg_dict['repo'] == ACTIVEMQ_REPO_NAME:
         if msg_dict['tag'] == "master":
             status, ret = update_tag(master=True)
@@ -78,9 +79,9 @@ def handle_message(msg, data):
         if msg_dict['tag'] == "openshift-build":
             status, ret = update_tag(openshift_build=True)
         if status:
-            report_email('success', msg_dict['repo'])
+            report_email('success', namespace=msg_dict['tag'])
         else:
-            report_email('failure', msg_dict['repo'], ret)
+            report_email('failure', data=msg_dict)
 
 
 def update_tag(master=False, stage=False, openshift_build=False):
@@ -171,6 +172,7 @@ def report_email(type, namespace=None, data=None):
     """
     if SEND_EMAILS == '0':
         log.info(f"SEND_EMAILS set to 0 not sending email. Type: {type}. Namespace: {namespace}, Data: {data}")
+        return
     # Load in the Sync2Jira config
     config = load_config()
 
