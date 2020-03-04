@@ -7,7 +7,7 @@ const childProcess = require("child_process");
 
 module.exports = app => {
   // When a Pull Request is opened or Re-Opened
-  app.on(['pull_request.opened', 'pull_request.reopened'], pull_request);
+  app.on(['pull_request.opened', 'pull_request.reopened', 'pull_request.synchronize'], pull_request);
   async function pull_request (context) {
     // Identify start time
     const startTime = new Date();
