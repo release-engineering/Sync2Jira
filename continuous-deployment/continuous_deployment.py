@@ -32,7 +32,8 @@ ACTIVEMQ_URL_1 = os.environ['ACTIVEMQ_URL_1']
 ACTIVEMQ_URL_2 = os.environ['ACTIVEMQ_URL_2']
 # Message Bus Query Related
 ACTIVEMQ_REPO_NAME = os.environ['ACTIVEMQ_REPO_NAME']
-
+# SEND_EMAILS
+SEND_EMAILS = os.environ['SEND_EMAILS']
 
 def main():
     """
@@ -166,8 +167,10 @@ def report_email(type, namespace=None, data=None):
 
     :param String type: Type to be used
     :param String namespace: Namespace being used
-    :param String data: Data being used\
+    :param String data: Data being used
     """
+    if SEND_EMAILS == '0':
+        log.info(f"SEND_EMAILS set to 0 not sending email. Type: {type}. Namespace: {namespace}, Data: {data}")
     # Load in the Sync2Jira config
     config = load_config()
 
@@ -184,7 +187,7 @@ def report_email(type, namespace=None, data=None):
         html_text = template.render(namespace=namespace)
 
     # Send mail
-    send_mail(recipients=config['mailing-list'],
+    send_mail(recipients=[config['sync2jira']['mailing-list']],
               cc=None,
               subject=f"Sync2Jira Build Image Update Status: {type}!",
               text=html_text)
