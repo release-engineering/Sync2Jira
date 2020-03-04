@@ -21,6 +21,7 @@ handlers = [
 log = logging.getLogger(__name__)
 # OpenShift Related
 TOKEN = os.environ['TOKEN']
+STAGE_TOKEN = os.environ['STAGE_TOKEN']
 ENDPOINT = os.environ['ENDPOINT']
 NAMESPACE = os.environ['NAMESPACE']
 # Message Bus Related
@@ -112,7 +113,7 @@ def update_tag(master=False, stage=False, openshift_build=False):
     # Make our put call
     try:
         ret = requests.put(umb_url,
-                           headers=create_header(),
+                           headers=create_header(namespace),
                            data=json.dumps({
                                "kind": "ImageStreamTag",
                                "apiVersion": "image.openshift.io/v1",
@@ -187,14 +188,19 @@ def report_email(type, namespace=None, data=None):
               text=html_text)
 
 
-def create_header():
+def create_header(namespace):
     """
     Helper function to create default header
+    :param string namespace: Namespace to indicate which token to use
     :rtype Dict:
     :return: Default header
     """
+    if namespace == 'sync2jira-stage':
+        token = STAGE_TOKEN
+    else:
+        token = TOKEN
     return {
-        'Authorization': f'Bearer {TOKEN}',
+        'Authorization': f'Bearer {token}',
         'Accept': 'application/json',
         'Content-Type': 'application/json',
     }
