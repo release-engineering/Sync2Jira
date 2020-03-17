@@ -16,10 +16,10 @@ The config file is made up of multiple parts
 
 .. code-block:: python
 
-    'initialize': True
+    'initialize': 1
 
-* Initialization set to True will ensure that there is an initial sync done when Sync2Jira starts.
-  It is recommended to leave this as True to ensure that all issues are in sync.
+* Initialization set to 1 will ensure that there is an initial sync done when Sync2Jira starts.
+  It is recommended to leave this as 1 to ensure that all issues are in sync.
 
 .. code-block:: python
 

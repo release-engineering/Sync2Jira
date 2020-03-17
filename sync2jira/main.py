@@ -99,7 +99,7 @@ pr_handlers = {
     'pagure.pull-request.initial_comment.edited': u_pr.handle_pagure_message,
 }
 DATAGREPPER_URL = "http://apps.fedoraproject.org/datagrepper/raw"
-INITIALIZE = os.getenv('INITIALIZE', False)
+INITIALIZE = os.getenv('INITIALIZE', '0')
 
 
 def load_config(loader=fedmsg.config.load_config):
@@ -299,7 +299,7 @@ def initialize_recent(config):
         # Deal with the message
         log.debug("Handling %r %r", suffix, entry['topic'])
         msg = entry['msg']
-        handle_msg(msg, suffix, config)
+        handle_msg({'msg': msg}, suffix, config)
 
 
 def handle_msg(msg, suffix, config):
@@ -415,7 +415,7 @@ def main(runtime_test=False, runtime_config=None):
     config['validate_signatures'] = False
 
     try:
-        if INITIALIZE:
+        if str(INITIALIZE) == '1':
             log.info("Initialization True")
             # Initialize issues
             log.info("Initializing Issues...")
