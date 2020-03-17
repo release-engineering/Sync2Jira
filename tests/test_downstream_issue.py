@@ -864,7 +864,7 @@ class TestDownstreamIssue(unittest.TestCase):
             self.mock_issue,
             self.mock_downstream
         )
-        mock_confluence_client.update_stat_page.assert_not_called()
+        mock_confluence_client.update_stat_page.assert_called_with({'Assignee': 1})
 
     @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + 'assign_user')

@@ -1031,6 +1031,7 @@ def _update_assignee(client, existing, issue, updates):
             log.info('Updated assignee')
             if confluence_client.update_stat:
                 confluence_data = {'Misc. Fields': 1}
+                confluence_client.update_stat_page(confluence_data)
         else:
             if existing.fields.assignee:
                 # Else we should remove all assignees
