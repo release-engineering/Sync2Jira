@@ -99,7 +99,7 @@ objects:
       spec:
         containers:
         - name: sync2jira-container
-          image: sync2jira:stage
+          image: sync2jira:latest
           imagePullPolicy: Always
           volumeMounts:
             - name: fedmsgd-volume
