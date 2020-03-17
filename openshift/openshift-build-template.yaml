@@ -60,7 +60,6 @@ objects:
     annotations:
       openshift.io/display-name: openshift-build
     name: openshift-build
-    namespace: openshift-build
   spec:
     lookupPolicy:
       local: false
