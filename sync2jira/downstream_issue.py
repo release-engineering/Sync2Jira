@@ -1012,6 +1012,7 @@ def _update_assignee(client, existing, issue, updates):
             update = issue.assignee[0]['fullname'] != existing.fields.assignee.displayName
         except AttributeError:
             update = True
+
     if not overwrite:
         # Only assign if the existing JIRA issue doesn't have an assignee
         # And the issue has an assignee
@@ -1030,7 +1031,8 @@ def _update_assignee(client, existing, issue, updates):
             assign_user(client, issue, existing)
             log.info('Updated assignee')
             if confluence_client.update_stat:
-                confluence_data = {'Misc. Fields': 1}
+                confluence_data = {'Assignee': 1}
+                confluence_client.update_stat_page(confluence_data)
         else:
             if existing.fields.assignee:
                 # Else we should remove all assignees

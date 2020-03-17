@@ -3,6 +3,7 @@ import os
 import requests
 import json
 import traceback
+import logging
 
 # 3rd Party Modules
 import jinja2
@@ -16,10 +17,12 @@ from sync2jira.main import load_config
 handlers = [
     'repotracker.container.tag.updated'
 ]
+# Logging
+log = logging.getLogger(__name__)
 # OpenShift Related
 TOKEN = os.environ['TOKEN']
+STAGE_TOKEN = os.environ['STAGE_TOKEN']
 ENDPOINT = os.environ['ENDPOINT']
-NAMESPACE = os.environ['NAMESPACE']
 # Message Bus Related
 CERT = os.environ['CERT']
 KEY = os.environ['KEY']
@@ -29,15 +32,17 @@ ACTIVEMQ_URL_1 = os.environ['ACTIVEMQ_URL_1']
 ACTIVEMQ_URL_2 = os.environ['ACTIVEMQ_URL_2']
 # Message Bus Query Related
 ACTIVEMQ_REPO_NAME = os.environ['ACTIVEMQ_REPO_NAME']
-
+# SEND_EMAILS
+SEND_EMAILS = os.environ['SEND_EMAILS']
 
 def main():
     """
     Main function to start listening
     """
     try:
-        # Load in config
+
         # Create our consumer
+        log.info("Connecting to ACTIVEMQ as a consumer...")
         c = AMQConsumer(
             urls=(ACTIVEMQ_URL_1, ACTIVEMQ_URL_2),
             certificate=CERT,
@@ -45,14 +50,14 @@ def main():
             trusted_certificates=CA_CERTS
         )
         # Start listening
-        print('Starting up CD service...')
+        log.info('Starting up CD service...')
         c.consume(
             ACTIVEMQ_QUERY,
             lambda msg, data: handle_message(msg, data)
         )
 
-    except:
-        print("Error! Sending email..")
+    except Exception as e :
+        log.error(f"Error!\nException {e}\nSending email..")
         report_email('failure', 'Continuous-Deployment-Main', traceback.format_exc())
 
 
@@ -64,18 +69,19 @@ def handle_message(msg, data):
     :return:
     """
     msg_dict = json.loads(msg.body)
-
+    log.info(f"Encountered message: {msg_dict}")
+    status = None
     if msg_dict['repo'] == ACTIVEMQ_REPO_NAME:
         if msg_dict['tag'] == "master":
-            ret = update_tag(master=True)
+            status, ret = update_tag(master=True)
         if msg_dict['tag'] == "stage":
-            ret = update_tag(stage=True)
+            status, ret = update_tag(stage=True)
         if msg_dict['tag'] == "openshift-build":
-            ret = update_tag(openshift_build=True)
-        if ret:
-            report_email('success', msg_dict['repo'])
+            status, ret = update_tag(openshift_build=True)
+        if status:
+            report_email('success', namespace=msg_dict['tag'])
         else:
-            report_email('failure', msg_dict['repo'], 'No additional data available at this view')
+            report_email('failure', data=msg_dict)
 
 
 def update_tag(master=False, stage=False, openshift_build=False):
@@ -94,34 +100,38 @@ def update_tag(master=False, stage=False, openshift_build=False):
         umb_url = f"https://{ENDPOINT}/apis/image.openshift.io/v1/namespaces/sync2jira/imagestreamtags/sync2jira:latest"
         namespace = 'sync2jira'
         name = 'sync2jira:latest'
+        tag = 'latest'
     elif stage:
-        umb_url = f"https://{ENDPOINT}/apis/image.openshift.io/v1/namespaces/sync2jira-stage/imagestreamtags/sync2jira=stage:latest"
+        umb_url = f"https://{ENDPOINT}/apis/image.openshift.io/v1/namespaces/sync2jira-stage/imagestreamtags/sync2jira-stage:latest"
         namespace = 'sync2jira-stage'
         name = 'sync2jira-stage:latest'
+        tag = 'stage'
     elif openshift_build:
         umb_url = f"https://{ENDPOINT}/apis/image.openshift.io/v1/namespaces/sync2jira-stage/imagestreamtags/openshift-build:latest"
         namespace = 'sync2ijra-stage'
-        name = 'openshift-build'
+        name = 'openshift-build:latest'
+        tag = 'openshift-build'
     else:
         raise Exception("No type passed")
 
     # Make our put call
     try:
         ret = requests.put(umb_url,
-                           headers=create_header(),
+                           headers=create_header(namespace),
                            data=json.dumps({
                                "kind": "ImageStreamTag",
                                "apiVersion": "image.openshift.io/v1",
                                "metadata": {
                                    "name": name,
                                    "namespace": namespace,
-                                   "creationTimestamp": None},
+                                   "creationTimestamp": None
+                               },
                                "tag": {
                                    "name": "",
                                    "annotations": None,
                                    "from": {
                                        "kind": "DockerImage",
-                                       "name": f"quay.io/redhat-aqe/sync2jira:{namespace}"
+                                       "name": f"quay.io/redhat-aqe/sync2jira:{tag}"
                                    },
                                    "generation": 0,
                                    "importPolicy": {},
@@ -142,10 +152,13 @@ def update_tag(master=False, stage=False, openshift_build=False):
                                }
                            }))
     except Exception as e:
+        log.error(f"Failure updating image stream tag.\nException: {e}")
         report_email('failure', namespace, e)
     if ret.status_code == 200:
+        log.info(f"Tagged new image for {name}")
         return True, ret
     else:
+        log.error(f"Failure updating image stream tag.\nResponse: {ret}")
         return False, ret
 
 
@@ -155,8 +168,11 @@ def report_email(type, namespace=None, data=None):
 
     :param String type: Type to be used
     :param String namespace: Namespace being used
-    :param String data: Data being used\
+    :param String data: Data being used
     """
+    if SEND_EMAILS == '0':
+        log.info(f"SEND_EMAILS set to 0 not sending email. Type: {type}. Namespace: {namespace}, Data: {data}")
+        return
     # Load in the Sync2Jira config
     config = load_config()
 
@@ -173,20 +189,25 @@ def report_email(type, namespace=None, data=None):
         html_text = template.render(namespace=namespace)
 
     # Send mail
-    send_mail(recipients=config['mailing-list'],
+    send_mail(recipients=[config['sync2jira']['mailing-list']],
               cc=None,
               subject=f"Sync2Jira Build Image Update Status: {type}!",
               text=html_text)
 
 
-def create_header():
+def create_header(namespace):
     """
     Helper function to create default header
+    :param string namespace: Namespace to indicate which token to use
     :rtype Dict:
     :return: Default header
     """
+    if namespace in ['sync2jira-stage', 'openshift-build']:
+        token = STAGE_TOKEN
+    else:
+        token = TOKEN
     return {
-        'Authorization': f'Bearer {TOKEN}',
+        'Authorization': f'Bearer {token.strip()}',
         'Accept': 'application/json',
         'Content-Type': 'application/json',
     }
