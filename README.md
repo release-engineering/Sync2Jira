@@ -34,4 +34,3 @@ We will maintain two branches
 1. `master` - This will be where our main code and most up to date code lives
 1. `stage` - This will be our staging configuration. PR's will merge through stage to master
 1. `openshift-build` - This branch will maintain OpenShift-Build related information
-1. `continuous-deployment` - This branch with maintain CI/CD related information
