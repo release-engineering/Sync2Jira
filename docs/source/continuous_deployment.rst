@@ -6,8 +6,14 @@ The following environmental variables will have to be set:
 
 Related to OpenShift:
     1. :code:`TOKEN` :: OpenShift Token to be used
-    2. :code:`ENDPOINT` :: OpenShift Endpoint to use
-    3. :code:`NAMESPACE` :: OpenShift Namespace to use
+    2. :code:`STAGE_TOKEN` :: OpenShift Stage namespace Token to be used
+    3. :code:`SEND_EMAILS` :: 0/1 if we should/shouldn't send emails
+    4. :code:`DEFAULT_FROM` :: Default email address
+    5. :code:`DEFAULT_SERVER` :: Email server to use
+    6. :code:`RCM_TOOLS_REPO` :: Repo URL to download rhmsg
+    7. :code:`CA_URL` :: CA URL
+    8. :code:`ENDPOINT` :: OpenShift Endpoint to use
+    9. :code:`NAMESPACE` :: OpenShift Namespace to use
 Message Bus Related:
     1. :code:`CERT` :: Cert file that should be used (can be in .pem format)
     2. :code:`KEY` :: Key file that should be used (in .key format)
