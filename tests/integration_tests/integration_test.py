@@ -71,7 +71,7 @@ def compare_data(client, data):
         raise Exception(f"Too many issues were found with ticket {jira_ticket}")
 
     existing = existing[0]
-
+    log.info("TEST - "+existing.fields.summary)
     # Check Tags
     if data['tags'] != existing.fields.labels:
         raise Exception(f"Error when comparing tags for {jira_ticket}\n"
@@ -104,7 +104,7 @@ def compare_data(client, data):
                         f"Actual: {existing.fields.summary}")
 
     # Check Descriptions
-    if data['description'] != existing.fields.description:
+    if data['description'].replace("\n", "").replace(" ", "").replace("\r", "") != existing.fields.description.replace("\n", "").replace(" ", "").replace("\r", ""):
         raise Exception(f"Error when comparing descriptions for {jira_ticket}\n"
                         f"Expected: {data['description']}\n"
                         f"Actual: {existing.fields.description}")
