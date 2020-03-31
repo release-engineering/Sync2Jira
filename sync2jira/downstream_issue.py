@@ -1034,7 +1034,7 @@ def _update_assignee(client, existing, issue, updates):
                 confluence_data = {'Assignee': 1}
                 confluence_client.update_stat_page(confluence_data)
         else:
-            if existing.fields.assignee and existing.fields.assignee.displayName != issue.assignee[0]['fullname']:
+            if existing.fields.assignee and not issue.assignee:
                 # Else we should remove all assignees
                 # Set removeAll flag to true
                 assign_user(client, issue, existing, remove_all=True)

@@ -88,7 +88,7 @@ def handle_github_message(msg, config, pr_filter=True):
 
     # Initialize Github object so we can get their full name (instead of their username)
     # And get comments if needed
-    github_client = Github(config['sync2jira']['github_token'])
+    github_client = Github(config['sync2jira']['github_token'], retry=5)
 
     # If there are no comments just make an empty array
     if msg['msg']['issue']['comments'] == 0:
@@ -294,7 +294,7 @@ def github_issues(upstream, config):
 
     # Initialize Github object so we can get their full name (instead of their username)
     # And get comments if needed
-    github_client = Github(config['sync2jira']['github_token'])
+    github_client = Github(config['sync2jira']['github_token'], retry=5)
 
     # We need to format everything to a standard to we can create an issue object
     final_issues = []
