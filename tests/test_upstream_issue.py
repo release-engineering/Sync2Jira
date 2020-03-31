@@ -476,7 +476,7 @@ class TestUpstreamIssue(unittest.TestCase):
                                                    'user': {'login': 'mock_login', 'fullname': 'mock_name'},
                                                    'milestone': 'mock_milestone'},
                                                   self.mock_config)
-        mock_github.assert_called_with('mock_token')
+        mock_github.assert_called_with('mock_token', retry=5)
         self.assertEqual('Successful Call!', response)
         self.mock_github_client.get_repo.assert_not_called()
         self.mock_github_repo.get_issue.assert_not_called()
@@ -511,7 +511,7 @@ class TestUpstreamIssue(unittest.TestCase):
                                                    'filter1': 'filter1', 'user':
                                                        {'login': 'mock_login', 'fullname': 'mock_name'},
                                                    'milestone': 'mock_milestone'}, self.mock_config)
-        mock_github.assert_called_with('mock_token')
+        mock_github.assert_called_with('mock_token', retry=5)
         self.assertEqual('Successful Call!', response)
         self.mock_github_client.get_repo.assert_called_with('org/repo')
         self.mock_github_repo.get_issue.assert_called_with(number='mock_number')
