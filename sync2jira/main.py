@@ -417,6 +417,7 @@ def main(runtime_test=False, runtime_config=None):
     try:
         if str(INITIALIZE) == '1':
             log.info("Initialization True")
+            exit()
             # Initialize issues
             log.info("Initializing Issues...")
             initialize_issues(config)
