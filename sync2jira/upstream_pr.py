@@ -34,7 +34,7 @@ import sync2jira.intermediary as i
 import sync2jira.upstream_issue as u_issue
 
 
-log = logging.getLogger(__name__)
+log = logging.getLogger('sync2jira')
 
 
 def handle_pagure_message(msg, config, suffix):
