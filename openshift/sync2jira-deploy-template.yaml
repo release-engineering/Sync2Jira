@@ -92,7 +92,7 @@ objects:
     source:
       git:
         uri: ${GITHUB_URL}
-        ref: continuous-deployment
+        ref: master
     strategy:
       type: Docker
       dockerStrategy:
