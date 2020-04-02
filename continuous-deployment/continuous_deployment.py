@@ -74,10 +74,12 @@ def handle_message(msg, data):
     if msg_dict['repo'] == ACTIVEMQ_REPO_NAME:
         if msg_dict['tag'] == "master":
             status, ret = update_tag(master=True)
-        if msg_dict['tag'] == "stage":
+        elif msg_dict['tag'] == "stage":
             status, ret = update_tag(stage=True)
-        if msg_dict['tag'] == "openshift-build":
+        elif msg_dict['tag'] == "openshift-build":
             status, ret = update_tag(openshift_build=True)
+        else:
+            return
         if status:
             report_email('success', namespace=msg_dict['tag'])
         else:
@@ -202,7 +204,7 @@ def create_header(namespace):
     :rtype Dict:
     :return: Default header
     """
-    if namespace in ['sync2jira-stage', 'openshift-build']:
+    if namespace in ['sync2jira-stage']:
         token = STAGE_TOKEN
     else:
         token = TOKEN
