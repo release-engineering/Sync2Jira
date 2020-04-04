@@ -114,6 +114,8 @@ The config file is made up of multiple parts
         * Optional: Pass the downstream key to automatically create an epic-link when issues are created
     * :code:`'labels': ['tag1'..]`
         * Optional: Field to have custom set labels on all downstream issues created.
+   * :code:`'EXD-Service': {'guild': 'SOME_GUILD', 'value': 'SOME_VALUE'}`
+        * Sync custom EXD-Service field
 
 * You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with downstream components
   You can add the following to the :code:`issue_updates` array:
