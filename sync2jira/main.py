@@ -55,7 +55,7 @@ if os.environ.get('CONFLUENCE_SPACE') == 'mock_confluence_space':
     # If we are debugging save log output
     hdlr = logging.FileHandler('sync2jira_main.log')
     log.addHandler(hdlr)
-log.setLevel(logging.DEBUG)
+    log.setLevel(logging.DEBUG)
 
 # Only allow fedmsg logs that are critical
 fedmsg_log = logging.getLogger('fedmsg.crypto.utils')
