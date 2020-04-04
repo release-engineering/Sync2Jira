@@ -34,9 +34,6 @@ RUN mkdir -p /usr/local/src/sync2jira
 # Copy over our repo
 COPY . /usr/local/src/sync2jira
 
-# Install Sync2Jira
-RUN  pip3 install --no-deps -v /usr/local/src/sync2jira
-
 # To deal with JIRA issues (i.e. SSL errors)
 RUN chmod g+w /etc/pki/tls/certs/ca-bundle.crt
 RUN chmod 777 /usr/local/src/sync2jira/openshift/docker-entrypoint.sh
@@ -51,5 +48,15 @@ USER root
 RUN chmod 777 /usr/local/src/sync2jira/openshift-build
 RUN dnf -y install nodejs
 RUN npm --prefix /usr/local/src/sync2jira/openshift-build/ install
+
+# Install Sync2Jira once
+RUN mkdir -p /usr/local/src/sync2jira/openshift-build/temp \
+    && git clone ${SYNC2JIRA_GIT_REPO} /usr/local/src/sync2jira/openshift-build/temp \
+    && cd usr/local/src/sync2jira/openshift-build/temp \
+    && python3 setup.py develop \
+    && mkdir -p /usr/local/src/sync2jira/openshift-build/temp \
+    && chgrp -R 0 /usr/local/src/sync2jira/openshift-build/temp \
+    && chmod -R 777 /usr/local/src/sync2jira/openshift-build/temp
+
 USER 1001
 CMD ["npm", "--prefix", "/usr/local/src/sync2jira/openshift-build/", "start"]
