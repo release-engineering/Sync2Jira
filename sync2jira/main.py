@@ -51,8 +51,10 @@ logging.basicConfig(format=FORMAT, level=logging.INFO)
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 logging.basicConfig(format=FORMAT, level=logging.WARNING)
 log = logging.getLogger('sync2jira')
-hdlr = logging.FileHandler('sync2jira_main.log')
-log.addHandler(hdlr)
+if os.environ.get('CONFLUENCE_SPACE') == 'mock_confluence_space':
+    # If we are debugging save log output
+    hdlr = logging.FileHandler('sync2jira_main.log')
+    log.addHandler(hdlr)
 log.setLevel(logging.DEBUG)
 
 # Only allow fedmsg logs that are critical
