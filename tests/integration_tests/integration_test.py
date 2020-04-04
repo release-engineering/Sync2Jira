@@ -4,10 +4,12 @@ This is a helper program to listen for UMB trigger. Test and then deploy Sync2Ji
 # Built-In Modules
 import os
 import logging
+import sys
+import types
 
 # Local Modules
-from jira_values import PAGURE, GITHUB
 from sync2jira.main import main as m
+from jira_values import PAGURE, GITHUB
 from runtime_config import runtime_config
 
 # 3rd Party Modules
@@ -18,22 +20,29 @@ URL = os.environ['JIRA_STAGE_URL']
 USERNAME = os.environ['JIRA_USER']
 PASSWORD = os.environ['JIRA_PASS']
 log = logging.getLogger(__name__)
+hdlr = logging.FileHandler('integration_test.log')
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+hdlr.setFormatter(formatter)
+log.addHandler(hdlr)
+log.setLevel(logging.DEBUG)
+
 
 def main():
     """
     Main message to listen and react to messages.
     """
     log.info("[OS-BUILD] Running sync2jira.main...")
+
     # Make our JIRA client
     client = get_jira_client()
 
     # First init with what we have
     m(runtime_test=True, runtime_config=runtime_config)
 
+    # Now we need to make sure that Sync2Jira didn't update anything,
     failed = False
 
-    # Now we need to make sure that Sync2Jira didn't update anything,
-    # compare to our old values
+    # Compare to our old values
     log.info("[OS-BUILD] Comparing values with Pagure...")
     try:
         compare_data(client, PAGURE)

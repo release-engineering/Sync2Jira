@@ -50,7 +50,10 @@ FORMAT = "[%(asctime)s] %(levelname)s: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 logging.basicConfig(format=FORMAT, level=logging.WARNING)
-log = logging.getLogger('sync2jira.main')
+log = logging.getLogger('sync2jira')
+hdlr = logging.FileHandler('sync2jira_main.log')
+log.addHandler(hdlr)
+log.setLevel(logging.DEBUG)
 
 # Only allow fedmsg logs that are critical
 fedmsg_log = logging.getLogger('fedmsg.crypto.utils')

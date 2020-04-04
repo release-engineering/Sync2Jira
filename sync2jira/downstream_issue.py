@@ -40,7 +40,7 @@ from sync2jira.confluence_client import confluence_client
 # This is used to ensure legacy comments are not touched
 UPDATE_DATE = datetime(2019, 7, 9, 18, 18, 36, 480291)
 
-log = logging.getLogger(__name__)
+log = logging.getLogger('sync2jira')
 
 remote_link_title = "Upstream issue"
 duplicate_issues_subject = 'FYI: Duplicate Sync2jira Issues'

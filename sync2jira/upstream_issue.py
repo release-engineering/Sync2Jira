@@ -33,7 +33,7 @@ from github import Github
 import sync2jira.intermediary as i
 
 
-log = logging.getLogger(__name__)
+log = logging.getLogger('sync2jira')
 
 
 def handle_github_message(msg, config, pr_filter=True):

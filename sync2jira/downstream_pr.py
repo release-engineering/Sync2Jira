@@ -28,7 +28,7 @@ from sync2jira.intermediary import Issue, matcher
 from sync2jira.confluence_client import confluence_client
 
 
-log = logging.getLogger(__name__)
+log = logging.getLogger('sync2jira')
 
 
 def format_comment(pr, pr_suffix, client):
