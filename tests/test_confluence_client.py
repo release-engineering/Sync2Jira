@@ -25,7 +25,6 @@ class TestConfluenceClient(unittest.TestCase):
         self.confluence_client = ConfluenceClient()
 
         self.mock_resp_bad = MagicMock()
-        self.mock_resp_bad.raise_for_status.side_effect = ValueError()
         self.mock_resp_bad.ok = False
 
     def test_update_state_value(self):
@@ -76,7 +75,6 @@ class TestConfluenceClient(unittest.TestCase):
         # Assert everything was called correctly
         mock_requests.get.assert_called_with(
             "http://mock_confluence_url/rest/api/content/search?cql=title='mock_confluence_page_title' and space=mock_confluence_space")
-        mock_resp.raise_for_status.assert_called()
         mock_resp.json.assert_called()
         self.assertEqual(response, 'mock_id')
 
@@ -99,7 +97,6 @@ class TestConfluenceClient(unittest.TestCase):
         # Assert everything was called correctly
         mock_requests.get.assert_called_with(
             "http://mock_confluence_url/rest/api/content/search?cql=title='mock_confluence_page_title' and space=mock_confluence_space")
-        mock_resp.raise_for_status.assert_called()
         mock_resp.json.assert_called()
         self.assertEqual(response, None)
 
@@ -117,14 +114,11 @@ class TestConfluenceClient(unittest.TestCase):
         mock_requests.get.return_value = self.mock_resp_bad
 
         # Call the function
-        with self.assertRaises(ValueError):
-            self.confluence_client.find_page()
+        self.confluence_client.find_page()
 
         # Assert everything was called correctly
         mock_requests.get.assert_called_with(
             "http://mock_confluence_url/rest/api/content/search?cql=title='mock_confluence_page_title' and space=mock_confluence_space")
-        self.mock_resp_bad.raise_for_status.assert_called()
-        self.mock_resp_bad.json.assert_not_called()
 
     @mock.patch(PATH + 'requests')
     @mock.patch(PATH + 'ConfluenceClient.req_kwargs')
@@ -146,7 +140,6 @@ class TestConfluenceClient(unittest.TestCase):
         mock_requests.get.assert_called_with(
             'http://mock_confluence_url/rest/api/content/mock_page_id?expand=ancestors,version,body.storage')
         self.assertEqual(response, 'mock_json')
-        mock_resp.raise_for_status.assert_called()
 
     @mock.patch(PATH + 'requests')
     @mock.patch(PATH + 'ConfluenceClient.req_kwargs')
@@ -162,13 +155,11 @@ class TestConfluenceClient(unittest.TestCase):
         mock_requests.get.return_value = self.mock_resp_bad
 
         # Call the function
-        with self.assertRaises(ValueError):
-            self.confluence_client.get_page_info('mock_page_id')
+        self.confluence_client.get_page_info('mock_page_id')
 
         # Assert everything was called correctly
         mock_requests.get.assert_called_with(
             'http://mock_confluence_url/rest/api/content/mock_page_id?expand=ancestors,version,body.storage')
-        self.mock_resp_bad.raise_for_status.assert_called()
 
     @mock.patch(PATH + 'ConfluenceClient.get_page_info')
     @mock.patch(PATH + 'requests')
@@ -202,7 +193,6 @@ class TestConfluenceClient(unittest.TestCase):
                   'title': 'mock_title', 'version': {'number': 2},
                   'body': {'storage':
                                {'representation': 'storage', 'value': 'mock_html_str'}}})
-        mock_resp.raise_for_status.assert_called()
         self.assertEqual(response, 'mock_json')
 
     @mock.patch(PATH + 'ConfluenceClient.get_page_info')
@@ -222,11 +212,10 @@ class TestConfluenceClient(unittest.TestCase):
         mock_requests.put.return_value = self.mock_resp_bad
 
         # Call the function
-        with self.assertRaises(ValueError):
-            self.confluence_client.update_page(
-                page_id='mock_page_id',
-                html_str='mock_html_str',
-            )
+        self.confluence_client.update_page(
+            page_id='mock_page_id',
+            html_str='mock_html_str',
+        )
 
         # Assert everything was called correctly
         mock_requests.put.assert_called_with(
@@ -238,7 +227,6 @@ class TestConfluenceClient(unittest.TestCase):
                 'version': {'number': 2},
                 'body':
                     {'storage': {'representation': 'storage', 'value': 'mock_html_str'}}})
-        self.mock_resp_bad.raise_for_status.assert_called()
 
     @mock.patch(PATH + 'HTTPBasicAuth')
     def test_get_auth_object_basic(self,
