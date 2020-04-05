@@ -12,7 +12,7 @@ import jinja2
 import datetime
 
 # Global Variables
-log = logging.getLogger(__name__)
+log = logging.getLogger('sync2jira')
 
 
 class ConfluenceClient:
@@ -78,93 +78,96 @@ class ConfluenceClient:
         Updates the statistic page with more data
         :param dict confluence_data: Variable amount of new data
         """
-        # Get the HTML to update
-        page_info = self.get_page_info(self.page_id)
-        page_html = page_info['body']['storage']['value']
-        # Maintain and update our final data
-        confluence_data_update = {
-            'Created Issues': 0,
-            'Descriptions': 0,
-            'Comments': 0,
-            'Reporters': 0,
-            'Status': 0,
-            'Assignees': 0,
-            'Transitions': 0,
-            'Title': 0,
-            'Tags': 0,
-            'FixVersion': 0,
-            'Misc. Fields': 0,
-            'Total': 0
-        }
-        confluence_data_times = {
-            'Created Issues': 60,
-            'Descriptions': 30,
-            'Comments': 30,
-            'Reporters': 30,
-            'Assignees': 15,
-            'Status': 30,
-            'Transitions': 30,
-            'Title': 15,
-            'Tags': 10,
-            'FixVersion': 10,
-            'Misc. Fields': 15,
-        }
-        # Use these HTML patterns to search for previous values
-        confluence_html_patterns = {
-            'Created Issues': "Created Issues</td><td>",
-            'Descriptions': "Descriptions</td><td>",
-            'Comments': "Comments</td><td>",
-            'Reporters': "Reporters</td><td>",
-            'Assignees': "Assignees</td><td>",
-            'Status': "Status</td><td>",
-            'Transitions': "Transitions</td><td>",
-            'Title': "Titles</td><td>",
-            'Tags': "Tags</td><td>",
-            'FixVersion': "Fix Version</td><td>",
-            'Misc. Fields': "Misc. Fields</td><td>",
-        }
-        # Update all our data
-        total = 0
-        for topic, html in confluence_html_patterns.items():
-            # Search for previous data
-            try:
-                ret = re.search(html, page_html)
-                start_index = ret.span()[1]
-                new_val = ""
-                while page_html[start_index] != "<":
-                    new_val += page_html[start_index]
-                    start_index += 1
-                confluence_data_update[topic] = int(new_val)
-                total += int(new_val)
-            except AttributeError:
-                log.warning(f"Confluence failed on parsing {topic}")
-                total += 0
-                confluence_data_update[topic] = 0
+        try:
+            # Get the HTML to update
+            page_info = self.get_page_info(self.page_id)
+            page_html = page_info['body']['storage']['value']
+            # Maintain and update our final data
+            confluence_data_update = {
+                'Created Issues': 0,
+                'Descriptions': 0,
+                'Comments': 0,
+                'Reporters': 0,
+                'Status': 0,
+                'Assignees': 0,
+                'Transitions': 0,
+                'Title': 0,
+                'Tags': 0,
+                'FixVersion': 0,
+                'Misc. Fields': 0,
+                'Total': 0
+            }
+            confluence_data_times = {
+                'Created Issues': 60,
+                'Descriptions': 30,
+                'Comments': 30,
+                'Reporters': 30,
+                'Assignees': 15,
+                'Status': 30,
+                'Transitions': 30,
+                'Title': 15,
+                'Tags': 10,
+                'FixVersion': 10,
+                'Misc. Fields': 15,
+            }
+            # Use these HTML patterns to search for previous values
+            confluence_html_patterns = {
+                'Created Issues': "Created Issues</td><td>",
+                'Descriptions': "Descriptions</td><td>",
+                'Comments': "Comments</td><td>",
+                'Reporters': "Reporters</td><td>",
+                'Assignees': "Assignees</td><td>",
+                'Status': "Status</td><td>",
+                'Transitions': "Transitions</td><td>",
+                'Title': "Titles</td><td>",
+                'Tags': "Tags</td><td>",
+                'FixVersion': "Fix Version</td><td>",
+                'Misc. Fields': "Misc. Fields</td><td>",
+            }
+            # Update all our data
+            total = 0
+            for topic, html in confluence_html_patterns.items():
+                # Search for previous data
+                try:
+                    ret = re.search(html, page_html)
+                    start_index = ret.span()[1]
+                    new_val = ""
+                    while page_html[start_index] != "<":
+                        new_val += page_html[start_index]
+                        start_index += 1
+                    confluence_data_update[topic] = int(new_val)
+                    total += int(new_val)
+                except AttributeError:
+                    log.warning(f"Confluence failed on parsing {topic}")
+                    total += 0
+                    confluence_data_update[topic] = 0
 
-        # Now add new data
-        for topic in confluence_html_patterns.keys():
-            if topic in confluence_data:
-                confluence_data_update[topic] += confluence_data[topic]
-                total += confluence_data[topic]
-        confluence_data_update["Total"] = total
+            # Now add new data
+            for topic in confluence_html_patterns.keys():
+                if topic in confluence_data:
+                    confluence_data_update[topic] += confluence_data[topic]
+                    total += confluence_data[topic]
+            confluence_data_update["Total"] = total
 
-        # Calculate Total Time
-        total_time = 0
-        for topic in confluence_data_times.keys():
-            total_time += confluence_data_update[topic] * confluence_data_times[topic]
-        total_time = datetime.timedelta(seconds=total_time)
-        confluence_data_update["Total Time"] = str(total_time) + " (HR:MIN:SEC)"
+            # Calculate Total Time
+            total_time = 0
+            for topic in confluence_data_times.keys():
+                total_time += confluence_data_update[topic] * confluence_data_times[topic]
+            total_time = datetime.timedelta(seconds=total_time)
+            confluence_data_update["Total Time"] = str(total_time) + " (HR:MIN:SEC)"
 
-        # Build our updated HTML page
-        templateLoader = jinja2.FileSystemLoader(
-            searchpath='usr/local/src/sync2jira/sync2jira/')
-        templateEnv = jinja2.Environment(loader=templateLoader)
-        template = templateEnv.get_template('confluence_stat.jinja')
-        html_text = template.render(confluence_data=confluence_data_update)
+            # Build our updated HTML page
+            templateLoader = jinja2.FileSystemLoader(
+                searchpath='usr/local/src/sync2jira/sync2jira/')
+            templateEnv = jinja2.Environment(loader=templateLoader)
+            template = templateEnv.get_template('confluence_stat.jinja')
+            html_text = template.render(confluence_data=confluence_data_update)
 
-        # Finally update our page
-        if html_text.replace(" ", "") != page_html.replace(" ", ""):
-            self.update_page(self.page_id, html_text)
+            # Finally update our page
+            if html_text.replace(" ", "") != page_html.replace(" ", ""):
+                self.update_page(self.page_id, html_text)
+        except:  # noqa E722
+            log.exception(f"Something went wrong updating confluence!")
 
     def find_page(self):
         """ finds the page with confluence_page_title in confluence_space
@@ -179,7 +182,6 @@ class ConfluenceClient:
             + self.confluence_space
         )
         resp = requests.get(search_url, **self.req_kwargs)
-        resp.raise_for_status()
         if len(resp.json()["results"]) > 0:
             return resp.json()["results"][0].get("id", None)
         else:
@@ -197,7 +199,6 @@ class ConfluenceClient:
             + "?expand=ancestors,version,body.storage"
         )
         resp = requests.get(conf_rest_url, **self.req_kwargs)
-        resp.raise_for_status()
         return resp.json()
 
     def update_page(self, page_id, html_str):
@@ -220,9 +221,7 @@ class ConfluenceClient:
         }
         resp = requests.put(rest_url, json=data, **self.req_kwargs)
         if not resp.ok:
-            print("Confluence response: \n", resp.json())
-
-        resp.raise_for_status()
+            log.error("Error updating confluence page!\nConfluence response: \n", resp.json())
 
         return resp.json()
 
