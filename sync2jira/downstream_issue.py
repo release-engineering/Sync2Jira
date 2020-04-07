@@ -622,14 +622,15 @@ def _create_jira_issue(client, issue, config):
     log.info("Creating issue.")
     downstream = client.create_issue(**kwargs)
 
-    # Add Epic link or QA field if present
-    if issue.downstream.get('epic-link', None) or \
-            issue.downstream.get('qa-contact', None):
+    # Add Epic link, QA, EXD-Service field if present
+    if issue.downstream.get('epic-link') or \
+            issue.downstream.get('qa-contact') or \
+            issue.downstream.get('EXD-Service'):
         # Fetch all fields
         all_fields = client.fields()
         # Make a map from field name -> field id
         name_map = {field['name']: field['id'] for field in all_fields}
-        if issue.downstream.get('epic-link', None):
+        if issue.downstream.get('epic-link'):
             # Try to get and update the custom field
             custom_field = name_map.get('Epic Link', None)
             if custom_field:
@@ -638,11 +639,26 @@ def _create_jira_issue(client, issue, config):
                 except JIRAError:
                     client.add_comment(downstream, f"Error adding Epic-Link: {issue.downstream.get('epic-link')}")
             confluence_data['Misc. Fields'] += 1
-        if issue.downstream.get('qa-contact', None):
+        if issue.downstream.get('qa-contact'):
             # Try to get and update the custom field
             custom_field = name_map.get('QA Contact', None)
             if custom_field:
                 downstream.update({custom_field: issue.downstream.get('qa-contact')})
+                confluence_data['Misc. Fields'] += 1
+        if issue.downstream.get('EXD-Service'):
+            # Try to update the custom field
+            exd_service_info = issue.downstream.get('EXD-Service')
+            custom_field = name_map.get('EXD-Service', None)
+            if custom_field:
+                try:
+                    downstream.update(
+                        {custom_field: {"value": f"{exd_service_info['guild']}",
+                                        "child": {"value": f"{exd_service_info['value']}"}}})
+                except JIRAError:
+                    client.add_comment(downstream,
+                                       f"Error adding EXD-Service field.\n"
+                                       f"Project: {exd_service_info['guild']}\n"
+                                       f"Value: {exd_service_info['value']}")
                 confluence_data['Misc. Fields'] += 1
 
     # Add upstream issue ID in comment if required

@@ -50,6 +50,7 @@ class TestDownstreamIssue(unittest.TestCase):
             'type': 'Fix',
             'qa-contact': 'dummy@dummy.com',
             'epic-link': 'DUMMY-1234',
+            'EXD-Service': {'guild': 'EXD-Project', 'value': 'EXD-Value'},
             'issue_updates': [
                 'comments',
                 {'tags': {'overwrite': False}},
@@ -342,6 +343,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.fields.return_value = [
             {'name': 'Epic Link', 'id': 'customfield_1'},
             {'name': 'QA Contact', 'id': 'customfield_2'},
+            {'name': 'EXD-Service', 'id': 'customfield_3'},
         ]
         mock_confluence_client.update_stat = True
 
@@ -375,10 +377,12 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         self.mock_downstream.update.assert_any_call({'customfield_1': 'DUMMY-1234'})
         self.mock_downstream.update.assert_any_call({'customfield_2': 'dummy@dummy.com'})
+        self.mock_downstream.update.assert_any_call(
+            {"customfield_3": {"value": "EXD-Project", "child": {"value": "EXD-Value"}}})
         self.assertEqual(response, self.mock_downstream)
         mock_client.add_comment.assert_not_called()
         mock_confluence_client.update_stat_page.assert_called_with(
-            {'Misc. Fields': 2, 'Created Issues': 1, 'Descriptions': 1, 'Status': 1, 'Reporters': 1}
+            {'Misc. Fields': 3, 'Created Issues': 1, 'Descriptions': 1, 'Status': 1, 'Reporters': 1}
         )
 
     @mock.patch(PATH + 'confluence_client')
@@ -398,8 +402,9 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.fields.return_value = [
             {'name': 'Epic Link', 'id': 'customfield_1'},
             {'name': 'QA Contact', 'id': 'customfield_2'},
+            {'name': 'EXD-Service', 'id': 'customfield_3'},
         ]
-        self.mock_downstream.update.side_effect = [JIRAError, 'success']
+        self.mock_downstream.update.side_effect = [JIRAError, 'success', 'success']
         mock_confluence_client.update_stat = True
 
         # Call the function
@@ -433,10 +438,75 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_any_call({'customfield_1': 'DUMMY-1234'})
         self.mock_downstream.update.assert_any_call(
             {'customfield_2': 'dummy@dummy.com'})
+        self.mock_downstream.update.assert_any_call(
+            {"customfield_3": {"value": "EXD-Project", "child": {"value": "EXD-Value"}}})
         self.assertEqual(response, self.mock_downstream)
         mock_client.add_comment.assert_called_with(self.mock_downstream, f"Error adding Epic-Link: DUMMY-1234")
         mock_confluence_client.update_stat_page.assert_called_with(
-            {'Misc. Fields': 2, 'Created Issues': 1, 'Descriptions': 1, 'Status': 1, 'Reporters': 1})
+            {'Misc. Fields': 3, 'Created Issues': 1, 'Descriptions': 1, 'Status': 1, 'Reporters': 1})
+
+    @mock.patch(PATH + 'confluence_client')
+    @mock.patch(PATH + '_update_jira_issue')
+    @mock.patch(PATH + '_attach_link')
+    @mock.patch('jira.client.JIRA')
+    def test_create_jira_issue_failed_exd_service(self,
+                                                  mock_client,
+                                                  mock_attach_link,
+                                                  mock_update_jira_issue,
+                                                  mock_confluence_client):
+        """
+        Tests '_create_jira_issue' function where we fail updating the EXD-Service field
+        """
+        # Set up return values
+        mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {'name': 'Epic Link', 'id': 'customfield_1'},
+            {'name': 'QA Contact', 'id': 'customfield_2'},
+            {'name': 'EXD-Service', 'id': 'customfield_3'},
+        ]
+        self.mock_downstream.update.side_effect = ['success', 'success', JIRAError]
+        mock_confluence_client.update_stat = True
+
+        # Call the function
+        response = d._create_jira_issue(
+            client=mock_client,
+            issue=self.mock_issue,
+            config=self.mock_config
+        )
+
+        # Assert everything was called correctly
+        mock_client.create_issue.assert_called_with(
+            issuetype={'name': 'Fix'},
+            project={'key': 'mock_project'},
+            somecustumfield='somecustumvalue',
+            description='[1234] Upstream Reporter: mock_user \n Upstream issue status: Open\nUpstream description: {quote}mock_content{quote}',
+            summary='mock_title'
+        )
+        mock_attach_link.assert_called_with(
+            mock_client,
+            self.mock_downstream,
+            {
+                'url': 'mock_url',
+                'title': 'Upstream issue'
+            }
+        )
+        mock_update_jira_issue.assert_called_with(
+            self.mock_downstream,
+            self.mock_issue,
+            mock_client
+        )
+        self.mock_downstream.update.assert_any_call({'customfield_1': 'DUMMY-1234'})
+        self.mock_downstream.update.assert_any_call(
+            {'customfield_2': 'dummy@dummy.com'})
+        self.mock_downstream.update.assert_any_call(
+            {"customfield_3": {"value": "EXD-Project", "child": {"value": "EXD-Value"}}})
+        self.assertEqual(response, self.mock_downstream)
+        mock_client.add_comment.assert_called_with(self.mock_downstream,
+                                                   f"Error adding EXD-Service field.\n"
+                                                   f"Project: {self.mock_issue.downstream['EXD-Service']['guild']}\n"
+                                                   f"Value: {self.mock_issue.downstream['EXD-Service']['value']}")
+        mock_confluence_client.update_stat_page.assert_called_with(
+            {'Misc. Fields': 3, 'Created Issues': 1, 'Descriptions': 1, 'Status': 1, 'Reporters': 1})
 
     @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + '_update_jira_issue')
