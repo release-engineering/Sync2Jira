@@ -117,6 +117,10 @@ The config file is made up of multiple parts
    * :code:`'EXD-Service': {'guild': 'SOME_GUILD', 'value': 'SOME_VALUE'}`
         * Sync custom EXD-Service field
 
+     .. note::
+
+            :pullrequest: After enabling PR syncing, just type "Relates to JIRA: XXXX-1234" in the comment or description of the PR to sync with a JIRA issue. After this, updates such as when it has been merged will automatically be added to the JIRA ticket.
+
 * You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with downstream components
   You can add the following to the :code:`issue_updates` array:
 
