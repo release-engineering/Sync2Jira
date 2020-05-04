@@ -19,7 +19,7 @@ RUN dnf -y install \
     python3-requests-kerberos \
   && dnf -y clean all
 
-ARG SYNC2JIRA_GIT_REPO=https://github.com/sidpremkumar/Sync2Jira.git
+ARG SYNC2JIRA_GIT_REPO=https://github.com/release-engineering/Sync2Jira.git
 ARG SYNC2JIRA_GIT_REF=master
 ARG SYNC2JIRA_CACERT_URL=
 ARG SYNC2JIRA_VERSION=
