@@ -718,7 +718,7 @@ def _update_jira_issue(existing, issue, client):
     log.info("Updating information for upstream issue: %s" % issue.title)
 
     # Get a list of what the user wants to update for the upstream issue
-    updates = issue.downstream.get('issue_updates', {})
+    updates = issue.downstream.get('issue_updates', [])
 
     # Update relevant data if needed
     # If the user has specified nothing
