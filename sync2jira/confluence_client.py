@@ -167,7 +167,7 @@ class ConfluenceClient:
             if html_text.replace(" ", "") != page_html.replace(" ", ""):
                 self.update_page(self.page_id, html_text)
         except:  # noqa E722
-            log.exception(f"Something went wrong updating confluence!")
+            log.exception("Something went wrong updating confluence!")
 
     def find_page(self):
         """ finds the page with confluence_page_title in confluence_space
