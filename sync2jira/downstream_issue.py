@@ -1060,6 +1060,27 @@ def _update_assignee(client, existing, issue, updates):
                     confluence_client.update_stat_page(confluence_data)
 
 
+def _update_jira_labels(issue, labels):
+    """Update a Jira issue with 'labels'
+
+    Do this only if the current labels would change.
+
+    :param jira.resource.Issue issue: Jira issue to be updated
+    :param list<strings> labels: Lables to be applied on the issue
+    :returns: None
+    """
+    _labels = sorted(labels)
+    if _labels == sorted(issue.fields.labels):
+        return
+
+    data = {'labels': _labels}
+    issue.update(data)
+    log.info('Updated %s tag(s)' % len(_labels))
+    if confluence_client.update_stat:
+        confluence_data = {'Tags': len(_labels)}
+        confluence_client.update_stat_page(confluence_data)
+
+
 def _update_tags(updates, existing, issue):
     """
     Helper function to sync tags between upstream issue and downstream JIRA issue.
@@ -1086,13 +1107,7 @@ def _update_tags(updates, existing, issue):
     updated_labels = verify_tags(updated_labels)
 
     # Now we can update the JIRA if labels are different
-    if sorted(updated_labels) != sorted(existing.fields.labels):
-        data = {'labels': updated_labels}
-        existing.update(data)
-        log.info('Updated %s tag(s)' % len(updated_labels))
-        if confluence_client.update_stat:
-            confluence_data = {'Tags': len(updated_labels)}
-            confluence_client.update_stat_page(confluence_data)
+    _update_jira_labels(existing, updated_labels)
 
 
 def _update_description(existing, issue):

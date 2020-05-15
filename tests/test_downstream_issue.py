@@ -1009,7 +1009,7 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         # Set up return values
         mock_label_matching.return_value = 'mock_updated_labels'
-        mock_verify_tags.return_value = 'mock_verified_tags'
+        mock_verify_tags.return_value = ['mock_verified_tags']
         mock_confluence_client.update_stat = True
 
         # Call the function
@@ -1025,8 +1025,8 @@ class TestDownstreamIssue(unittest.TestCase):
             self.mock_downstream.fields.labels
         )
         mock_verify_tags.assert_called_with('mock_updated_labels')
-        self.mock_downstream.update.assert_called_with({'labels': 'mock_verified_tags'})
-        mock_confluence_client.update_stat_page.assert_called_with({'Tags': 18})
+        self.mock_downstream.update.assert_called_with({'labels': ['mock_verified_tags']})
+        mock_confluence_client.update_stat_page.assert_called_with({'Tags': 1})
 
     @mock.patch(PATH + 'verify_tags')
     @mock.patch(PATH + '_label_matching')
