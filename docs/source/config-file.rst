@@ -138,6 +138,8 @@ The config file is made up of multiple parts
         * Sync title
     * :code:`{'transition': True/'CUSTOM_TRANSITION'}`
         * Sync status (open/closed), Sync only status/Attempt to transition JIRA ticket to CUSTOM_TRANSITION on upstream closure
+    * :code:`{'on_close': {'apply_lables': ['label', ...]}}`
+        * When the upstream issue is closed, apply additional labels on the corresponding Jira ticket.
     * :code:`github_markdown`
         * If description syncing is turned on, this flag will convert Github markdown to plaintext. This uses the pypandoc module.
     * :code:`upstream_id`
