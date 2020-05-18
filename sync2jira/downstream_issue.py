@@ -718,7 +718,7 @@ def _update_jira_issue(existing, issue, client):
     log.info("Updating information for upstream issue: %s" % issue.title)
 
     # Get a list of what the user wants to update for the upstream issue
-    updates = issue.downstream.get('issue_updates', {})
+    updates = issue.downstream.get('issue_updates', [])
 
     # Update relevant data if needed
     # If the user has specified nothing
@@ -766,6 +766,10 @@ def _update_jira_issue(existing, issue, client):
     if any('transition' in item for item in updates):
         log.info("Looking for new transition(s)")
         _update_transition(client, existing, issue)
+
+    # Only execute 'on_close' events for listings that opt-in
+    log.info("Attempting to update downstream issue on upstream closed event")
+    _update_on_close(existing, issue, updates)
 
     log.info('Done updating %s!' % issue.title)
 
@@ -1060,6 +1064,27 @@ def _update_assignee(client, existing, issue, updates):
                     confluence_client.update_stat_page(confluence_data)
 
 
+def _update_jira_labels(issue, labels):
+    """Update a Jira issue with 'labels'
+
+    Do this only if the current labels would change.
+
+    :param jira.resource.Issue issue: Jira issue to be updated
+    :param list<strings> labels: Lables to be applied on the issue
+    :returns: None
+    """
+    _labels = sorted(labels)
+    if _labels == sorted(issue.fields.labels):
+        return
+
+    data = {'labels': _labels}
+    issue.update(data)
+    log.info('Updated %s tag(s)' % len(_labels))
+    if confluence_client.update_stat:
+        confluence_data = {'Tags': len(_labels)}
+        confluence_client.update_stat_page(confluence_data)
+
+
 def _update_tags(updates, existing, issue):
     """
     Helper function to sync tags between upstream issue and downstream JIRA issue.
@@ -1086,13 +1111,7 @@ def _update_tags(updates, existing, issue):
     updated_labels = verify_tags(updated_labels)
 
     # Now we can update the JIRA if labels are different
-    if sorted(updated_labels) != sorted(existing.fields.labels):
-        data = {'labels': updated_labels}
-        existing.update(data)
-        log.info('Updated %s tag(s)' % len(updated_labels))
-        if confluence_client.update_stat:
-            confluence_data = {'Tags': len(updated_labels)}
-            confluence_client.update_stat_page(confluence_data)
+    _update_jira_labels(existing, updated_labels)
 
 
 def _update_description(existing, issue):
@@ -1177,6 +1196,51 @@ def _update_description(existing, issue):
         if confluence_client.update_stat:
             confluence_data = {'Description': 1}
             confluence_client.update_stat_page(confluence_data)
+
+
+def _update_on_close(existing, issue, updates):
+    """Update downstream Jira issue when upstream issue was closed
+
+    Example update configuration:
+    [
+        ...,
+        {
+            "on_close": {
+                {
+                    "apply_labels": [
+                        "closed-upstream"
+                    ]
+                }
+            }
+        },
+        ...
+    ]
+
+    :param jira.resource.Issue existing: existing Jira issue
+    :param sync2jira.intermediary.Issue issue: Upstream issue
+    :param dict updates: update configuration
+    :return: None
+    """
+    on_close_updates = None
+    for item in updates:
+        if 'on_close' in item:
+            on_close_updates = item['on_close']
+            break
+
+    if not on_close_updates:
+        return
+
+    if issue.status != 'Closed':
+        return
+
+    if 'apply_labels' not in on_close_updates:
+        return
+
+    updated_labels = list(
+        set(existing.fields.labels).union(set(on_close_updates['apply_labels']))
+    )
+    log.info("Applying 'on_close' labels to downstrem Jira issue")
+    _update_jira_labels(existing, updated_labels)
 
 
 def verify_tags(tags):

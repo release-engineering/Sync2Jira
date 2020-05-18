@@ -56,7 +56,8 @@ class TestDownstreamIssue(unittest.TestCase):
                 {'tags': {'overwrite': False}},
                 {'fixVersion': {'overwrite': False}},
                 {'assignee': {'overwrite': True}}, 'description', 'title',
-                {'transition': 'CUSTOM TRANSITION'}
+                {'transition': 'CUSTOM TRANSITION'},
+                {'on_close': {"apply_labels": ["closed-upstream"]}}
             ],
             'owner': 'mock_owner'
         }
@@ -79,6 +80,7 @@ class TestDownstreamIssue(unittest.TestCase):
                 {'fixVersion': {'overwrite': False}},
                 {'assignee': {'overwrite': True}}, 'description', 'title',
                 {'transition': 'CUSTOM TRANSITION'},
+                {'on_close': {"apply_labels": ["closed-upstream"]}}
             ]
 
         # Mock Jira transition
@@ -674,9 +676,11 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + '_update_fixVersion')
     @mock.patch(PATH + '_update_transition')
     @mock.patch(PATH + '_update_assignee')
+    @mock.patch(PATH + '_update_on_close')
     @mock.patch('jira.client.JIRA')
     def test_update_jira_issue(self,
                                mock_client,
+                               mock_update_on_close,
                                mock_update_assignee,
                                mock_update_transition,
                                mock_update_fixVersion,
@@ -724,6 +728,7 @@ class TestDownstreamIssue(unittest.TestCase):
             self.mock_downstream,
             self.mock_issue
         )
+        mock_update_on_close.assert_called_once()
 
     @mock.patch(PATH + 'confluence_client')
     @mock.patch('jira.client.JIRA')
@@ -1009,7 +1014,7 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         # Set up return values
         mock_label_matching.return_value = 'mock_updated_labels'
-        mock_verify_tags.return_value = 'mock_verified_tags'
+        mock_verify_tags.return_value = ['mock_verified_tags']
         mock_confluence_client.update_stat = True
 
         # Call the function
@@ -1025,8 +1030,8 @@ class TestDownstreamIssue(unittest.TestCase):
             self.mock_downstream.fields.labels
         )
         mock_verify_tags.assert_called_with('mock_updated_labels')
-        self.mock_downstream.update.assert_called_with({'labels': 'mock_verified_tags'})
-        mock_confluence_client.update_stat_page.assert_called_with({'Tags': 18})
+        self.mock_downstream.update.assert_called_with({'labels': ['mock_verified_tags']})
+        mock_confluence_client.update_stat_page.assert_called_with({'Tags': 1})
 
     @mock.patch(PATH + 'verify_tags')
     @mock.patch(PATH + '_label_matching')
@@ -1705,3 +1710,69 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_called_with(
             {'description':
                  f"\nUpstream URL: {self.mock_issue.url}\n"})
+
+    @mock.patch(PATH + 'confluence_client')
+    def test_update_on_close_update(self,
+                             mock_confluence_client):
+        """
+        This function tests '_update_on_close' where there is an
+        "apply_labels" configuration, and labels need to be updated.
+        """
+        # Set up return values
+        mock_confluence_client.update_stat = True
+        self.mock_downstream.fields.description = ""
+        self.mock_issue.status = 'Closed'
+        updates = [{"on_close": {"apply_labels": ["closed-upstream"]}}]
+
+        # Call the function
+        d._update_on_close(self.mock_downstream, self.mock_issue, updates)
+
+        # Assert everything was called correctly
+        self.mock_downstream.update.assert_called_with(
+            {'labels':
+                 ["closed-upstream", "tag3", "tag4"]})
+
+    def test_update_on_close_no_change(self):
+        """
+        This function tests '_update_on_close' where there is an
+        "apply_labels" configuration but there is no update required.
+        """
+        # Set up return values
+        self.mock_issue.status = 'Closed'
+        updates = [{"on_close": {"apply_labels": ["tag4"]}}]
+
+        # Call the function
+        d._update_on_close(self.mock_downstream, self.mock_issue, updates)
+
+        # Assert everything was called correctly
+        self.mock_downstream.update.assert_not_called()
+
+    def test_update_on_close_no_action(self):
+        """
+        This function tests '_update_on_close' where there is no
+        "apply_labels" configuration.
+        """
+        # Set up return values
+        self.mock_issue.status = 'Closed'
+        updates = [{"on_close": {"some_other_action": None}}]
+
+        # Call the function
+        d._update_on_close(self.mock_downstream, self.mock_issue, updates)
+
+        # Assert everything was called correctly
+        self.mock_downstream.update.assert_not_called()
+
+    def test_update_on_close_no_config(self):
+        """
+        This function tests '_update_on_close' where there is no
+        configuration for close events.
+        """
+        # Set up return values
+        self.mock_issue.status = 'Closed'
+        updates = ["description"]
+
+        # Call the function
+        d._update_on_close(self.mock_downstream, self.mock_issue, updates)
+
+        # Assert everything was called correctly
+        self.mock_downstream.update.assert_not_called()
