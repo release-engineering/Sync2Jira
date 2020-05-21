@@ -9,6 +9,7 @@ Sync2Jira documentation
    quickstart
    config-file
    continuous_deployment
+   sync_page
 
 
 .. toctree::
