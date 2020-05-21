@@ -236,6 +236,46 @@ class TestMain(unittest.TestCase):
 
     @mock.patch(PATH + 'u_issue')
     @mock.patch(PATH + 'd_issue')
+    def test_initialize_repo_name_pagure(self,
+                                         mock_d,
+                                         mock_u):
+        """
+        This tests 'initialize' function where we want to sync an individual repo for Pagure
+        """
+        # Set up return values
+        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
+        mock_u.github_issues.return_value = ['mock_issue_github']
+
+        # Call the function
+        m.initialize_issues(self.mock_config, repo_name='key_pagure')
+
+        # Assert everything was called correctly
+        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
+        mock_u.github_issues.assert_not_called()
+        mock_d.sync_with_jira.assert_called_with('mock_issue_pagure', self.mock_config)
+
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
+    def test_initialize_repo_name_github(self,
+                                         mock_d,
+                                         mock_u):
+        """
+        This tests 'initialize' function where we want to sync an individual repo for GitHub
+        """
+        # Set up return values
+        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
+        mock_u.github_issues.return_value = ['mock_issue_github']
+
+        # Call the function
+        m.initialize_issues(self.mock_config, repo_name='key_github')
+
+        # Assert everything was called correctly
+        mock_u.github_issues.assert_called_with('key_github', self.mock_config)
+        mock_u.pagure_issues.assert_not_called()
+        mock_d.sync_with_jira.assert_called_with('mock_issue_github', self.mock_config)
+
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
     def test_initialize_errors(self,
                                mock_d,
                                mock_u):

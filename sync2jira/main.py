@@ -53,9 +53,12 @@ logging.basicConfig(format=FORMAT, level=logging.WARNING)
 log = logging.getLogger('sync2jira')
 if os.environ.get('CONFLUENCE_SPACE') == 'mock_confluence_space':
     # If we are debugging save log output
-    hdlr = logging.FileHandler('sync2jira_main.log')
-    log.addHandler(hdlr)
-    log.setLevel(logging.DEBUG)
+    try:
+        hdlr = logging.FileHandler('sync2jira_main.log')
+        log.addHandler(hdlr)
+        log.setLevel(logging.DEBUG)
+    except:  # noqa: E722
+        log.error("Unable to create log file!")
 
 # Only allow fedmsg logs that are critical
 fedmsg_log = logging.getLogger('fedmsg.crypto.utils')
@@ -177,7 +180,7 @@ def listen(config):
         handle_msg(msg, suffix, config)
 
 
-def initialize_issues(config, testing=False):
+def initialize_issues(config, testing=False, repo_name=None):
     """
     Initial initialization needed to sync any upstream \
     repo with JIRA. Goes through all issues and \
@@ -186,6 +189,7 @@ def initialize_issues(config, testing=False):
 
     :param Dict config: Config dict for JIRA
     :param Bool testing: Flag to indicate if we are testing. Default false
+    :param String repo_name: Optional individual repo name. If defined we will only sync the provided repo
     :returns: Nothing
     """
     log.info("Running initialization to sync all issues from upstream to jira")
@@ -193,6 +197,8 @@ def initialize_issues(config, testing=False):
     mapping = config['sync2jira']['map']
     for upstream in mapping.get('pagure', {}).keys():
         if 'issue' not in mapping.get('pagure', {}).get(upstream, {}).get('sync', []):
+            continue
+        if repo_name is not None and upstream != repo_name:
             continue
         for issue in u_issue.pagure_issues(upstream, config):
             try:
@@ -204,6 +210,8 @@ def initialize_issues(config, testing=False):
 
     for upstream in mapping.get('github', {}).keys():
         if 'issue' not in mapping.get('github', {}).get(upstream, {}).get('sync', []):
+            continue
+        if repo_name is not None and upstream != repo_name:
             continue
         # Try and except for github API limit
         try:
@@ -230,7 +238,7 @@ def initialize_issues(config, testing=False):
     log.info("Done with github issue initialization.")
 
 
-def initialize_pr(config, testing=False):
+def initialize_pr(config, testing=False, repo_name=None):
     """
     Initial initialization needed to sync any upstream \
     repo with JIRA. Goes through all PRs and \
@@ -239,6 +247,7 @@ def initialize_pr(config, testing=False):
 
     :param Dict config: Config dict for JIRA
     :param Bool testing: Flag to indicate if we are testing. Default false
+    :param String repo_name: Optional individual repo name. If defined we will only sync the provided repo
     :returns: Nothing
     """
     log.info("Running initialization to sync all PRs from upstream to jira")
@@ -247,6 +256,8 @@ def initialize_pr(config, testing=False):
     for upstream in mapping.get('pagure', {}).keys():
         if 'pullrequest' not in mapping.get('pagure', {}).get(upstream, {}).get('sync', []):
             continue
+        if repo_name is not None and upstream != repo_name:
+            continue
         for pr in u_pr.pagure_prs(upstream, config):
             if pr:
                 d_pr.sync_with_jira(pr, config)
@@ -254,6 +265,8 @@ def initialize_pr(config, testing=False):
 
     for upstream in mapping.get('github', {}).keys():
         if 'pullrequest' not in mapping.get('github', {}).get(upstream, {}).get('sync', []):
+            continue
+        if repo_name is not None and upstream != repo_name:
             continue
         # Try and except for github API limit
         try:
