@@ -22,8 +22,8 @@ parameters:
   displayName: Confluence space
   required: true
   value: "mock_confluence_space"
-- name: INITILIZE
-  displayName: True/False Initilize our repos on startup
+- name: INITIALIZE
+  displayName: True/False Initialize our repos on startup
   value: "0"
 - name: IMAGE_URL
   displayName: Image URL:TAG to pull from
