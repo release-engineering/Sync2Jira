@@ -78,6 +78,8 @@ def handle_message(msg, data):
             status, ret = update_tag(stage=True)
         elif msg_dict['tag'] == "openshift-build":
             status, ret = update_tag(openshift_build=True)
+        elif msg_dict['tag'] == "sync-page":
+            status, ret = update_tag(sync_page=True)
         else:
             return
         if status:
@@ -86,13 +88,14 @@ def handle_message(msg, data):
             report_email('failure', data=msg_dict)
 
 
-def update_tag(master=False, stage=False, openshift_build=False):
+def update_tag(master=False, stage=False, openshift_build=False, sync_page=False):
     """
     Update OpenShift master image when fedmsg topic comes in.
 
     :param Bool master: If we are tagging master
     :param Bool stage: If we are tagging stage
     :param Bool openshift_build: If we are tagging openshift-build
+    :param Bool sync_page: If we are tagging sync_page
     :rtype (Bool, response):
     :return: (Indication if we updated out image on OpenShift, API call response)
     """
@@ -103,6 +106,11 @@ def update_tag(master=False, stage=False, openshift_build=False):
         namespace = 'sync2jira'
         name = 'sync2jira:latest'
         tag = 'latest'
+    elif sync_page:
+        umb_url = f"https://{ENDPOINT}/apis/image.openshift.io/v1/namespaces/sync2jira/imagestreamtags/sync2jira:sync-page"
+        namespace = 'sync2jira'
+        name = 'sync2jira-sync-page:latest'
+        tag = 'sync-page'
     elif stage:
         umb_url = f"https://{ENDPOINT}/apis/image.openshift.io/v1/namespaces/sync2jira-stage/imagestreamtags/sync2jira-stage:latest"
         namespace = 'sync2jira-stage'
