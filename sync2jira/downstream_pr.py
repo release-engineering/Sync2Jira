@@ -63,10 +63,26 @@ def format_comment(pr, pr_suffix, client):
     return comment
 
 
+def issue_link_exists(client, existing, pr):
+    """
+    Checks if we've already linked this PR
+
+    :param jira.client.JIRA client: JIRA Client
+    :param jira.resources.Issue existing: Existing JIRA issue that was found
+    :param sync2jira.intermediary.PR pr: Upstream issue we're pulling data from
+    :returns: True/False if the issue exists/does not exists
+    """
+    # Query for our issue
+    for issue_link in client.remote_links(existing):
+        if issue_link.object.url == pr.url:
+            # Issue has already been linked
+            return True
+    return False
+
+
 def comment_exists(client, existing, new_comment):
     """
     Checks if new_comment exists in existing
-
     :param jira.client.JIRA client: JIRA Client
     :param jira.resources.Issue existing: Existing JIRA issue that was found
     :param String new_comment: Formatted comment we're looking for
@@ -96,12 +112,17 @@ def update_jira_issue(existing, pr, client):
 
     # Format and add comment to indicate PR has been linked
     new_comment = format_comment(pr, pr.suffix, client)
-    # See if the comment exists
-    exists = comment_exists(client, existing, new_comment)
+    # See if the issue_link and comment exists
+    exists = issue_link_exists(client, existing, pr)
+    comment_exist = comment_exists(client, existing, new_comment)
     # Check if the comment if already there
     if not exists:
-        log.info(f"Added comment for PR {pr.title} on JIRA {pr.jira_key}")
-        client.add_comment(existing, new_comment)
+        if not comment_exist:
+            log.info(f"Added comment for PR {pr.title} on JIRA {pr.jira_key}")
+            client.add_comment(existing, new_comment)
+        # Attach remote link
+        remote_link = dict(url=pr.url, title=pr.title)
+        d_issue.attach_link(client, existing, remote_link)
         if confluence_client.update_stat:
             confluence_data = {'Comments': 1}
             confluence_client.update_stat_page(confluence_data)
