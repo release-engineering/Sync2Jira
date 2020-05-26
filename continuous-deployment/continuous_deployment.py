@@ -107,7 +107,7 @@ def update_tag(master=False, stage=False, openshift_build=False, sync_page=False
         name = 'sync2jira:latest'
         tag = 'latest'
     elif sync_page:
-        umb_url = f"https://{ENDPOINT}/apis/image.openshift.io/v1/namespaces/sync2jira/imagestreamtags/sync2jira:sync-page"
+        umb_url = f"https://{ENDPOINT}/apis/image.openshift.io/v1/namespaces/sync2jira/imagestreamtags/sync2jira-sync-page:latest"
         namespace = 'sync2jira'
         name = 'sync2jira-sync-page:latest'
         tag = 'sync-page'
@@ -117,7 +117,7 @@ def update_tag(master=False, stage=False, openshift_build=False, sync_page=False
         name = 'sync2jira-stage:latest'
         tag = 'stage'
     elif openshift_build:
-        umb_url = f"https://{ENDPOINT}/apis/image.openshift.io/v1/namespaces/sync2jira-stage/imagestreamtags/openshift-build:latest"
+        umb_url = f"https://{ENDPOINT}/apis/image.openshift.io/v1/namespaces/sync2jira-stage/imagestreamtags/openshift\-build:latest"
         namespace = 'sync2ijra-stage'
         name = 'openshift-build:latest'
         tag = 'openshift-build'
