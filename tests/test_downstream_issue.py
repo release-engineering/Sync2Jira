@@ -330,7 +330,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
     @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + '_update_jira_issue')
-    @mock.patch(PATH + '_attach_link')
+    @mock.patch(PATH + 'attach_link')
     @mock.patch('jira.client.JIRA')
     def test_create_jira_issue(self,
                                mock_client,
@@ -389,7 +389,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
     @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + '_update_jira_issue')
-    @mock.patch(PATH + '_attach_link')
+    @mock.patch(PATH + 'attach_link')
     @mock.patch('jira.client.JIRA')
     def test_create_jira_issue_failed_epic_link(self,
                                                 mock_client,
@@ -449,7 +449,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
     @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + '_update_jira_issue')
-    @mock.patch(PATH + '_attach_link')
+    @mock.patch(PATH + 'attach_link')
     @mock.patch('jira.client.JIRA')
     def test_create_jira_issue_failed_exd_service(self,
                                                   mock_client,
@@ -512,7 +512,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
     @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + '_update_jira_issue')
-    @mock.patch(PATH + '_attach_link')
+    @mock.patch(PATH + 'attach_link')
     @mock.patch('jira.client.JIRA')
     def test_create_jira_issue_no_updates(self,
                                           mock_client,
