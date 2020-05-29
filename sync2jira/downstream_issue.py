@@ -434,13 +434,13 @@ def _get_existing_jira_issue_legacy(client, issue, config):
         return None
 
 
-def _attach_link(client, downstream, remote_link):
+def attach_link(client, downstream, remote_link):
     """
     Attaches the upstream link to the JIRA ticket.
 
     :param jira.client.JIRA client: JIRA client
     :param jira.resources.Issue downstream: Response from creating the JIRA ticket
-    :param str remote_link: Remote link
+    :param dict remote_link: Remote link dict with {'url': ...  , 'title': ... }
     :return: downstream: Response from creating the JIRA ticket
     :rtype: jira.resources.Issue
     """
@@ -477,7 +477,7 @@ def _upgrade_jira_issue(client, downstream, issue, config):
 
     # Do it!
     remote_link = dict(url=issue.url, title=remote_link_title)
-    _attach_link(client, downstream, remote_link)
+    attach_link(client, downstream, remote_link)
 
 
 def assign_user(client, issue, downstream, remove_all=False):
@@ -669,7 +669,7 @@ def _create_jira_issue(client, issue, config):
         confluence_data['Misc. Fields'] = 1
 
     remote_link = dict(url=issue.url, title=remote_link_title)
-    _attach_link(client, downstream, remote_link)
+    attach_link(client, downstream, remote_link)
 
     default_status = issue.downstream.get('default_status', None)
     if default_status is not None:

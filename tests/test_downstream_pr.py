@@ -147,7 +147,11 @@ class TestDownstreamPR(unittest.TestCase):
     @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + 'comment_exists')
     @mock.patch(PATH + 'format_comment')
+    @mock.patch(PATH + 'd_issue.attach_link')
+    @mock.patch(PATH + 'issue_link_exists')
     def test_update_jira_issue_link(self,
+                                    mock_issue_link_exists,
+                                    mock_attach_link,
                                     mock_format_comment,
                                     mock_comment_exists,
                                     mock_confluence_client):
@@ -157,6 +161,7 @@ class TestDownstreamPR(unittest.TestCase):
         # Set up return values
         mock_format_comment.return_value = 'mock_formatted_comment'
         mock_comment_exists.return_value = False
+        mock_issue_link_exists.return_value = False
         mock_confluence_client.update_stat = True
 
         # Call the function
@@ -167,19 +172,57 @@ class TestDownstreamPR(unittest.TestCase):
         mock_format_comment.assert_called_with(self.mock_pr, self.mock_pr.suffix, self.mock_client)
         mock_comment_exists.assert_called_with(self.mock_client, 'mock_existing', 'mock_formatted_comment')
         mock_confluence_client.update_stat_page.assert_called_with({'Comments': 1})
+        mock_attach_link.assert_called_with(self.mock_client, 'mock_existing', {'url': 'mock_url', 'title': '[PR] mock_title'})
 
+    def test_issue_link_exists_false(self):
+        """
+        This function tests 'issue_link_exists' where it does not exist
+        """
+        # Set up return values
+        mock_issue_link = MagicMock()
+        mock_issue_link.object.url = 'bad_url'
+        self.mock_client.remote_links.return_value = [mock_issue_link]
 
-    @mock.patch(PATH + 'comment_exists')
+        # Call the function
+        ret = d.issue_link_exists(self.mock_client, self.mock_existing, self.mock_pr)
+
+        # Assert everything was called correctly
+        self.mock_client.remote_links.assert_called_with(self.mock_existing)
+        self.assertEqual(ret, False)
+
+    def test_issue_link_exists_true(self):
+        """
+        This function tests 'issue_link_exists' where it does exist
+        """
+        # Set up return values
+        mock_issue_link = MagicMock()
+        mock_issue_link.object.url = self.mock_pr.url
+        self.mock_client.remote_links.return_value = [mock_issue_link]
+
+        # Call the function
+        ret = d.issue_link_exists(self.mock_client, self.mock_existing, self.mock_pr)
+
+        # Assert everything was called correctly
+        self.mock_client.remote_links.assert_called_with(self.mock_existing)
+        self.assertEqual(ret, True)
+
     @mock.patch(PATH + 'format_comment')
+    @mock.patch(PATH + 'comment_exists')
+    @mock.patch(PATH + 'd_issue.attach_link')
+    @mock.patch(PATH + 'issue_link_exists')
     def test_update_jira_issue_exists(self,
+                                      mock_issue_link_exists,
+                                      mock_attach_link,
+                                      mock_comment_exists,
                                       mock_format_comment,
-                                      mock_comment_exists):
+                                      ):
         """
         This function tests 'update_jira_issue' where the comment already exists
         """
         # Set up return values
         mock_format_comment.return_value = 'mock_formatted_comment'
         mock_comment_exists.return_value = True
+        mock_issue_link_exists.return_value = True
 
         # Call the function
         d.update_jira_issue('mock_existing', self.mock_pr, self.mock_client)
@@ -188,6 +231,9 @@ class TestDownstreamPR(unittest.TestCase):
         self.mock_client.add_comment.assert_not_called()
         mock_format_comment.assert_called_with(self.mock_pr, self.mock_pr.suffix, self.mock_client)
         mock_comment_exists.assert_called_with(self.mock_client, 'mock_existing', 'mock_formatted_comment')
+        mock_attach_link.assert_not_called()
+        mock_issue_link_exists.assert_called_with(self.mock_client, 'mock_existing', self.mock_pr)
+
 
     def test_comment_exists_false(self):
         """
