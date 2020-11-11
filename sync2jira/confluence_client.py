@@ -221,7 +221,7 @@ class ConfluenceClient:
         }
         resp = requests.put(rest_url, json=data, **self.req_kwargs)
         if not resp.ok:
-            log.error("Error updating confluence page!\nConfluence response: \n", resp.json())
+            log.error("Error updating confluence page!\nConfluence response: %s\n", resp.json())
 
         return resp.json()
 
