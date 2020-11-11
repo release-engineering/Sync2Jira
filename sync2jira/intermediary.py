@@ -19,6 +19,13 @@
 from datetime import datetime
 import re
 
+import pypandoc
+
+
+def _md_to_jira(markdown):
+    """Convert Markdown to Jira"""
+    return pypandoc.convert_text(markdown, 'jira', format='markdown').rstrip('\n')
+
 
 class Issue(object):
     """Issue Intermediary object"""
@@ -75,7 +82,7 @@ class Issue(object):
             comment['date_created'] = datetime.fromtimestamp(float(comment['date_created']))
             comments.append({
                 'author': comment['user']['name'],
-                'body': comment['comment'],
+                'body': _md_to_jira(comment['comment']),
                 'name': comment['user']['name'],
                 'id': comment['id'],
                 'date_created': comment['date_created'],
@@ -99,7 +106,7 @@ class Issue(object):
             tags=issue['tags'],
             fixVersion=[issue['milestone']],
             priority=issue['priority'],
-            content=issue['content'],
+            content=_md_to_jira(issue['content']),
             reporter=issue['user'],
             assignee=issue['assignee'],
             status=issue['status'],
@@ -221,7 +228,7 @@ class PR(object):
                 float(comment['date_created']))
             comments.append({
                 'author': comment['user']['name'],
-                'body': comment['comment'],
+                'body': _md_to_jira(comment['comment']),
                 'name': comment['user']['name'],
                 'id': comment['id'],
                 'date_created': comment['date_created'],
@@ -246,7 +253,7 @@ class PR(object):
             # tags=issue['labels'],
             # fixVersion=[issue['milestone']],
             priority=None,
-            content=pr['initial_comment'],
+            content=_md_to_jira(pr['initial_comment']),
             reporter=pr['user']['fullname'],
             assignee=pr['assignee'],
             status=pr['status'],
