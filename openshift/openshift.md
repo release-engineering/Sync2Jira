@@ -29,7 +29,7 @@ You will also have to build the image in OpenShift. You will need to pass a URL 
 install rhmsg which is what we use to listen for repo changes. 
 
 ## OpenShift-Build
-Sync2Jira uses [OpenShift-Build](https://github.com/sidpremkumar/OpenShift-Build) to achieve integration tests against 
+Sync2Jira uses [OpenShift-Build](https://github.com/sidpremkumsidpremkumar/OpenShift-Build) to achieve integration tests against 
 real values. You can use the [openshift-build-template.yml](openshift-build-template.yaml) to deploy an instance of 
 OpenShift build in your namespace. Make sure to configure your GitHub repo to push checks and pull requests to a 
 [Smee.io](https://smeel.io) url. See the documentation under [OpenShift-Build](https://github.com/sidpremkumar/OpenShift-Build)

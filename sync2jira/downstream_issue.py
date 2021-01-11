@@ -1287,6 +1287,12 @@ def sync_with_jira(issue, config):
     log.info("Looking for matching downstream issue via new method.")
     existing = _get_existing_jira_issue(client, issue, config)
     if existing:
+        # Check for status, if closed create new one
+        if existing.fields.status == 'Closed':
+            log.info("Found existing issue that is closed, creating new one.")
+            _create_jira_issue(client, issue, config)
+            return
+
         # If we found an existing JIRA issue already
         log.info("Found existing, matching downstream %r.", existing.key)
         if config['sync2jira']['testing']:
