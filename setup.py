@@ -21,19 +21,14 @@ import os
 
 with open('requirements.txt', 'rb') as f:
     install_requires = f.read().decode('utf-8').split('\n')
-    if not os.getenv('READTHEDOCS'):
-        install_requires.append('requests-kerberos')
-
-with open('test-requirements.txt', 'rb') as f:
-    test_requires = f.read().decode('utf-8').split('\n')
 
 setup(
-    name='sync2jira',
+    name='webhook-sync2jira',
     version=2.0,
-    description="Sync pagure and github issues to jira, via fedmsg",
-    author='Ralph Bean',
-    author_email='rbean@redhat.com',
-    url='https://pagure.io/sync-to-jira',
+    description="Sync Github issues to JIRA, via Github Webhooks",
+    author='Sid Premkumar',
+    author_email='sid@bastionzero.com',
+    url='https://github.com/cwcrypto/WebHookSync2Jira',
     license='LGPLv2+',
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -44,18 +39,14 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     install_requires=install_requires,
-    tests_require=test_requires,
-    test_suite='nose.collector',
     packages=[
-        'sync2jira',
+        'webhook-sync2jira',
     ],
     include_package_data=True,
     zip_safe=False,
     entry_points={
         'console_scripts': [
-            "sync2jira=sync2jira.main:main",
-            "sync2jira-list-managed-urls=sync2jira.main:list_managed",
-            "sync2jira-close-duplicates=sync2jira.main:close_duplicates",
+            "webhook-sync2jira=sync2jira.main:main",
         ],
     },
 )

@@ -16,7 +16,7 @@
 # License along with sync2jira; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110.15.0 USA
 #
-# Authors:  Ralph Bean <rbean@redhat.com>
+# Authors:  Ralph Bean <rbean@redhat.com>, Sid Premkumar <sid@bastionzero.com>
 """ Sync github and pagure issues to a jira instance, via fedmsg.
 
 Run with systemd, please.
@@ -29,10 +29,9 @@ from time import sleep
 import requests
 from copy import deepcopy
 import os
+import json
 
 # 3rd Party Modules
-import fedmsg
-import fedmsg.config
 import jinja2
 from requests_kerberos import HTTPKerberosAuth, OPTIONAL
 
@@ -51,18 +50,6 @@ logging.basicConfig(format=FORMAT, level=logging.INFO)
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 logging.basicConfig(format=FORMAT, level=logging.WARNING)
 log = logging.getLogger('sync2jira')
-if os.environ.get('CONFLUENCE_SPACE') == 'mock_confluence_space':
-    # If we are debugging save log output
-    try:
-        hdlr = logging.FileHandler('sync2jira_main.log')
-        log.addHandler(hdlr)
-        log.setLevel(logging.DEBUG)
-    except:  # noqa: E722
-        log.error("Unable to create log file!")
-
-# Only allow fedmsg logs that are critical
-fedmsg_log = logging.getLogger('fedmsg.crypto.utils')
-fedmsg_log.setLevel(50)
 
 remote_link_title = "Upstream issue"
 failure_email_subject = "Sync2Jira Has Failed!"
@@ -81,16 +68,6 @@ issue_handlers = {
     'github.issue.milestoned': u_issue.handle_github_message,
     'github.issue.demilestoned': u_issue.handle_github_message,
     'github.issue.edited': u_issue.handle_github_message,
-    # Pagure
-    'pagure.issue.new': u_issue.handle_pagure_message,
-    'pagure.issue.tag.added': u_issue.handle_pagure_message,
-    'pagure.issue.comment.added': u_issue.handle_pagure_message,
-    'pagure.issue.comment.edited': u_issue.handle_pagure_message,
-    'pagure.issue.assigned.added': u_issue.handle_pagure_message,
-    'pagure.issue.assigned.reset': u_issue.handle_pagure_message,
-    'pagure.issue.edit': u_issue.handle_pagure_message,
-    'pagure.issue.drop': u_issue.handle_pagure_message,
-    'pagure.issue.tag.removed': u_issue.handle_pagure_message,
 }
 
 # PR related handlers
@@ -101,16 +78,12 @@ pr_handlers = {
     'github.issue.comment': u_pr.handle_github_message,
     'github.pull_request.reopened': u_pr.handle_github_message,
     'github.pull_request.closed': u_pr.handle_github_message,
-    # Pagure
-    'pagure.pull-request.new': u_pr.handle_pagure_message,
-    'pagure.pull-request.comment.added': u_pr.handle_pagure_message,
-    'pagure.pull-request.initial_comment.edited': u_pr.handle_pagure_message,
 }
-DATAGREPPER_URL = "http://apps.fedoraproject.org/datagrepper/raw"
+
 INITIALIZE = os.getenv('INITIALIZE', '0')
 
 
-def load_config(loader=fedmsg.config.load_config):
+def load_config(config="../config/config.json"):
     """
     Generates and validates the config file \
     that will be used by fedmsg and JIRA client.
@@ -119,10 +92,7 @@ def load_config(loader=fedmsg.config.load_config):
     :returns: The config dict to be used later in the program
     :rtype: Dict
     """
-    config = loader()
-
-    # Force some vars that we like
-    config['mute'] = True
+    config = json.loads(config)
 
     # Validate it
     if 'sync2jira' not in config:
@@ -131,7 +101,7 @@ def load_config(loader=fedmsg.config.load_config):
     if 'map' not in config['sync2jira']:
         raise ValueError("No sync2jira.map section found in fedmsg.d/ config")
 
-    possible = set(['pagure', 'github'])
+    possible = set(['github'])
     specified = set(config['sync2jira']['map'].keys())
     if not specified.issubset(possible):
         message = "Specified handlers: %s, must be a subset of %s."
@@ -141,7 +111,7 @@ def load_config(loader=fedmsg.config.load_config):
         ))
 
     if 'jira' not in config['sync2jira']:
-        raise ValueError("No sync2jira.jira section found in fedmsg.d/ config")
+        raise ValueError("No sync2jira.jira section found in config")
 
     # Provide some default values
     defaults = {
@@ -166,18 +136,19 @@ def listen(config):
         log.info("`listen` is disabled.  Exiting.")
         return
 
-    log.info("Waiting for a relevant fedmsg message to arrive...")
-    for _, _, topic, msg in fedmsg.tail_messages(**config):
-        idx = msg['msg_id']
-        suffix = ".".join(topic.split('.')[3:])
-        log.debug("Encountered %r %r %r", suffix, topic, idx)
+    # TODO: This now needs to be a Github listener
+    # log.info("Waiting for a relevant fedmsg message to arrive...")
+    # for _, _, topic, msg in fedmsg.tail_messages(**config):
+    #     idx = msg['msg_id']
+    #     suffix = ".".join(topic.split('.')[3:])
+    #     log.debug("Encountered %r %r %r", suffix, topic, idx)
 
-        if suffix not in issue_handlers and suffix not in pr_handlers:
-            continue
+    #     if suffix not in issue_handlers and suffix not in pr_handlers:
+    #         continue
 
-        log.debug("Handling %r %r %r", suffix, topic, idx)
+    #     log.debug("Handling %r %r %r", suffix, topic, idx)
 
-        handle_msg(msg, suffix, config)
+    #     handle_msg(msg, suffix, config)
 
 
 def initialize_issues(config, testing=False, repo_name=None):
@@ -195,18 +166,6 @@ def initialize_issues(config, testing=False, repo_name=None):
     log.info("Running initialization to sync all issues from upstream to jira")
     log.info("Testing flag is %r", config['sync2jira']['testing'])
     mapping = config['sync2jira']['map']
-    for upstream in mapping.get('pagure', {}).keys():
-        if 'issue' not in mapping.get('pagure', {}).get(upstream, {}).get('sync', []):
-            continue
-        if repo_name is not None and upstream != repo_name:
-            continue
-        for issue in u_issue.pagure_issues(upstream, config):
-            try:
-                d_issue.sync_with_jira(issue, config)
-            except Exception as e:
-                log.error(f"Failed on {issue}\nException: {e}")
-                raise
-    log.info("Done with pagure issue initialization.")
 
     for upstream in mapping.get('github', {}).keys():
         if 'issue' not in mapping.get('github', {}).get(upstream, {}).get('sync', []):
@@ -253,15 +212,6 @@ def initialize_pr(config, testing=False, repo_name=None):
     log.info("Running initialization to sync all PRs from upstream to jira")
     log.info("Testing flag is %r", config['sync2jira']['testing'])
     mapping = config['sync2jira']['map']
-    for upstream in mapping.get('pagure', {}).keys():
-        if 'pullrequest' not in mapping.get('pagure', {}).get(upstream, {}).get('sync', []):
-            continue
-        if repo_name is not None and upstream != repo_name:
-            continue
-        for pr in u_pr.pagure_prs(upstream, config):
-            if pr:
-                d_pr.sync_with_jira(pr, config)
-    log.info("Done with pagure PR initialization.")
 
     for upstream in mapping.get('github', {}).keys():
         if 'pullrequest' not in mapping.get('github', {}).get(upstream, {}).get('sync', []):
@@ -293,123 +243,6 @@ def initialize_pr(config, testing=False, repo_name=None):
                     raise
     log.info("Done with github PR initialization.")
 
-
-def initialize_recent(config):
-    """
-    Initializes based on the recent history of datagrepper
-
-    :param Dict config: Config dict
-    :return: Nothing
-    """
-    # Query datagrepper
-    ret = query(category=['github', 'pagure'], delta=int(600), rows_per_page=100)
-
-    # Loop and sync
-    for entry in ret:
-        # Extract our topic
-        suffix = ".".join(entry['topic'].split('.')[3:])
-        log.debug("Encountered %r %r", suffix, entry['topic'])
-
-        # Disregard if it's invalid
-        if suffix not in issue_handlers and suffix not in pr_handlers:
-            continue
-
-        # Deal with the message
-        log.debug("Handling %r %r", suffix, entry['topic'])
-        msg = entry['msg']
-        handle_msg({'msg': msg}, suffix, config)
-
-
-def handle_msg(msg, suffix, config):
-    """
-    Function to handle incomming message from datagrepper
-    :param Dict msg: Incoming message
-    :param String suffix: Incoming suffix
-    :param Dict config: Config dict
-    """
-    issue = None
-    pr = None
-    # Github '.issue.' is used for both PR and Issue
-    # Check for that edge case
-    if suffix == 'github.issue.comment':
-        if 'pull_request' in msg['msg']['issue'] and msg['msg']['action'] != 'deleted':
-            # pr_filter turns on/off the filtering of PRs
-            pr = issue_handlers[suffix](msg, config, pr_filter=False)
-            if not pr:
-                return
-            # Issues do not have suffix and reporter needs to be reformatted
-            pr.suffix = suffix
-            pr.reporter = pr.reporter.get('fullname')
-            setattr(pr, 'match', matcher(pr.content, pr.comments))
-        else:
-            issue = issue_handlers[suffix](msg, config)
-    elif suffix in issue_handlers:
-        issue = issue_handlers[suffix](msg, config)
-    elif suffix in pr_handlers:
-        pr = pr_handlers[suffix](msg, config, suffix)
-
-    if not issue and not pr:
-        return
-    if issue:
-        d_issue.sync_with_jira(issue, config)
-    elif pr:
-        d_pr.sync_with_jira(pr, config)
-
-
-def query(limit=None, **kwargs):
-    """
-    Run query on Datagrepper
-
-    Args:
-        limit: the max number of messages to fetch at a time
-        kwargs: keyword arguments to build request parameters
-    """
-    # Pack up the kwargs into a parameter list for request
-    params = deepcopy(kwargs)
-
-    # Set up for paging requests
-    all_results = []
-    page = params.get('page', 1)
-
-    # Important to set ASC order when paging to avoid duplicates
-    params['order'] = 'asc'
-
-    results = get(params=params)
-
-    # Collect the messages
-    all_results.extend(results['raw_messages'])
-
-    # Set up for loop
-    fetched = results['count']
-    total = limit or results['total']
-
-    # Fetch results until no more are left
-    while fetched < total:
-        page += 1
-        params['page'] = page
-
-        results = get(params=params)
-        count = results['count']
-        fetched += count
-
-        # if we missed the condition and haven't fetched any
-        if count == 0:
-            break
-
-        all_results.extend(results['raw_messages'])
-
-    return all_results
-
-
-def get(params):
-    url = DATAGREPPER_URL
-    headers = {'Accept': 'application/json', }
-
-    response = requests.get(url=url, params=params, headers=headers,
-                            auth=HTTPKerberosAuth(mutual_authentication=OPTIONAL))
-    return response.json()
-
-
 def main(runtime_test=False, runtime_config=None):
     """
     Main function to check for initial sync
@@ -419,11 +252,8 @@ def main(runtime_test=False, runtime_config=None):
     :param Dict runtime_config: Config file to be used if it is a runtime test. runtime_test must be true
     :return: Nothing
     """
-    # Load config and disable warnings
-    if not runtime_test or not runtime_config:
-        config = load_config()
-    else:
-        config = runtime_config
+    # Load config
+    config = load_config()
 
     if config['sync2jira']['confluence_statistics']:
         confluence_client.update_stat_value(True)
@@ -444,8 +274,7 @@ def main(runtime_test=False, runtime_config=None):
                 return
         else:
             # Pool datagrepper from the last 10 mins
-            log.info("Initialization False. Pulling data from datagrepper...")
-            initialize_recent(config)
+            log.info("Initialization False...")
         try:
             listen(config)
         except KeyboardInterrupt:
@@ -461,7 +290,6 @@ def report_failure(config):
     """
     Helper function to alert admins in case of failure.
 
-
     :param Dict config: Config dict for JIRA
     """
     # Email our admins with the traceback
@@ -476,57 +304,6 @@ def report_failure(config):
               cc=None,
               subject=failure_email_subject,
               text=html_text)
-
-
-def list_managed():
-    """
-    Function to list URL for issues under map in config.
-
-    :return: Nothing
-    """
-    config = load_config()
-    mapping = config['sync2jira']['map']
-    warnings.simplefilter("ignore")
-
-    for upstream in mapping.get('pagure', {}).keys():
-        for issue in u_issue.pagure_issues(upstream, config):
-            print(issue.url)
-
-    for upstream in mapping.get('github', {}).keys():
-        for issue in u_issue.github_issues(upstream, config):
-            print(issue.url)
-
-
-def close_duplicates():
-    """
-    Function to close duplicate functions. Uses downstream:close_duplicates.
-
-    :return: Nothing
-    """
-    config = load_config()
-    logging.basicConfig(level=logging.INFO)
-    log.info("Testing flag is %r", config['sync2jira']['testing'])
-    mapping = config['sync2jira']['map']
-    warnings.simplefilter("ignore")
-
-    for upstream in mapping.get('pagure', {}).keys():
-        for issue in u_issue.pagure_issues(upstream, config):
-            try:
-                d_issue.close_duplicates(issue, config)
-            except Exception:
-                log.error("Failed on %r", issue)
-                raise
-    log.info("Done with pagure duplicates.")
-
-    for upstream in mapping.get('github', {}).keys():
-        for issue in u_issue.github_issues(upstream, config):
-            try:
-                d_issue.close_duplicates(issue, config)
-            except Exception:
-                log.error("Failed on %r", issue)
-                raise
-    log.info("Done with github duplicates.")
-
 
 if __name__ == '__main__':
     main()
