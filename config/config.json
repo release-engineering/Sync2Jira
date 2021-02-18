@@ -28,13 +28,9 @@
             },
 
             "map": {
-                "pagure": {
-                    "Demo_project": {"project": "FACTORY", "component": "gitbz",
-                                    "updates": [...], "sync": ["pullrequest", "issue"]},
-                },
                 "github": {
                     "GITHUB_USERNAME/Demo_project": {"project": "FACTORY", "component": "gitbz",
-                                                    "updates": [...], "sync": ["pullrequest", "issue"]}
+                                                    "updates": [], "sync": ["pullrequest", "issue"]}
                 }
             }
     }

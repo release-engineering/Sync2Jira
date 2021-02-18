@@ -15,7 +15,7 @@
 # License along with sync2jira; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110.15.0 USA
 #
-# Authors:  Ralph Bean <rbean@redhat.com>
+# Authors:  Ralph Bean <rbean@redhat.com>, Sid Premkumar <sid@bastionzero.com>
 from setuptools import setup
 import os
 
@@ -40,13 +40,13 @@ setup(
     ],
     install_requires=install_requires,
     packages=[
-        'webhook-sync2jira',
+        'sync2jira',
     ],
     include_package_data=True,
     zip_safe=False,
     entry_points={
         'console_scripts': [
-            "webhook-sync2jira=sync2jira.main:main",
+            "sync2jira=sync2jira.main:main",
         ],
     },
 )

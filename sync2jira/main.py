@@ -40,9 +40,7 @@ import sync2jira.upstream_issue as u_issue
 import sync2jira.upstream_pr as u_pr
 import sync2jira.downstream_issue as d_issue
 import sync2jira.downstream_pr as d_pr
-from sync2jira.mailer import send_mail
 from sync2jira.intermediary import matcher
-from sync2jira.confluence_client import confluence_client
 
 # Set up our logging
 FORMAT = "[%(asctime)s] %(levelname)s: %(message)s"
@@ -51,39 +49,10 @@ logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 logging.basicConfig(format=FORMAT, level=logging.WARNING)
 log = logging.getLogger('sync2jira')
 
-remote_link_title = "Upstream issue"
-failure_email_subject = "Sync2Jira Has Failed!"
-
-# Issue related handlers
-issue_handlers = {
-    # GitHub
-    'github.issue.opened': u_issue.handle_github_message,
-    'github.issue.reopened': u_issue.handle_github_message,
-    'github.issue.labeled': u_issue.handle_github_message,
-    'github.issue.assigned': u_issue.handle_github_message,
-    'github.issue.unassigned': u_issue.handle_github_message,
-    'github.issue.closed': u_issue.handle_github_message,
-    'github.issue.comment': u_issue.handle_github_message,
-    'github.issue.unlabeled': u_issue.handle_github_message,
-    'github.issue.milestoned': u_issue.handle_github_message,
-    'github.issue.demilestoned': u_issue.handle_github_message,
-    'github.issue.edited': u_issue.handle_github_message,
-}
-
-# PR related handlers
-pr_handlers = {
-    # GitHub
-    'github.pull_request.opened': u_pr.handle_github_message,
-    'github.pull_request.edited': u_pr.handle_github_message,
-    'github.issue.comment': u_pr.handle_github_message,
-    'github.pull_request.reopened': u_pr.handle_github_message,
-    'github.pull_request.closed': u_pr.handle_github_message,
-}
-
 INITIALIZE = os.getenv('INITIALIZE', '0')
 
 
-def load_config(config="../config/config.json"):
+def load_config(config=os.environ['SYNC2JIRA_CONFIG']):
     """
     Generates and validates the config file \
     that will be used by fedmsg and JIRA client.
@@ -92,7 +61,8 @@ def load_config(config="../config/config.json"):
     :returns: The config dict to be used later in the program
     :rtype: Dict
     """
-    config = json.loads(config)
+    with open(config, 'r') as jsonFile:
+     config = json.loads(jsonFile.read())
 
     # Validate it
     if 'sync2jira' not in config:
@@ -113,6 +83,13 @@ def load_config(config="../config/config.json"):
     if 'jira' not in config['sync2jira']:
         raise ValueError("No sync2jira.jira section found in config")
 
+    # Update config based on env vars
+    config['sync2jira']['github_token'] = os.environ['SYNC2JIRA_GITHUB_TOKEN']
+    config['sync2jira']['jira'][config['sync2jira']['default_jira_instance']]['basic_auth'] = (
+        os.environ['SYNC2JIRA_JIRA_USERNAME'],
+        os.environ['SYNC2JIRA_JIRA_PASSWORD']
+    )
+
     # Provide some default values
     defaults = {
         'listen': True,
@@ -123,33 +100,40 @@ def load_config(config="../config/config.json"):
     return config
 
 
-def listen(config):
+def listen(config, event_emitter):
     """
     Listens to activity on upstream repos on pagure and github \
     via fedmsg, and syncs new issues there to the JIRA instance \
     defined in 'fedmsg.d/sync2jira.py'
 
     :param Dict config: Config dict
+    :param rxObject event_emitter: Event emitter to wait for 
     :returns: Nothing
     """
     if not config['sync2jira'].get('listen'):
         log.info("`listen` is disabled.  Exiting.")
         return
 
-    # TODO: This now needs to be a Github listener
-    # log.info("Waiting for a relevant fedmsg message to arrive...")
-    # for _, _, topic, msg in fedmsg.tail_messages(**config):
-    #     idx = msg['msg_id']
-    #     suffix = ".".join(topic.split('.')[3:])
-    #     log.debug("Encountered %r %r %r", suffix, topic, idx)
+    log.info("Waiting for a relevant webhook message to arrive...")
+    event_emitter.subscribe(
+        lambda x: handle_message(config, x)
+    )
 
-    #     if suffix not in issue_handlers and suffix not in pr_handlers:
-    #         continue
+    while True:
+        # Constantly refresh the config file
+        config = load_config()
+        sleep(10)
 
-    #     log.debug("Handling %r %r %r", suffix, topic, idx)
-
-    #     handle_msg(msg, suffix, config)
-
+def handle_message(config, incoming_json):
+    if ('pull_request' in incoming_json.keys()):
+        pr = u_pr.handle_github_message(config, incoming_json)
+        if pr:
+            d_pr.sync_with_jira(pr, config)
+    elif ('issue' in incoming_json.keys()):
+        issue = u_issue.handle_github_message(config, incoming_json)
+        if issue:
+            d_issue.sync_with_jira(issue, config)
+            
 
 def initialize_issues(config, testing=False, repo_name=None):
     """
@@ -192,7 +176,6 @@ def initialize_issues(config, testing=False, repo_name=None):
             else:
                 if not config['sync2jira']['develop']:
                     # Only send the failure email if we are not developing
-                    report_failure(config)
                     raise
     log.info("Done with github issue initialization.")
 
@@ -239,24 +222,16 @@ def initialize_pr(config, testing=False, repo_name=None):
             else:
                 if not config['sync2jira']['develop']:
                     # Only send the failure email if we are not developing
-                    report_failure(config)
                     raise
     log.info("Done with github PR initialization.")
 
-def main(runtime_test=False, runtime_config=None):
+def main(event_emitter):
     """
     Main function to check for initial sync
-    and listen for fedmgs.
-
-    :param Bool runtime_test: Flag to indicate if we are performing a runtime test. Default false
-    :param Dict runtime_config: Config file to be used if it is a runtime test. runtime_test must be true
-    :return: Nothing
+    and listen.
     """
     # Load config
     config = load_config()
-
-    if config['sync2jira']['confluence_statistics']:
-        confluence_client.update_stat_value(True)
 
     logging.basicConfig(level=logging.INFO)
     warnings.simplefilter("ignore")
@@ -270,40 +245,17 @@ def main(runtime_test=False, runtime_config=None):
             initialize_issues(config)
             log.info("Initializing PRs...")
             initialize_pr(config)
-            if runtime_test:
-                return
         else:
             # Pool datagrepper from the last 10 mins
             log.info("Initialization False...")
         try:
-            listen(config)
+            listen(config, event_emitter)
         except KeyboardInterrupt:
             pass
     except:  # noqa: E722
         if not config['sync2jira']['develop']:
             # Only send the failure email if we are not developing
-            report_failure(config)
             raise
-
-
-def report_failure(config):
-    """
-    Helper function to alert admins in case of failure.
-
-    :param Dict config: Config dict for JIRA
-    """
-    # Email our admins with the traceback
-    templateLoader = jinja2.FileSystemLoader(
-        searchpath='usr/local/src/sync2jira/sync2jira/')
-    templateEnv = jinja2.Environment(loader=templateLoader)
-    template = templateEnv.get_template('failure_template.jinja')
-    html_text = template.render(traceback=traceback.format_exc())
-
-    # Send mail
-    send_mail(recipients=[config['sync2jira']['mailing-list']],
-              cc=None,
-              subject=failure_email_subject,
-              text=html_text)
 
 if __name__ == '__main__':
     main()
