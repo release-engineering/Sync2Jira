@@ -292,48 +292,6 @@ def attach_link(client, downstream, remote_link):
     return downstream
 
 
-def assign_user(client, issue, downstream, remove_all=False):
-    """
-    Attempts to assigns a JIRA issue to the correct
-    user based on the issue.
-
-    :param jira.client.JIRA client: JIRA Client
-    :param sync2jira.intermediary.Issue issue: Issue object
-    :param jira.resources.Issue downstream: JIRA issue object
-    :param Bool remove_all: Flag to indicate if we should reset the assignees in the JIRA issue
-    :returns: Nothing
-    """
-    # If removeAll flag, then we need to reset the assignees
-    if remove_all:
-        # Update the issue to have no assignees
-        downstream.update(assignee={'name': ''})
-        # Then we're done! And we can go back !
-        return
-
-    # JIRA only supports one assignee
-    # If we have more than one assignee (i.e. from Github)
-    # assign the issue to the first user (i.e. issue.assignee[0])
-
-    # First we need to find the user
-    # Make API call to get a list of users
-    users = client.search_assignable_users_for_issues(
-        issue.assignee[0]['fullname'],
-        project=issue.downstream['project'])
-    # Loop through the query
-    for user in users:
-        if user.displayName == issue.assignee[0]['fullname']:
-            # Then we can assign the issue to the user
-            downstream.update({'assignee': {'name': user.key}})
-            return
-    # If there is an owner, assign it to them
-    if issue.downstream.get('owner'):
-        client.assign_issue(downstream.id, issue.downstream.get('owner'))
-        log.warning('Assigned %s to owner: %s' %
-                    (issue.title, issue.downstream.get('owner')))
-        return
-    log.warning('Was not able to assign user %s' % issue.assignee[0]['fullname'])
-
-
 def change_status(client, downstream, status, issue):
     """
     Change status of JIRA issue.
@@ -437,7 +395,7 @@ def _create_jira_issue(client, issue, config):
 
     # Update relevant information (i.e. tags, assignees etc.) if the
     # User opted in
-    _update_jira_issue(downstream, issue, client)
+    _update_jira_issue(downstream, issue, client, config)
 
     return downstream
 
@@ -459,7 +417,7 @@ def _label_matching(jira_labels, issue_labels):
     return updated_labels
 
 
-def _update_jira_issue(existing, issue, client):
+def _update_jira_issue(existing, issue, client, config):
     """
     Updates an existing JIRA issue (i.e. tags, assignee, comments etc).
 
@@ -498,7 +456,7 @@ def _update_jira_issue(existing, issue, client):
     # Only synchronize assignee for listings that op-in
     if any('assignee' in item for item in updates):
         log.info("Looking for new assignee(s)")
-        _update_assignee(client, existing, issue, updates)
+        _update_assignee(client, existing, issue, updates, config)
 
     # Only synchronize descriptions for listings that op-in
     if 'description' in updates:
@@ -746,7 +704,7 @@ def _update_fixVersion(updates, existing, issue, client):
             client.add_comment(existing, f"Error updating fixVersion: {issue.fixVersion}")
 
 
-def _update_assignee(client, existing, issue, updates):
+def _update_assignee(client, existing, issue, updates, config):
     """
         Helper function update existing JIRA assignee from downstream issue.
 
@@ -754,8 +712,12 @@ def _update_assignee(client, existing, issue, updates):
         :param jira.resource.Issue existing: Existing JIRA issue
         :param sync2jira.intermediary.Issue issue: Upstream issue
         :param List updates: Downstream updates requested by the user
+        :param dict config: Config dict
         :returns: Nothing
     """
+    if not issue.assignee:
+        return
+
     # First check if overwrite is set to True
     try:
         # For python 3 >
@@ -764,11 +726,18 @@ def _update_assignee(client, existing, issue, updates):
         # for python 2.7
         overwrite = bool((filter(lambda d: "assignee" in d, updates))[0]['assignee']['overwrite'])
 
+    # First find our mapped user in JIRA if they exist, else just quit
+    mapped_jira_id = config['mapping'][issue.assignee[0].name]['jira']
+
+    if not mapped_jira_id:
+        log.warn('Could not update assignee')
+        return
+
     # First check if the issue is already assigned to the same person
     update = False
     if issue.assignee and issue.assignee[0]:
         try:
-            update = issue.assignee[0]['fullname'] != existing.fields.assignee.displayName
+            update = mapped_jira_id != existing.fields.assignee.key
         except AttributeError:
             update = True
 
@@ -777,20 +746,19 @@ def _update_assignee(client, existing, issue, updates):
         # And the issue has an assignee
         if not existing.fields.assignee and issue.assignee:
             if issue.assignee[0] and update:
-                # Update the assignee
-                assign_user(client, issue, existing)
+                existing.update({'assignee': {'id': mapped_jira_id}})
                 log.info('Updated assignee')
                 return
     else:
         # Update the assignee if we have someone to assignee it too
         if update:
-            assign_user(client, issue, existing)
+            existing.update({'assignee': {'id': mapped_jira_id}})
             log.info('Updated assignee')
         else:
             if existing.fields.assignee and not issue.assignee:
                 # Else we should remove all assignees
                 # Set removeAll flag to true
-                assign_user(client, issue, existing, remove_all=True)
+                existing.update({'assignee': {'name': ''}})
                 log.info('Updated assignee')
 
 
@@ -971,7 +939,7 @@ def sync_with_jira(issue, config):
             log.info("Testing flag is true.  Skipping actual update.")
             return
         # Update relevant metadata (i.e. tags, assignee, etc)
-        _update_jira_issue(existing, issue, client)
+        _update_jira_issue(existing, issue, client, config)
         return
 
     # If we're *not* configured to do legacy matching (upgrade mode) then there
