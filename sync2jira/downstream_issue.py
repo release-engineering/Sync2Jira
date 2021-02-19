@@ -715,8 +715,7 @@ def _update_assignee(client, existing, issue, updates, config):
         :param dict config: Config dict
         :returns: Nothing
     """
-    if not issue.assignee:
-        return
+
 
     # First check if overwrite is set to True
     try:
@@ -725,6 +724,13 @@ def _update_assignee(client, existing, issue, updates, config):
     except ValueError:
         # for python 2.7
         overwrite = bool((filter(lambda d: "assignee" in d, updates))[0]['assignee']['overwrite'])
+
+    if not issue.assignee and overwrite is False:
+        return
+    elif not issue.assignee and overwrite is True:
+        existing.update({'assignee': {'name': ''}})
+        log.info('Updated assignee')
+        return
 
     # First find our mapped user in JIRA if they exist, else just quit
     mapped_jira_id = config['mapping'][issue.assignee[0].name]['jira']

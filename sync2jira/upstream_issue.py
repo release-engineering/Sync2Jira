@@ -93,7 +93,7 @@ def handle_github_message(config, msg):
     assignees = []
     for person in msg['issue']['assignees']:
         assignee = github_client.get_user(person['login'])
-        assignees.append({'fullname': assignee.name})
+        assignees.append(assignee)
 
     # Update the assignee field in the message (to match Pagure format)
     msg['issue']['assignees'] = assignees
@@ -170,7 +170,7 @@ def github_issues(upstream, config):
         assignees = []
         for person in issue.assignees:
             assignee = github_client.get_user(person.login)
-            assignees.append({'fullname': assignee.name})
+            assignees.append(assignee)
         # Update the assignee field in the message (to match Pagure format)
         final_issue['assignees'] = assignees
 
