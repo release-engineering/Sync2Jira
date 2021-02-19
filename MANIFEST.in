@@ -1,5 +1,0 @@
-include LICENSE
-include README.md
-include fedmsg.d/sync2jira.py
-include requirements.txt
-include test-requirements.txt

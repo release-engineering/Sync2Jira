@@ -1,0 +1,37 @@
+{
+    "sync2jira": {
+            "admins": [{"admin_username": "admin_email@demo.com"}],
+
+            "mailing-list": "some_email@demo.com",
+
+            "listen": true,
+
+            "testing": true,
+
+            "develop": false,
+
+            "github_token": "YOUR_TOKEN",
+
+            "confluence_statistics": false,
+
+            "legacy_matching": false,
+
+            "default_jira_instance": "example",
+            "jira": {
+                "example": {
+                    "options": {
+                        "server": "https://some_jira_server_somewhere.com",
+                        "verify": true
+                    },
+                    "basic_auth": ["YOU_USERNAME", "YOUR_PASSWORD"]
+                }
+            },
+
+            "map": {
+                "github": {
+                    "GITHUB_USERNAME/Demo_project": {"project": "FACTORY", "component": "gitbz",
+                                                    "updates": [], "sync": ["pullrequest", "issue"]}
+                }
+            }
+    }
+}

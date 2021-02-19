@@ -25,13 +25,12 @@ from jira import JIRAError
 # Local Modules
 import sync2jira.downstream_issue as d_issue
 from sync2jira.intermediary import Issue, matcher
-from sync2jira.confluence_client import confluence_client
 
 
 log = logging.getLogger('sync2jira')
 
 
-def format_comment(pr, pr_suffix, client):
+def format_comment(pr, pr_suffix, client, config):
     """
     Formats comment to link PR.
     :param sync2jira.intermediary.PR pr: Upstream issue we're pulling data from
@@ -41,25 +40,21 @@ def format_comment(pr, pr_suffix, client):
     :rtype: String
     """
     # Find the pr.reporters JIRA username
-    ret = client.search_users(pr.reporter)
-    if len(ret) > 0:
-        # Loop through ret till we find an match
-        for user in ret:
-            if user.displayName == pr.reporter:
-                reporter = f"[~{user.key}]"
-                break
+    ret = get_jira_username_from_github(config, pr.reporter)
+    if ret:
+        reporter = f"[~accountid:{ret}]"
     else:
         reporter = pr.reporter
 
     if 'closed' in pr_suffix:
-        comment = f"Merge request [{pr.title}| {pr.url}] was closed."
+        comment = f"Merge request [{pr.title.replace(']', '').replace('[', '')}|{pr.url}] was closed."
     elif 'reopened' in pr_suffix:
-        comment = f"Merge request [{pr.title}| {pr.url}] was reopened."
+        comment = f"Merge request [{pr.title.replace(']', '').replace('[', '')}|{pr.url}] was reopened."
     elif 'merged' in pr_suffix:
-        comment = f"Merge request [{pr.title}| {pr.url}] was merged!"
+        comment = f"Merge request [{pr.title.replace(']', '').replace('[', '')}|{pr.url}] was merged!"
     else:
         comment = f"{reporter} mentioned this issue in " \
-            f"merge request [{pr.title}| {pr.url}]."
+            f"merge request [{pr.title.replace(']', '').replace('[', '')}| {pr.url}]."
     return comment
 
 
@@ -97,34 +92,33 @@ def comment_exists(client, existing, new_comment):
     return False
 
 
-def update_jira_issue(existing, pr, client):
+def update_jira_issue(existing, pr, client, config):
     """
     Updates an existing JIRA issue (i.e. tags, assignee, comments etc).
 
     :param jira.resources.Issue existing: Existing JIRA issue that was found
     :param sync2jira.intermediary.PR pr: Upstream issue we're pulling data from
     :param jira.client.JIRA client: JIRA Client
+    :param dict config: Config dict
     :returns: Nothing
     """
     # Get our updates array
     updates = pr.downstream.get('pr_updates', {})
 
     # Format and add comment to indicate PR has been linked
-    new_comment = format_comment(pr, pr.suffix, client)
+    new_comment = format_comment(pr, pr.suffix, client, config)
+
     # See if the issue_link and comment exists
     exists = issue_link_exists(client, existing, pr)
     comment_exist = comment_exists(client, existing, new_comment)
     # Check if the comment if already there
     if not exists:
-        if not comment_exist:
-            log.info(f"Added comment for PR {pr.title} on JIRA {pr.jira_key}")
-            client.add_comment(existing, new_comment)
         # Attach remote link
         remote_link = dict(url=pr.url, title=f"[PR] {pr.title}")
         d_issue.attach_link(client, existing, remote_link)
-        if confluence_client.update_stat:
-            confluence_data = {'Comments': 1}
-            confluence_client.update_stat_page(confluence_data)
+    if not comment_exist:
+        log.info(f"Added comment for PR {pr.title} on JIRA {pr.jira_key}")
+        client.add_comment(existing, new_comment)
 
     # Only synchronize link_transition for listings that op-in
     if any('merge_transition' in item for item in updates) and 'merged' in pr.suffix:
@@ -150,12 +144,14 @@ def update_transition(client, existing, pr, transition_type):
     :returns: Nothing
     """
     # Get our closed status
-    closed_status = list(filter(lambda d: transition_type in d, pr.downstream.get('pr_updates', {})))[0][transition_type]
+    link_status = [transition for transition in pr.downstream.get('pr_updates', []) if transition_type in transition]
+    if link_status:
+        closed_status = link_status[0][transition_type]
 
-    # Update the state
-    d_issue.change_status(client, existing, closed_status, pr)
+        # Update the state
+        d_issue.change_status(client, existing, closed_status, pr)
 
-    log.info(f"Updated {transition_type} for issue {pr.title}")
+        log.info(f"Updated {transition_type} for issue {pr.title}")
 
 
 def sync_with_jira(pr, config):
@@ -181,11 +177,6 @@ def sync_with_jira(pr, config):
     # Create a client connection for this issue
     client = d_issue.get_jira_client(pr, config)
 
-    # Check the status of the JIRA client
-    if not config['sync2jira']['develop'] and not d_issue.check_jira_status(client):
-        log.warning('The JIRA server looks like its down. Shutting down...')
-        raise JIRAError
-
     # Find our JIRA issue if one exists
     if isinstance(pr, Issue):
         pr.jira_key = matcher(pr.content, pr.comments)
@@ -207,5 +198,11 @@ def sync_with_jira(pr, config):
 
     # Else start syncing relevant information
     log.info(f"Syncing PR {pr.title}")
-    update_jira_issue(existing, pr, client)
+    update_jira_issue(existing, pr, client, config)
     log.info(f"Done syncing PR {pr.title}")
+
+def get_jira_username_from_github(config, github_login):
+    """ Helper function to get JIRA username from Github login """
+    for name, data in config['mapping'].items():
+        if name == github_login:
+            return data['jira']

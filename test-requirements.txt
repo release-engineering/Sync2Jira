@@ -1,6 +1,0 @@
-python-coveralls
-coverage
-nose
-pytest
-pytest-cov
-mock
