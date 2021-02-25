@@ -30,6 +30,7 @@ import requests
 from copy import deepcopy
 import os
 import json
+import threading
 
 # 3rd Party Modules
 import jinja2
@@ -50,6 +51,9 @@ logging.basicConfig(format=FORMAT, level=logging.WARNING)
 log = logging.getLogger('sync2jira')
 
 INITIALIZE = os.getenv('INITIALIZE', '0')
+
+# Build our lock
+lock = threading.Lock()
 
 
 def load_config(config=os.environ['SYNC2JIRA_CONFIG']):
@@ -113,26 +117,30 @@ def listen(config, event_emitter):
     if not config['sync2jira'].get('listen'):
         log.info("`listen` is disabled.  Exiting.")
         return
-
+    
     log.info("Waiting for a relevant webhook message to arrive...")
     event_emitter.subscribe(
         lambda x: handle_message(config, x)
     )
 
     while True:
-        # Constantly refresh the config file
-        config = load_config()
+
         sleep(10)
 
 def handle_message(config, incoming_json):
-    if ('pull_request' in incoming_json.keys()):
-        pr = u_pr.handle_github_message(config, incoming_json)
-        if pr:
-            d_pr.sync_with_jira(pr, config)
-    elif ('issue' in incoming_json.keys()):
-        issue = u_issue.handle_github_message(config, incoming_json)
-        if issue:
-            d_issue.sync_with_jira(issue, config)
+    # Constantly refresh the config file when we handle a new message
+    config = load_config()
+    
+    # Ensure we are only dealing with one issue at a time, get our lock
+    with lock:
+        if ('pull_request' in incoming_json.keys()):
+            pr = u_pr.handle_github_message(config, incoming_json)
+            if pr:
+                d_pr.sync_with_jira(pr, config)
+        elif ('issue' in incoming_json.keys()):
+            issue = u_issue.handle_github_message(config, incoming_json)
+            if issue:
+                d_issue.sync_with_jira(issue, config)
             
 
 def initialize_issues(config, testing=False, repo_name=None):
