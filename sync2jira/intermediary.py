@@ -27,7 +27,7 @@ class Issue(object):
                  config, tags, fixVersion, priority, content,
                  reporter, assignee, status, id, upstream_id, downstream=None):
         self.source = source
-        self._title = title
+        self._title = title[:254]
         self.url = url
         self.upstream = upstream
         self.comments = comments
@@ -167,7 +167,7 @@ class PR(object):
                  assignee, status, id, suffix, match, downstream=None):
         self.source = source
         self.jira_key = jira_key
-        self._title = title
+        self._title = title[:254]
         self.url = url
         self.upstream = upstream
         self.comments = comments
