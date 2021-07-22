@@ -240,6 +240,6 @@ else:
     class mock_confluence_client(object):
         mock_data = False
         update_stat = False
-        def update_stat_value(self, **kwargs): return
-        def update_stat_page(self, **kwargs): return
+        def update_stat_value(self, *args, **kwargs): return
+        def update_stat_page(self, *args, **kwargs): return
     confluence_client = mock_confluence_client()
