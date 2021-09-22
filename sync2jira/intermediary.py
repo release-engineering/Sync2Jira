@@ -75,7 +75,7 @@ class Issue(object):
             comment['date_created'] = datetime.fromtimestamp(float(comment['date_created']))
             comments.append({
                 'author': comment['user']['name'],
-                'body': comment['comment'],
+                'body': trimCommentBody(comment['comment']),
                 'name': comment['user']['name'],
                 'id': comment['id'],
                 'date_created': comment['date_created'],
@@ -116,7 +116,7 @@ class Issue(object):
             comments.append({
                 'author': comment['author'],
                 'name': comment['name'],
-                'body': comment['body'],
+                'body': trimCommentBody(comment['body']),
                 'id': comment['id'],
                 'date_created': comment['date_created'],
                 'changed': None
@@ -221,7 +221,7 @@ class PR(object):
                 float(comment['date_created']))
             comments.append({
                 'author': comment['user']['name'],
-                'body': comment['comment'],
+                'body': trimCommentBody(comment['comment']),
                 'name': comment['user']['name'],
                 'id': comment['id'],
                 'date_created': comment['date_created'],
@@ -268,7 +268,7 @@ class PR(object):
             comments.append({
                 'author': comment['author'],
                 'name': comment['name'],
-                'body': comment['body'],
+                'body': trimCommentBody(comment['body']),
                 'id': comment['id'],
                 'date_created': comment['date_created'],
                 'changed': None
@@ -362,3 +362,16 @@ def matcher(content, comments):
                     return match
         else:
             return None
+
+def trimCommentBody(commentBody):
+    """
+    Helper function to trim a comment to ensure it is not over 65000 char
+    Ref: https://github.com/release-engineering/Sync2Jira/issues/123
+    
+    :param String commentBody: Comment content
+    :rtype: String
+    """
+    if len(commentBody) > 65000:
+        return commentBody[:65000]
+    else:
+        return commentBody
