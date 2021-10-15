@@ -147,7 +147,7 @@ class Issue(object):
             tags=issue['labels'],
             fixVersion=[issue['milestone']],
             priority=None,
-            content=issue['body'],
+            content=issue['body'] or '',
             reporter=issue['user'],
             assignee=issue['assignees'],
             status=issue['state'],
