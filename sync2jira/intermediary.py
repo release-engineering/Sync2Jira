@@ -35,9 +35,12 @@ class Issue(object):
         self.fixVersion = fixVersion
         self.priority = priority
 
+        # First trim the size of the content
+        self.content = trimString(content)
+
         # JIRA treats utf-8 characters in ways we don't totally understand, so scrub content down to
         # simple ascii characters right from the start.
-        self.content = content.encode('ascii', errors='replace').decode('ascii')
+        self.content = self.content.encode('ascii', errors='replace').decode('ascii')
 
         # We also apply this content in regexs to pattern match, so remove any escape characters
         self.content = self.content.replace('\\', '')
@@ -75,7 +78,7 @@ class Issue(object):
             comment['date_created'] = datetime.fromtimestamp(float(comment['date_created']))
             comments.append({
                 'author': comment['user']['name'],
-                'body': trimCommentBody(comment['comment']),
+                'body': trimString(comment['comment']),
                 'name': comment['user']['name'],
                 'id': comment['id'],
                 'date_created': comment['date_created'],
@@ -116,7 +119,7 @@ class Issue(object):
             comments.append({
                 'author': comment['author'],
                 'name': comment['name'],
-                'body': trimCommentBody(comment['body']),
+                'body': trimString(comment['body']),
                 'id': comment['id'],
                 'date_created': comment['date_created'],
                 'changed': None
@@ -178,7 +181,10 @@ class PR(object):
         # JIRA treats utf-8 characters in ways we don't totally understand, so scrub content down to
         # simple ascii characters right from the start.
         if content:
-            self.content = content.encode('ascii', errors='replace').decode('ascii')
+            # First trim the size of the content
+            self.content = trimString(content)
+
+            self.content = self.content.encode('ascii', errors='replace').decode('ascii')
 
             # We also apply this content in regexs to pattern match, so remove any escape characters
             self.content = self.content.replace('\\', '')
@@ -221,7 +227,7 @@ class PR(object):
                 float(comment['date_created']))
             comments.append({
                 'author': comment['user']['name'],
-                'body': trimCommentBody(comment['comment']),
+                'body': trimString(comment['comment']),
                 'name': comment['user']['name'],
                 'id': comment['id'],
                 'date_created': comment['date_created'],
@@ -268,7 +274,7 @@ class PR(object):
             comments.append({
                 'author': comment['author'],
                 'name': comment['name'],
-                'body': trimCommentBody(comment['body']),
+                'body': trimString(comment['body']),
                 'id': comment['id'],
                 'date_created': comment['date_created'],
                 'changed': None
@@ -363,15 +369,15 @@ def matcher(content, comments):
         else:
             return None
 
-def trimCommentBody(commentBody):
+def trimString(content):
     """
-    Helper function to trim a comment to ensure it is not over 65000 char
+    Helper function to trim a string to ensure it is not over 50000 char
     Ref: https://github.com/release-engineering/Sync2Jira/issues/123
     
     :param String commentBody: Comment content
     :rtype: String
     """
-    if len(commentBody) > 65000:
-        return commentBody[:65000]
+    if len(content) > 50000:
+        return content[:50000]
     else:
-        return commentBody
+        return content
