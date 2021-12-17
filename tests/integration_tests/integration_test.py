@@ -17,8 +17,7 @@ import jira.client
 
 # Global Variables
 URL = os.environ['JIRA_STAGE_URL']
-USERNAME = os.environ['JIRA_USER']
-PASSWORD = os.environ['JIRA_PASS']
+TOKEN = os.environ['JIRA_TOKEN']
 log = logging.getLogger(__name__)
 hdlr = logging.FileHandler('integration_test.log')
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
@@ -143,7 +142,7 @@ def get_jira_client():
             'server': URL,
             'verify': False,
         },
-        'basic_auth': (USERNAME, PASSWORD),
+        'token_auth': TOKEN,
     })
 
 

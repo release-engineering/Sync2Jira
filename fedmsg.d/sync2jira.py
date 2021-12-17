@@ -43,13 +43,14 @@ config = {
         'legacy_matching': False,
 
         'default_jira_instance': 'example',
+        'jira_username': 'your-bot-account',
         'jira': {
             'example': {
                 'options': {
                     'server': 'https://some_jira_server_somewhere.com',
                     'verify': True,
                 },
-                'basic_auth': ('YOU_USERNAME', 'YOUR_PASSWORD'),
+                'token_auth': 'YOUR_TOKEN',
             },
         },
 

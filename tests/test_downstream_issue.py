@@ -29,9 +29,10 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_config = {
             'sync2jira': {
                 'default_jira_instance': 'another_jira_instance',
+                'jira_username': 'mock_user',
                 'jira': {
                     'mock_jira_instance': {'mock_jira': 'mock_jira'},
-                    'another_jira_instance': {'basic_auth': ['mock_user'],
+                    'another_jira_instance': {'token_auth': 'mock_token',
                                               'options': {'server': 'mock_server'}}
                 },
                 'testing': {},

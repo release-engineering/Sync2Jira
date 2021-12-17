@@ -8,10 +8,7 @@ runtime_config = {
                     'server': os.environ['JIRA_STAGE_URL'],
                     'verify': True,
                 },
-                'basic_auth': (
-                    os.environ['JIRA_USER'],
-                    os.environ['JIRA_PASS'],
-                ),
+                'token_auth': os.environ['JIRA_TOKEN'],
             },
         },
         'github_token': os.environ['SYNC2JIRA_GITHUB_TOKEN'],

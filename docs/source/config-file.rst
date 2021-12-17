@@ -12,7 +12,7 @@ The config file is made up of multiple parts
 
     'mailing-list': 'demo_email@demo.com'
 
-* Mailing list is used to alert users when there is a failure. A failure email with the traceback will be sent to the email address. 
+* Mailing list is used to alert users when there is a failure. A failure email with the traceback will be sent to the email address.
 
 .. code-block:: python
 
@@ -75,7 +75,7 @@ The config file is made up of multiple parts
                 'server': 'https://some_jira_server_somewhere.com',
                 'verify': True,
             },
-            'basic_auth': ('YOU_USERNAME', 'YOUR_PASSWORD'),
+            'token_auth': 'YOUR_API_TOKEN',
         },
     },
 

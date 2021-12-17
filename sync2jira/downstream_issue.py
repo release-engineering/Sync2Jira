@@ -318,7 +318,7 @@ def find_username(issue, config):
     if not jira_instance:
         log.error("No jira_instance for issue and there is no default in the config")
         raise Exception
-    return config['sync2jira']['jira'][jira_instance]['basic_auth'][0]
+    return config['sync2jira']['jira_username']
 
 
 def check_comments_for_duplicate(client, result, username):
