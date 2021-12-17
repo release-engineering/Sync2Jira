@@ -369,11 +369,12 @@ def matcher(content, comments):
         else:
             return None
 
+
 def trimString(content):
     """
     Helper function to trim a string to ensure it is not over 50000 char
     Ref: https://github.com/release-engineering/Sync2Jira/issues/123
-    
+
     :param String commentBody: Comment content
     :rtype: String
     """
