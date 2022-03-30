@@ -511,7 +511,7 @@ def assign_user(client, issue, downstream, remove_all=False):
     for user in users:
         if user.displayName == issue.assignee[0]['fullname']:
             # Then we can assign the issue to the user
-            downstream.update({'assignee': {'name': user.key}})
+            downstream.update({'assignee': {'name': user.name}})
             return
     # If there is an owner, assign it to them
     if issue.downstream.get('owner'):
