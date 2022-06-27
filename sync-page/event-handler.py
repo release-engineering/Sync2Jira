@@ -39,10 +39,10 @@ def handle_event():
     if synced_repos:
         return render_template('sync-page-success.jinja',
                                synced_repos=synced_repos,
-                               url=f"http://{REDIRECT_URL}")
+                               url=f"https://{REDIRECT_URL}")
     else:
         return render_template('sync-page-failure.jinja',
-                               url=f"http://{REDIRECT_URL}")
+                               url=f"https://{REDIRECT_URL}")
 
 
 @app.route('/', methods=['GET'])
@@ -60,7 +60,7 @@ def github():
     # Build and return our updated HTML page
     return render_template('sync-page-github.jinja',
                            github=config['sync2jira']['map']['github'],
-                           url=f"http://{REDIRECT_URL}")
+                           url=f"https://{REDIRECT_URL}")
 
 @app.route('/pagure', methods=['GET'])
 def pagure():
@@ -70,7 +70,7 @@ def pagure():
     # Build and return our updated HTML page
     return render_template('sync-page-pagure.jinja',
                            pagure=config['sync2jira']['map']['pagure'],
-                           url=f"http://{REDIRECT_URL}")
+                           url=f"https://{REDIRECT_URL}")
 
 if __name__ == '__main__':
     app.run(host=BASE_URL)
