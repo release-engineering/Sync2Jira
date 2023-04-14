@@ -38,7 +38,7 @@ config = {
         'github_token': 'YOUR_TOKEN',
 
         # If we should update a Confluence page for stats
-        'confluence_statistics': False
+        'confluence_statistics': False,
 
         'legacy_matching': False,
 
