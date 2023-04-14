@@ -35,12 +35,15 @@ config = {
         'develop': False,
 
         # Your Github token
-        'github_token': 'YOUR_TOKEN',
+        'github_token': 'YOUR_GITHUB_API_TOKEN',
 
         # If we should update a Confluence page for stats
         'confluence_statistics': False,
 
         'legacy_matching': False,
+
+         # If set to True, when Sync2Jira starts all open issues will be added into Jira
+         'initialize' : True,
 
         'default_jira_instance': 'example',
         'jira_username': 'your-bot-account',
@@ -50,7 +53,7 @@ config = {
                     'server': 'https://some_jira_server_somewhere.com',
                     'verify': True,
                 },
-                'token_auth': 'YOUR_TOKEN',
+                'token_auth': 'YOUR_JIRA_ACCESS_TOKEN',
             },
         },
 
