@@ -57,7 +57,8 @@ class Issue(object):
 
     @property
     def title(self):
-        return u'[%s] %s' % (self.upstream, self._title)
+        _title = u'[%s] %s' % (self.upstream, self._title)
+        return _title[:254].strip()
 
     @property
     def upstream_title(self):
