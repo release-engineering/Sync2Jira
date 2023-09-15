@@ -1128,7 +1128,7 @@ def _update_description(existing, issue):
     if 'Upstream description' in new_description:
         # If we just need to update the content of the description
         new_description = re.sub(
-            r"Upstream description:(\r\n*|\r*|\n*|.*){quote}((?s).*){quote}",
+            r"Upstream description:(\r\n*|\r*|\n*|.*){quote}(.*){quote}",
             r"Upstream description: {quote}%s{quote}" % issue.content,
             new_description)
     elif '] Upstream issue status:' in new_description and '] Upstream Reporter:' in new_description:
