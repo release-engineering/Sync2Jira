@@ -17,7 +17,7 @@ jobs:
         id: test
         uses: fedora-python/tox-github-action@master
         with:
-          tox_env: py39,lint
+          tox_env: py311,py39,lint
           # Same list of packages in Dockerfile
           dnf_install: >-
             --repo fedora --repo updates
