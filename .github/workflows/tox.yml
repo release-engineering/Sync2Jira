@@ -15,7 +15,7 @@ jobs:
 
       - name: Run Tox tests
         id: test
-        uses: fedora-python/tox-github-action@master
+        uses: fedora-python/tox-github-action@main
         with:
           tox_env: py311,py39,lint
           # Same list of packages in Dockerfile
