@@ -1,0 +1,193 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: sync-page
+  name: sync-page
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  selector:
+    service: sync-page
+---
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  labels:
+    app: sync2jira-sync-page
+  name: sync2jira-sync-page
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    service: sync2jira-sync-page
+  strategy:
+    activeDeadlineSeconds: 21600
+    resources: {}
+    rollingParams:
+      intervalSeconds: 1
+      maxSurge: 25%
+      maxUnavailable: 25%
+      timeoutSeconds: 600
+      updatePeriodSeconds: 1
+    type: Rolling
+  spec:
+    containers:
+    - env:
+      - name: SYNC2JIRA_PNTJIRA_PASS
+        valueFrom:
+          secretKeyRef:
+            key: jira_pnt_pass
+            name: sync2jira-secret
+      - name: SYNC2JIRA_OMEGAPRIME_PASS
+        valueFrom:
+          secretKeyRef:
+            key: jira_omegaprime_pass
+            name: sync2jira-secret
+      - name: SYNC2JIRA_GITHUB_TOKEN
+        valueFrom:
+          secretKeyRef:
+            key: github_token
+            name: sync2jira-secret
+      image: quay.io/redhat-aqe/sync2jira@sha256:eb705702ffe519e5066a3ae5d0f84224be25e3ea07940f084a9db3bed8438fd2
+      imagePullPolicy: Always
+      name: sync2jira-sync-page-container
+      ports:
+      - containerPort: 5000
+        name: http
+        protocol: TCP
+      resources: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/fedmsg.d
+        name: fedmsgd-volume
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    terminationGracePeriodSeconds: 30
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: fedmsgd
+      name: fedmsgd-volume
+  test: false
+  triggers:
+  - imageChangeParams:
+      automatic: true
+      containerNames:
+      - sync2jira-sync-page-container
+      from:
+        kind: ImageStreamTag
+        name: sync2jira-sync-page:latest
+        namespace: exd-sp-guild-process-tools--sync2jira
+      lastTriggeredImage: quay.io/redhat-aqe/sync2jira@sha256:eb705702ffe519e5066a3ae5d0f84224be25e3ea07940f084a9db3bed8438fd2
+    type: ImageChange
+  - type: ConfigChange
+---
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  labels:
+    app: sync2jira
+  name: sync2jira
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    service: sync2jira
+  strategy:
+    activeDeadlineSeconds: 21600
+    resources: {}
+    rollingParams:
+      intervalSeconds: 1
+      maxSurge: 25%
+      maxUnavailable: 25%
+      timeoutSeconds: 600
+      updatePeriodSeconds: 1
+    type: Rolling
+  spec:
+    containers:
+    - env:
+      - name: SYNC2JIRA_PNTJIRA_PASS
+        valueFrom:
+          secretKeyRef:
+            key: jira_pnt_pass
+            name: sync2jira-secret
+      - name: SYNC2JIRA_OMEGAPRIME_PASS
+        valueFrom:
+          secretKeyRef:
+            key: jira_omegaprime_pass
+            name: sync2jira-secret
+      - name: SYNC2JIRA_GITHUB_TOKEN
+        valueFrom:
+          secretKeyRef:
+            key: github_token
+            name: sync2jira-secret
+      image: quay.io/redhat-aqe/sync2jira@sha256:a2518b5ab7b0f6c503aedd09700baeb02c198883f1a9dd16bd14b726a79ca236
+      imagePullPolicy: Always
+      name: sync2jira-container
+      resources: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/fedmsg.d
+        name: fedmsgd-volume
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    terminationGracePeriodSeconds: 30
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: fedmsgd
+      name: fedmsgd-volume
+  test: false
+  triggers:
+  - imageChangeParams:
+      automatic: true
+      containerNames:
+      - sync2jira-container
+      from:
+        kind: ImageStreamTag
+        name: sync2jira:latest
+        namespace: exd-sp-guild-process-tools--sync2jira
+      lastTriggeredImage: quay.io/redhat-aqe/sync2jira@sha256:a2518b5ab7b0f6c503aedd09700baeb02c198883f1a9dd16bd14b726a79ca236
+    type: ImageChange
+  - type: ConfigChange
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2023-09-15T15:58:24Z"
+    lastUpdateTime: "2023-09-15T15:58:29Z"
+    message: replication controller "sync2jira-28" successfully rolled out
+    reason: NewReplicationControllerAvailable
+    status: "True"
+    type: Progressing
+  - lastTransitionTime: "2023-09-18T18:25:09Z"
+    lastUpdateTime: "2023-09-18T18:25:09Z"
+    message: Deployment config has minimum availability.
+    status: "True"
+    type: Available
+  details:
+    causes:
+    - imageTrigger:
+        from:
+          kind: DockerImage
+          name: quay.io/redhat-aqe/sync2jira@sha256:a2518b5ab7b0f6c503aedd09700baeb02c198883f1a9dd16bd14b726a79ca236
+      type: ImageChange
+    message: image change
+  latestVersion: 28
+  observedGeneration: 29
+  readyReplicas: 1
+  replicas: 1
+  unavailableReplicas: 0
+  updatedReplicas: 1
