@@ -141,7 +141,7 @@ The config file is made up of multiple parts
     * :code:`{'on_close': {'apply_lables': ['label', ...]}}`
         * When the upstream issue is closed, apply additional labels on the corresponding Jira ticket.
     * :code:`github_markdown`
-        * If description syncing is turned on, this flag will convert Github markdown to plaintext. This uses the pypandoc module.
+        * If description syncing is turned on, this flag will convert Github markdown to Jira syntax. This uses the pypandoc module.
     * :code:`upstream_id`
         * If selected this will add a comment to all newly created JIRA issue in the format 'UPSTREAM_PROJECT-#1' where the number indicates the issue ID. This allows users to search for the issue on JIRA via the issue number.
     * :code:`url`

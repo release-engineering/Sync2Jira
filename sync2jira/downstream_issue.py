@@ -1280,7 +1280,7 @@ def sync_with_jira(issue, config):
     if issue.downstream.get('issue_updates', None):
         if issue.source == 'github' and issue.content and \
                 'github_markdown' in issue.downstream['issue_updates']:
-            issue.content = pypandoc.convert_text(issue.content, 'plain', format='md')
+            issue.content = pypandoc.convert_text(issue.content, 'jira', format='gfm')
 
     # First, check to see if we have a matching issue using the new method.
     # If we do, then just bail out.  No sync needed.
