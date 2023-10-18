@@ -329,15 +329,13 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.assign_issue.assert_not_called()
         mock_client.search_assignable_users_for_issues.assert_not_called()
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + '_update_jira_issue')
     @mock.patch(PATH + 'attach_link')
     @mock.patch('jira.client.JIRA')
     def test_create_jira_issue(self,
                                mock_client,
                                mock_attach_link,
-                               mock_update_jira_issue,
-                               mock_confluence_client):
+                               mock_update_jira_issue):
         """
         Tests '_create_jira_issue' function
         """
@@ -348,7 +346,6 @@ class TestDownstreamIssue(unittest.TestCase):
             {'name': 'QA Contact', 'id': 'customfield_2'},
             {'name': 'EXD-Service', 'id': 'customfield_3'},
         ]
-        mock_confluence_client.update_stat = True
 
         # Call the function
         response = d._create_jira_issue(
@@ -384,19 +381,14 @@ class TestDownstreamIssue(unittest.TestCase):
             {"customfield_3": {"value": "EXD-Project", "child": {"value": "EXD-Value"}}})
         self.assertEqual(response, self.mock_downstream)
         mock_client.add_comment.assert_not_called()
-        mock_confluence_client.update_stat_page.assert_called_with(
-            {'Misc. Fields': 3, 'Created Issues': 1, 'Descriptions': 1, 'Status': 1, 'Reporters': 1}
-        )
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + '_update_jira_issue')
     @mock.patch(PATH + 'attach_link')
     @mock.patch('jira.client.JIRA')
     def test_create_jira_issue_failed_epic_link(self,
                                                 mock_client,
                                                 mock_attach_link,
-                                                mock_update_jira_issue,
-                                                mock_confluence_client):
+                                                mock_update_jira_issue):
         """
         Tests '_create_jira_issue' function where we fail updating the epic link
         """
@@ -408,7 +400,6 @@ class TestDownstreamIssue(unittest.TestCase):
             {'name': 'EXD-Service', 'id': 'customfield_3'},
         ]
         self.mock_downstream.update.side_effect = [JIRAError, 'success', 'success']
-        mock_confluence_client.update_stat = True
 
         # Call the function
         response = d._create_jira_issue(
@@ -445,18 +436,14 @@ class TestDownstreamIssue(unittest.TestCase):
             {"customfield_3": {"value": "EXD-Project", "child": {"value": "EXD-Value"}}})
         self.assertEqual(response, self.mock_downstream)
         mock_client.add_comment.assert_called_with(self.mock_downstream, f"Error adding Epic-Link: DUMMY-1234")
-        mock_confluence_client.update_stat_page.assert_called_with(
-            {'Misc. Fields': 3, 'Created Issues': 1, 'Descriptions': 1, 'Status': 1, 'Reporters': 1})
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + '_update_jira_issue')
     @mock.patch(PATH + 'attach_link')
     @mock.patch('jira.client.JIRA')
     def test_create_jira_issue_failed_exd_service(self,
                                                   mock_client,
                                                   mock_attach_link,
-                                                  mock_update_jira_issue,
-                                                  mock_confluence_client):
+                                                  mock_update_jira_issue):
         """
         Tests '_create_jira_issue' function where we fail updating the EXD-Service field
         """
@@ -468,7 +455,6 @@ class TestDownstreamIssue(unittest.TestCase):
             {'name': 'EXD-Service', 'id': 'customfield_3'},
         ]
         self.mock_downstream.update.side_effect = ['success', 'success', JIRAError]
-        mock_confluence_client.update_stat = True
 
         # Call the function
         response = d._create_jira_issue(
@@ -508,18 +494,14 @@ class TestDownstreamIssue(unittest.TestCase):
                                                    f"Error adding EXD-Service field.\n"
                                                    f"Project: {self.mock_issue.downstream['EXD-Service']['guild']}\n"
                                                    f"Value: {self.mock_issue.downstream['EXD-Service']['value']}")
-        mock_confluence_client.update_stat_page.assert_called_with(
-            {'Misc. Fields': 3, 'Created Issues': 1, 'Descriptions': 1, 'Status': 1, 'Reporters': 1})
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + '_update_jira_issue')
     @mock.patch(PATH + 'attach_link')
     @mock.patch('jira.client.JIRA')
     def test_create_jira_issue_no_updates(self,
                                           mock_client,
                                           mock_attach_link,
-                                          mock_update_jira_issue,
-                                          mock_confluence_client):
+                                          mock_update_jira_issue):
         """
         Tests '_create_jira_issue' function where we have
         no updates
@@ -527,7 +509,6 @@ class TestDownstreamIssue(unittest.TestCase):
         # Set up return values
         mock_client.create_issue.return_value = self.mock_downstream
         self.mock_issue.downstream['issue_updates'] = []
-        mock_confluence_client.update_stat = True
 
         # Call the function
         response = d._create_jira_issue(
@@ -559,7 +540,6 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         self.assertEqual(response, self.mock_downstream)
         mock_client.add_comment.assert_not_called()
-        mock_confluence_client.update_stat_page.assert_called_with({'Misc. Fields': 1, 'Created Issues': 1, 'Reporters': 1})
 
 
     @mock.patch(PATH + 'get_jira_client')
@@ -731,11 +711,9 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         mock_update_on_close.assert_called_once()
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch('jira.client.JIRA')
     def test_update_transition_JIRAError(self,
-                                         mock_client,
-                                         mock_confluence_client):
+                                         mock_client):
         """
         This function tests the '_update_transition' function where Upstream issue status
         s not in existing.fields.description and transitioning the issue throws an error
@@ -745,7 +723,6 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.fields.description = ''
         mock_client.transitions.return_value = [{'name': 'CUSTOM TRANSITION', 'id': '1234'}]
         mock_client.transition_issue.side_effect = JIRAError
-        mock_confluence_client.update_stat = True
 
         # Call the function
         d._update_transition(
@@ -758,14 +735,11 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_called_with({'description': 'Upstream issue status: Closed\n'})
         mock_client.transitions.assert_called_with(self.mock_downstream)
         mock_client.transition_issue.assert_called_with(self.mock_downstream, 1234)
-        mock_confluence_client.update_stat_page.assert_called_with({'Status': 1})
 
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch('jira.client.JIRA')
     def test_update_transition_not_found(self,
-                                         mock_client,
-                                         mock_confluence_client):
+                                         mock_client):
         """
         This function tests the '_update_transition' function where Upstream issue status
         not in existing.fields.description and we can't find the appropriate closed status
@@ -775,7 +749,6 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_issue.downstream['transition'] = 'bad_transition'
         self.mock_downstream.fields.description = ''
         mock_client.transitions.return_value = [{'name': 'CUSTOM TRANSITION', 'id': '1234'}]
-        mock_confluence_client.update_stat = True
 
         # Call the function
         d._update_transition(
@@ -788,13 +761,10 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_called_with({'description': 'Upstream issue status: Closed\n'})
         mock_client.transitions.assert_called_with(self.mock_downstream)
         mock_client.transition_issue.assert_called_with(self.mock_downstream, 1234)
-        mock_confluence_client.update_stat_page.assert_called_with({'Transition': 1})
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch('jira.client.JIRA')
     def test_update_transition_successful(self,
-                                          mock_client,
-                                          mock_confluence_client):
+                                          mock_client):
         """
         This function tests the '_update_transition' function where everything goes smoothly!
         """
@@ -802,7 +772,6 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_issue.status = 'Closed'
         self.mock_downstream.fields.description = '[test] Upstream issue status: Open'
         mock_client.transitions.return_value = [{'name': 'CUSTOM TRANSITION', 'id': '1234'}]
-        mock_confluence_client.update_stat = True
 
         # Call the function
         d._update_transition(
@@ -815,17 +784,14 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_called_with({'description': 'Upstream issue status: Closed'})
         mock_client.transitions.assert_called_with(self.mock_downstream)
         mock_client.transition_issue.assert_called_with(self.mock_downstream, 1234)
-        mock_confluence_client.update_stat_page.assert_called_with({'Transition': 1})
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + '_comment_format')
     @mock.patch(PATH + '_comment_matching')
     @mock.patch('jira.client.JIRA')
     def test_update_comments(self,
                              mock_client,
                              mock_comment_matching,
-                             mock_comment_format,
-                             mock_confluence_client):
+                             mock_comment_format):
         """
         This function tests the 'update_comments' function
         """
@@ -833,7 +799,6 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.comments.return_value = 'mock_comments'
         mock_comment_matching.return_value = ['mock_comments_d']
         mock_comment_format.return_value = 'mock_comment_body'
-        mock_confluence_client.update_stat = True
 
         # Call the function
         d._update_comments(
@@ -847,7 +812,6 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_comment_matching.assert_called_with(self.mock_issue.comments, 'mock_comments')
         mock_comment_format.assert_called_with('mock_comments_d')
         mock_client.add_comment.assert_called_with(self.mock_downstream, 'mock_comment_body')
-        mock_confluence_client.update_stat_page.assert_called_with({'Comments': 1})
 
     def test_update_fixVersion_JIRAError(self):
         """
@@ -892,16 +856,13 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_not_called()
         mock_client.add_comment.assert_not_called()
 
-    @mock.patch(PATH + 'confluence_client')
-    def test_update_fixVersion_successful(self,
-                                          mock_confluence_client):
+    def test_update_fixVersion_successful(self):
         """
         This function tests the 'update_fixVersion' function where everything goes smoothly!
         """
         # Set up return values
         self.mock_downstream.fields.fixVersions = []
         mock_client = MagicMock()
-        mock_confluence_client.update_stat = True
 
         # Call the function
         d._update_fixVersion(
@@ -914,15 +875,12 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_called_with(
             {'fixVersions': [{'name': 'fixVersion3'}, {'name': 'fixVersion4'}]})
         mock_client.add_comment.assert_not_called()
-        mock_confluence_client.update_stat_page.assert_called_with({'FixVersion': 2})
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + 'assign_user')
     @mock.patch('jira.client.JIRA')
     def test_update_assignee_assignee(self,
                                       mock_client,
-                                      mock_assign_user,
-                                      mock_confluence_client):
+                                      mock_assign_user):
         """
         This function tests the 'update_assignee' function where issue.assignee exists
         """
@@ -940,15 +898,12 @@ class TestDownstreamIssue(unittest.TestCase):
             self.mock_issue,
             self.mock_downstream
         )
-        mock_confluence_client.update_stat_page.assert_called_with({'Assignee': 1})
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + 'assign_user')
     @mock.patch('jira.client.JIRA')
     def test_update_assignee_no_assignee(self,
                                          mock_client,
-                                         mock_assign_user,
-                                         mock_confluence_client):
+                                         mock_assign_user):
         """
         This function tests the '_update_assignee' function where issue.assignee does not exist
         """
@@ -970,21 +925,17 @@ class TestDownstreamIssue(unittest.TestCase):
             self.mock_downstream,
             remove_all=True
         )
-        mock_confluence_client.update_stat_page.assert_called_with({'Assignee': 1})
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + 'assign_user')
     @mock.patch('jira.client.JIRA')
     def test_update_assignee_no_overwrite(self,
                                           mock_client,
-                                          mock_assign_user,
-                                          mock_confluence_client):
+                                          mock_assign_user):
         """
         This function tests the '_update_assignee' function where overwrite is false
         """
         # Set up return values
         self.mock_downstream.fields.assignee = None
-        mock_confluence_client.update_stat = True
 
         # Call the function
         d._update_assignee(
@@ -1000,23 +951,19 @@ class TestDownstreamIssue(unittest.TestCase):
             self.mock_issue,
             self.mock_downstream
         )
-        mock_confluence_client.update_stat_page.assert_called_with({'Assignee': 1})
 
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + 'verify_tags')
     @mock.patch(PATH + '_label_matching')
     def test_update_tags(self,
                          mock_label_matching,
-                         mock_verify_tags,
-                         mock_confluence_client):
+                         mock_verify_tags):
         """
         This function tests the '_update_tags' function
         """
         # Set up return values
         mock_label_matching.return_value = 'mock_updated_labels'
         mock_verify_tags.return_value = ['mock_verified_tags']
-        mock_confluence_client.update_stat = True
 
         # Call the function
         d._update_tags(
@@ -1032,7 +979,6 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         mock_verify_tags.assert_called_with('mock_updated_labels')
         self.mock_downstream.update.assert_called_with({'labels': ['mock_verified_tags']})
-        mock_confluence_client.update_stat_page.assert_called_with({'Tags': 1})
 
     @mock.patch(PATH + 'verify_tags')
     @mock.patch(PATH + '_label_matching')
@@ -1062,15 +1008,12 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_verify_tags.assert_called_with('mock_updated_labels')
         self.mock_downstream.update.assert_not_called()
 
-    @mock.patch(PATH + 'confluence_client')
-    def test_update_description_update(self,
-                                       mock_confluence_client):
+    def test_update_description_update(self):
         """
         This function tests '_update_description' where we just have to update the contents of the description
         """
         # Set up return values
         self.mock_downstream.fields.description = 'Upstream description: {quote} test {quote}'
-        mock_confluence_client.update_stat = True
 
         # Call the function
         d._update_description(
@@ -1081,11 +1024,8 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert all calls were made correctly
         self.mock_downstream.update.assert_called_with(
             {'description': 'Upstream description: {quote}mock_content{quote}'})
-        mock_confluence_client.update_stat_page.assert_called_with({'Description': 1})
 
-    @mock.patch(PATH + 'confluence_client')
-    def test_update_description_add_field(self,
-                                          mock_confluence_client):
+    def test_update_description_add_field(self):
         """
         This function tests '_update_description' where we just have to add a description field
         """
@@ -1103,13 +1043,10 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_called_with(
             {'description': '[123] Upstream Reporter: mock_user \n'
                             'Upstream description: {quote}mock_content{quote}'})
-        mock_confluence_client.update_stat_page.assert_called_with({'Description': 1})
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + 'datetime')
     def test_update_description_add_reporter(self,
-                                             mock_datetime,
-                                             mock_confluence_client):
+                                             mock_datetime):
         """
         This function tests '_update_description' where we have to add a description and upstream reporter field
         """
@@ -1119,7 +1056,6 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_issue.id = '123'
         self.mock_issue.reporter = {'fullname': 'mock_user'}
         mock_datetime.today.return_value = self.mock_today
-        mock_confluence_client.update_stat = True
 
         # Call the function
         d._update_description(
@@ -1131,17 +1067,13 @@ class TestDownstreamIssue(unittest.TestCase):
             {'description': '[mock_today] Upstream issue status: Open\n[123]'
                             ' Upstream Reporter: mock_user\nUpstream description:'
                             ' {quote}mock_content{quote}\n'})
-        mock_confluence_client.update_stat_page.assert_called_with({'Description': 1})
 
-    @mock.patch(PATH + 'confluence_client')
-    def test_update_description_add_reporter_no_status(self,
-                                                       mock_confluence_client):
+    def test_update_description_add_reporter_no_status(self):
         """
         This function tests '_update_description' where we have to add reporter and description without status
         """
         # Set up return values
         self.mock_downstream.fields.description = ''
-        mock_confluence_client.update_stat = True
 
         # Call the function
         d._update_description(
@@ -1153,13 +1085,10 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_called_with(
             {'description': '[1234] Upstream Reporter: mock_user \n'
                             'Upstream description: {quote}mock_content{quote} \n '})
-        mock_confluence_client.update_stat_page.assert_called_with({'Description': 1})
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + 'datetime')
     def test_update_description_add_description(self,
-                                                mock_datetime,
-                                                mock_confluence_client):
+                                                mock_datetime):
         """
         This function tests '_update_description' where we have a reporter and status already
         """
@@ -1182,7 +1111,6 @@ class TestDownstreamIssue(unittest.TestCase):
             {'description': '[mock_today] Upstream issue status: Open\n'
                             '[123] Upstream Reporter: mock_user\n'
                             'Upstream description: {quote}mock_content{quote}\n'})
-        mock_confluence_client.update_stat_page.assert_called_with({'Description': 1})
 
     def test_verify_tags(self):
         """
@@ -1694,14 +1622,11 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert everything was called correctly
         self.mock_downstream.update.assert_not_called()
 
-    @mock.patch(PATH + 'confluence_client')
-    def test_update_url_update(self,
-                               mock_confluence_client):
+    def test_update_url_update(self):
         """
         This function tests '_update_url' where we already have the URL
         """
         # Set up return values
-        mock_confluence_client.update_stat = True
         self.mock_downstream.fields.description = ""
 
         # Call the function
@@ -1712,15 +1637,12 @@ class TestDownstreamIssue(unittest.TestCase):
             {'description':
                  f"\nUpstream URL: {self.mock_issue.url}\n"})
 
-    @mock.patch(PATH + 'confluence_client')
-    def test_update_on_close_update(self,
-                             mock_confluence_client):
+    def test_update_on_close_update(self):
         """
         This function tests '_update_on_close' where there is an
         "apply_labels" configuration, and labels need to be updated.
         """
         # Set up return values
-        mock_confluence_client.update_stat = True
         self.mock_downstream.fields.description = ""
         self.mock_issue.status = 'Closed'
         updates = [{"on_close": {"apply_labels": ["closed-upstream"]}}]

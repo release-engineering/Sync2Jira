@@ -16,7 +16,6 @@ runtime_config = {
         'initialize': True,
         'testing': False,
         'develop': True,
-        'confluence_statistics': False,
 
         # We don't need legacy mode anymore.  Not for a long time.  Let's
         # remove it soon.

@@ -26,7 +26,6 @@ class TestMain(unittest.TestCase):
                 'jira': {
                     'mock_jira_instance': {'mock_jira': 'mock_jira'}
                 },
-                'confluence_statistics': True,
                 'testing': {},
                 'legacy_matching': False,
                 'map': {
@@ -145,7 +144,6 @@ class TestMain(unittest.TestCase):
     @mock.patch(PATH + 'initialize_recent')
     @mock.patch(PATH + 'report_failure')
     @mock.patch(PATH + 'INITIALIZE', 1)
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + 'initialize_issues')
     @mock.patch(PATH + 'initialize_pr')
     @mock.patch(PATH + 'load_config')
@@ -155,7 +153,6 @@ class TestMain(unittest.TestCase):
                              mock_load_config,
                              mock_initialize_pr,
                              mock_initialize_issues,
-                             mock_confluence_client,
                              mock_report_failure,
                              mock_initialize_recent):
         """
@@ -163,7 +160,6 @@ class TestMain(unittest.TestCase):
         """
         # Set up return values
         mock_load_config.return_value = self.mock_config
-        self.mock_config['sync2jira']['confluence_statistics'] = True
 
         # Call the function
         m.main()
@@ -176,9 +172,7 @@ class TestMain(unittest.TestCase):
         mock_initialize_pr.assert_called_with(self.mock_config)
         mock_report_failure.assert_not_called()
         mock_initialize_recent.assert_not_called()
-        mock_confluence_client.update_stat_value.assert_called_with(True)
 
-    @mock.patch(PATH + 'confluence_client')
     @mock.patch(PATH + 'initialize_recent')
     @mock.patch(PATH + 'report_failure')
     @mock.patch(PATH + 'INITIALIZE', 0)
@@ -192,8 +186,7 @@ class TestMain(unittest.TestCase):
                                 mock_initialize_pr,
                                 mock_initialize_issues,
                                 mock_report_failure,
-                                mock_initialize_recent,
-                                mock_confluence_client,):
+                                mock_initialize_recent):
         """
         This tests the 'main' function
         """
@@ -211,7 +204,6 @@ class TestMain(unittest.TestCase):
         mock_initialize_pr.assert_not_called()
         mock_report_failure.assert_not_called()
         mock_initialize_recent.assert_called_with(self.mock_config)
-        mock_confluence_client.update_stat_value.assert_called_with(True)
 
     @mock.patch(PATH + 'u_issue')
     @mock.patch(PATH + 'd_issue')
