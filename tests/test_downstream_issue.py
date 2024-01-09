@@ -359,7 +359,7 @@ class TestDownstreamIssue(unittest.TestCase):
             issuetype={'name': 'Fix'},
             project={'key': 'mock_project'},
             somecustumfield='somecustumvalue',
-            description='[1234] Upstream Reporter: mock_user \n Upstream issue status: Open\nUpstream description: {quote}mock_content{quote}',
+            description='[1234] Upstream Reporter: mock_user\nUpstream issue status: Open\nUpstream description: {quote}mock_content{quote}',
             summary='mock_title'
         )
         mock_attach_link.assert_called_with(
@@ -413,7 +413,7 @@ class TestDownstreamIssue(unittest.TestCase):
             issuetype={'name': 'Fix'},
             project={'key': 'mock_project'},
             somecustumfield='somecustumvalue',
-            description='[1234] Upstream Reporter: mock_user \n Upstream issue status: Open\nUpstream description: {quote}mock_content{quote}',
+            description='[1234] Upstream Reporter: mock_user\nUpstream issue status: Open\nUpstream description: {quote}mock_content{quote}',
             summary='mock_title'
         )
         mock_attach_link.assert_called_with(
@@ -468,7 +468,7 @@ class TestDownstreamIssue(unittest.TestCase):
             issuetype={'name': 'Fix'},
             project={'key': 'mock_project'},
             somecustumfield='somecustumvalue',
-            description='[1234] Upstream Reporter: mock_user \n Upstream issue status: Open\nUpstream description: {quote}mock_content{quote}',
+            description='[1234] Upstream Reporter: mock_user\nUpstream issue status: Open\nUpstream description: {quote}mock_content{quote}',
             summary='mock_title'
         )
         mock_attach_link.assert_called_with(
@@ -522,7 +522,7 @@ class TestDownstreamIssue(unittest.TestCase):
             issuetype={'name': 'Fix'},
             project={'key': 'mock_project'},
             somecustumfield='somecustumvalue',
-            description='[1234] Upstream Reporter: mock_user \n ',
+            description='[1234] Upstream Reporter: mock_user\n',
             summary='mock_title'
         )
         mock_attach_link.assert_called_with(
@@ -732,7 +732,6 @@ class TestDownstreamIssue(unittest.TestCase):
         )
 
         # Assert all calls were made correctly
-        self.mock_downstream.update.assert_called_with({'description': 'Upstream issue status: Closed\n'})
         mock_client.transitions.assert_called_with(self.mock_downstream)
         mock_client.transition_issue.assert_called_with(self.mock_downstream, 1234)
 
@@ -758,7 +757,6 @@ class TestDownstreamIssue(unittest.TestCase):
         )
 
         # Assert all calls were made correctly
-        self.mock_downstream.update.assert_called_with({'description': 'Upstream issue status: Closed\n'})
         mock_client.transitions.assert_called_with(self.mock_downstream)
         mock_client.transition_issue.assert_called_with(self.mock_downstream, 1234)
 
@@ -781,7 +779,6 @@ class TestDownstreamIssue(unittest.TestCase):
         )
 
         # Assert all calls were made correctly
-        self.mock_downstream.update.assert_called_with({'description': 'Upstream issue status: Closed'})
         mock_client.transitions.assert_called_with(self.mock_downstream)
         mock_client.transition_issue.assert_called_with(self.mock_downstream, 1234)
 
@@ -1013,7 +1010,7 @@ class TestDownstreamIssue(unittest.TestCase):
         This function tests '_update_description' where we just have to update the contents of the description
         """
         # Set up return values
-        self.mock_downstream.fields.description = 'Upstream description: {quote} test {quote}'
+        self.mock_downstream.fields.description = '[1234] Upstream Reporter: mock_user\nUpstream issue status: Open\nUpstream description: {quote} test {quote}'
 
         # Call the function
         d._update_description(
@@ -1023,14 +1020,14 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert all calls were made correctly
         self.mock_downstream.update.assert_called_with(
-            {'description': 'Upstream description: {quote}mock_content{quote}'})
+            {'description': '[1234] Upstream Reporter: mock_user\nUpstream issue status: Open\nUpstream description: {quote}mock_content{quote}'})
 
     def test_update_description_add_field(self):
         """
         This function tests '_update_description' where we just have to add a description field
         """
         # Set up return values
-        self.mock_downstream.fields.description = '[123] Upstream Reporter: mock_user \n' \
+        self.mock_downstream.fields.description = '[123] Upstream Reporter: mock_user\n' \
                                                   'Upstream description: {quote} test {quote}'
 
         # Call the function
@@ -1041,12 +1038,11 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert all calls were made correctly
         self.mock_downstream.update.assert_called_with(
-            {'description': '[123] Upstream Reporter: mock_user \n'
+            {'description': '[1234] Upstream Reporter: mock_user\n'
+                            'Upstream issue status: Open\n'
                             'Upstream description: {quote}mock_content{quote}'})
 
-    @mock.patch(PATH + 'datetime')
-    def test_update_description_add_reporter(self,
-                                             mock_datetime):
+    def test_update_description_add_reporter(self):
         """
         This function tests '_update_description' where we have to add a description and upstream reporter field
         """
@@ -1055,7 +1051,6 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_issue.status = 'Open'
         self.mock_issue.id = '123'
         self.mock_issue.reporter = {'fullname': 'mock_user'}
-        mock_datetime.today.return_value = self.mock_today
 
         # Call the function
         d._update_description(
@@ -1064,9 +1059,9 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         # Assert all calls were made correctly
         self.mock_downstream.update.assert_called_with(
-            {'description': '[mock_today] Upstream issue status: Open\n[123]'
-                            ' Upstream Reporter: mock_user\nUpstream description:'
-                            ' {quote}mock_content{quote}\n'})
+            {'description': '[123] Upstream Reporter: mock_user\n'
+                            'Upstream issue status: Open\n'
+                            'Upstream description: {quote}mock_content{quote}'})
 
     def test_update_description_add_reporter_no_status(self):
         """
@@ -1074,6 +1069,8 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         # Set up return values
         self.mock_downstream.fields.description = ''
+        self.mock_issue.downstream['issue_updates'] = [
+            u for u in self.mock_issue.downstream['issue_updates'] if 'transition' not in u]
 
         # Call the function
         d._update_description(
@@ -1083,8 +1080,8 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert all calls were made correctly
         self.mock_downstream.update.assert_called_with(
-            {'description': '[1234] Upstream Reporter: mock_user \n'
-                            'Upstream description: {quote}mock_content{quote} \n '})
+            {'description': '[1234] Upstream Reporter: mock_user\n'
+                            'Upstream description: {quote}mock_content{quote}'})
 
     @mock.patch(PATH + 'datetime')
     def test_update_description_add_description(self,
@@ -1108,9 +1105,9 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert all calls were made correctly
         self.mock_downstream.update.assert_called_with(
-            {'description': '[mock_today] Upstream issue status: Open\n'
-                            '[123] Upstream Reporter: mock_user\n'
-                            'Upstream description: {quote}mock_content{quote}\n'})
+            {'description': '[123] Upstream Reporter: mock_user\n'
+                            'Upstream issue status: Open\n'
+                            'Upstream description: {quote}mock_content{quote}'})
 
     def test_verify_tags(self):
         """
@@ -1608,34 +1605,6 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert everything was called correctly
         self.assertEqual(response, True)
         mock_jira_client.search_issues.assert_called_with("issueFunction in linkedIssuesOfRemote('*')")
-
-    def test_update_url_no_update(self):
-        """
-        This function tests '_update_url' where we already have the URL
-        """
-        # Set up return values
-        self.mock_downstream.fields.description = self.mock_issue.url
-
-        # Call the function
-        d._update_url(self.mock_downstream, self.mock_issue)
-
-        # Assert everything was called correctly
-        self.mock_downstream.update.assert_not_called()
-
-    def test_update_url_update(self):
-        """
-        This function tests '_update_url' where we already have the URL
-        """
-        # Set up return values
-        self.mock_downstream.fields.description = ""
-
-        # Call the function
-        d._update_url(self.mock_downstream, self.mock_issue)
-
-        # Assert everything was called correctly
-        self.mock_downstream.update.assert_called_with(
-            {'description':
-                 f"\nUpstream URL: {self.mock_issue.url}\n"})
 
     def test_update_on_close_update(self):
         """
