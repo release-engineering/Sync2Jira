@@ -566,28 +566,7 @@ def _create_jira_issue(client, issue, config):
     custom_fields = issue.downstream.get('custom_fields', {})
     default_type = issue.downstream.get('type', "Bug")
 
-    # Build the description of the JIRA issue
-    if 'description' in issue.downstream.get('issue_updates', {}):
-        description = "Upstream description: {quote}%s{quote}" % issue.content
-    else:
-        description = ''
-
-    if any('transition' in item for item in issue.downstream.get('issue_updates', {})):
-        # Just add it to the top of the description
-        formatted_status = "Upstream issue status: %s" % issue.status
-        description = formatted_status + '\n' + description
-
-    if issue.reporter:
-        # Add to the description
-        description = '[%s] Upstream Reporter: %s \n %s' % (
-            issue.id,
-            issue.reporter['fullname'],
-            description
-        )
-
-    # Add the url if requested
-    if 'url' in issue.downstream.get('issue_updates', {}):
-        description = description + f"\nUpstream URL: {issue.url}"
+    description = _build_description(issue)
 
     kwargs = dict(
         summary=issue.title,
@@ -739,11 +718,6 @@ def _update_jira_issue(existing, issue, client):
             log.info("Looking for new title")
             _update_title(issue, existing)
 
-    # Only synchronize url for listings that op-in
-    if 'url' in updates:
-        log.info("Looking for new url")
-        _update_url(existing, issue)
-
     # Only synchronize transition (status) for listings that op-in
     if any('transition' in item for item in updates):
         log.info("Looking for new transition(s)")
@@ -756,29 +730,6 @@ def _update_jira_issue(existing, issue, client):
     log.info('Done updating %s!' % issue.title)
 
 
-def _update_url(existing, issue):
-    """
-    Helper function to update the transition of a downstream JIRA issue.
-
-    :param jira.resource.Issue existing: Existing JIRA issue
-    :param sync2jira.intermediary.Issue issue: Upstream issue
-    :returns: Nothing
-    """
-    # First check if the url needs to be updated
-    if issue.url in existing.fields.description:
-        # There is nothing to update
-        return
-
-    # Else add the url to the bottom of the description
-    new_description = f"Upstream URL: {issue.url}\n"
-    new_description = existing.fields.description + "\n" + new_description
-
-    # Update our issue
-    data = {'description': new_description}
-    existing.update(data)
-    log.info('Updated description')
-
-
 def _update_transition(client, existing, issue):
     """
     Helper function to update the transition of a downstream JIRA issue.
@@ -788,44 +739,6 @@ def _update_transition(client, existing, issue):
     :param sync2jira.intermediary.Issue issue: Upstream issue
     :returns: Nothing
     """
-    # Update the issue status in the JIRA description
-    # Format the status
-    formatted_status = "Upstream issue status: %s" % issue.status
-    new_description = existing.fields.description
-    # Bool to indicate if we should update
-    update = False
-    # Check if the issue has the issue status line
-    # First check legacy upstream status so we can update them
-    if "] Upstream issue status:" in existing.fields.description:
-        # Use pattern matching to find and update the status
-        new_description = re.sub(
-            r"\[.*\] Upstream issue status: .*",
-            formatted_status,
-            new_description)
-        update = True
-    # Now check if the status is already present
-    elif formatted_status in existing.fields.description:
-        pass
-    # Then check for upstream status
-    elif "Upstream issue status:" in existing.fields.description:
-        # Use pattern matching to find and update the status
-        new_description = re.sub(
-            r"Upstream issue status: .*",
-            formatted_status,
-            new_description)
-        update = True
-    else:
-        # We can just add this line to the very top
-        new_description = formatted_status + '\n' + new_description
-        update = True
-    if update:
-        # Now we can update the JIRA issue (always need to update this
-        # as there is a timestamp involved)
-        data = {'description': new_description}
-        existing.update(data)
-        log.info('Updated transition')
-
-    # If the user just inputted True, only update the description
     # If the user added a custom closed status, attempt to close the
     # downstream JIRA ticket
 
@@ -856,39 +769,6 @@ def _update_title(issue, existing):
     :param jira.resource.Issue existing: Existing JIRA issue
     :returns: Nothing
     """
-    new_description = existing.fields.description
-    if not new_description:
-        new_description = ''
-
-    if '] Upstream Reporter:' not in new_description:
-        # We have to add the issue ID to the description so we can find it again
-        if '] Upstream issue status:' in new_description:
-            # We have to use regex to update the upstream reporter
-            today = datetime.today()
-            new_description = re.sub(
-                r'\[[\w\W]*\] Upstream issue status: %s' % issue.status,
-                '[%s] Upstream issue status: %s\n[%s] Upstream Reporter: %s'
-                % (today.strftime("%a %b %y - %H:%M"),
-                   issue.status, issue.id, issue.reporter['fullname']),
-                new_description)
-        else:
-            # We can just add it to the top
-            new_description = '[%s] Upstream Reporter: %s' % \
-                              (issue.id, issue.reporter['fullname']) + new_description
-        # Update the description
-        # Now that we've updated the description (i.e. added
-        # issue.id) we can delete the link in the description if its still there.
-        new_description = re.sub(
-            r'%s' % issue.url,
-            r'',
-            new_description
-        )
-
-        # Now we can update the JIRA issue if we need to
-        if new_description.replace(' ', '') != existing.fields.description.replace(' ', ''):
-            data = {'description': new_description}
-            existing.update(data)
-            log.info('Updated description')
     # Then we can update the title
     data = {'summary': issue.title}
     existing.update(data)
@@ -1068,6 +948,33 @@ def _update_tags(updates, existing, issue):
     _update_jira_labels(existing, updated_labels)
 
 
+def _build_description(issue):
+    # Build the description of the JIRA issue
+    if 'description' in issue.downstream.get('issue_updates', {}):
+        description = "Upstream description: {quote}%s{quote}" % issue.content
+    else:
+        description = ''
+
+    if any('transition' in item for item in issue.downstream.get('issue_updates', {})):
+        # Just add it to the top of the description
+        formatted_status = "Upstream issue status: %s" % issue.status
+        description = formatted_status + '\n' + description
+
+    if issue.reporter:
+        # Add to the description
+        description = '[%s] Upstream Reporter: %s\n%s' % (
+            issue.id,
+            issue.reporter['fullname'],
+            description
+        )
+
+    # Add the url if requested
+    if 'url' in issue.downstream.get('issue_updates', {}):
+        description = description + f"\nUpstream URL: {issue.url}"
+
+    return description
+
+
 def _update_description(existing, issue):
     """
     Helper function to sync description between upstream issue and downstream JIRA issue.
@@ -1076,62 +983,8 @@ def _update_description(existing, issue):
     :param sync2jira.intermediary.Issue issue: Upstream issue
     :returns: Nothing
     """
-    new_description = existing.fields.description
-    if not new_description:
-        new_description = ''
-    if 'Upstream description' in new_description:
-        # If we just need to update the content of the description
-        new_description = re.sub(
-            r"Upstream description:(\r\n*|\r*|\n*|.*){quote}(.*){quote}",
-            r"Upstream description: {quote}%s{quote}" % issue.content,
-            new_description)
-    elif '] Upstream issue status:' in new_description and '] Upstream Reporter:' in new_description:
-        # We need to add a description field
-        today = datetime.today()
-        new_description = re.sub(r'\[[\w\W]*\] Upstream issue status: %s\n\[%s\] Upstream Reporter: %s' % (
-            issue.status, issue.id, issue.reporter['fullname']),
-                                 r'[%s] Upstream issue status: %s\n[%s] Upstream Reporter: %s\n'
-                                 r'Upstream description: {quote}%s{quote}' % (
-                                     today.strftime("%a %b %y - %H:%M"), issue.status, issue.id,
-                                     issue.reporter['fullname'],
-                                     issue.content),
-                                 new_description)
 
-    elif '] Upstream issue status:' in new_description and '] Upstream Reporter:' not in new_description:
-        # We need to add a upstream reporter and description field
-        today = datetime.today()
-        new_description = re.sub(r'\[[\w\W]*\] Upstream issue status: %s' % issue.status,
-                                 r'[%s] Upstream issue status: %s\n'
-                                 r'[%s] Upstream Reporter: %s\n'
-                                 r'Upstream description: {quote}%s{quote}' %
-                                 (today.strftime("%a %b %y - %H:%M"), issue.status, issue.id,
-                                  issue.reporter['fullname'], issue.content),
-                                 new_description)
-    elif '] Upstream issue status:' not in new_description and '] Upstream Reporter:' in new_description:
-        # We need to just add the description field
-        new_description = re.sub(
-            r'\[%s\] Upstream Reporter: %s [\w\W]*' % (issue.id, issue.reporter['fullname']),
-            r'[%s] Upstream Reporter: %s \nUpstream description: {quote} %s {quote}' %
-            (issue.id, issue.reporter['fullname'], issue.content), new_description)
-    else:
-        # Just add reporter and description to the top
-        upstream_reporter = '[%s] Upstream Reporter: %s' % (
-            issue.id,
-            issue.reporter['fullname']
-        )
-        upstream_description = "%s \nUpstream description: " \
-                               "{quote}%s{quote}" % \
-                               (upstream_reporter, issue.content)
-        new_description = '%s \n %s' % \
-                          (upstream_description, new_description)
-    # Now that we've updated the description (i.e. added
-    # issue.id) we can delete the link in the description if its still there.
-    if 'url' not in issue.downstream.get('issue_updates', {}):
-        new_description = re.sub(
-            r'%s' % issue.url,
-            r'',
-            new_description
-        )
+    new_description = _build_description(issue)
 
     # Now we can update the JIRA issue if we need to
     if new_description != existing.fields.description:
