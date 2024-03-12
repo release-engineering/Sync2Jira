@@ -6,24 +6,6 @@ metadata:
 labels:
   app: sync2jira-deploy
 parameters:
-- name: CERT
-  displayName: Cert to be used to access ACTIVEMQ (base64)
-  required: true
-- name: KEY
-  displayName: Key to be used to access ACTIVEMQ (base64)
-  required: true
-- name: ACTIVEMQ_QUERY
-  displayName: Query that we should be using
-  required: true
-- name: ACTIVEMQ_URL_1
-  displayName: Message Bus URL are tuple, this is the first part of that tuple
-  required: true
-- name: ACTIVEMQ_URL_2
-  displayName: Message Bus URL are tuple, this is the second part of that tuple
-  required: true
-- name: ACTIVEMQ_REPO_NAME
-  displayName: Repo (or topic/category) that we should be listening for
-  required: true
 - name: ENDPOINT
   displayName: Openshift endpoint
   required: true
@@ -34,21 +16,9 @@ parameters:
   displayName: Flag to send emails (0/1)
   required: true
   value: '1'
-- name: RCM_TOOLS_REPO
-  displayName: RCM Toold Repo URL
-  required: true
-- name: CA_URL
-  displayName: CA_URL that points to ca_certs
-  required: true
 - name: GITHUB_URL
   displayName: GitHub .git URL to our Sync2Jira repo
   requiered: true
-- name: OPENSHIFT_TOKEN
-  displayName: OpenShift-prod token to be used to tag new images (base64)
-  required: true
-- name: OPENSHIFT_TOKEN_STAGE
-  displayName: OpenShift-stage token to be used to tag new images (base64)
-  required: true
 - name: DEFAULT_SERVER
   displayName: Default server to use for mailing
   required: true
@@ -139,16 +109,6 @@ objects:
               value: usr/local/src/sync2jira/docs/deploy.crt
             - name: KEY
               value: usr/local/src/sync2jira/docs/deploy.key
-            - name: CA_CERTS
-              value: /etc/pki/tls/certs/ca-bundle.crt # Downloaded during docker-entrypoint.sh
-            - name: ACTIVEMQ_QUERY
-              value: ${ACTIVEMQ_QUERY}
-            - name: ACTIVEMQ_URL_1
-              value: ${ACTIVEMQ_URL_1}
-            - name: ACTIVEMQ_URL_2
-              value: ${ACTIVEMQ_URL_2}
-            - name: ACTIVEMQ_REPO_NAME
-              value: ${ACTIVEMQ_REPO_NAME}
             - name: TOKEN
               valueFrom:
                 secretKeyRef:
@@ -171,8 +131,6 @@ objects:
               value: ${RCM_TOOLS_REPO}
             - name: CONFLUENCE_SPACE
               value: mock_confluence_space
-            - name: CA_URL
-              value: ${CA_URL}
             - name: SYNC2JIRA_PNTJIRA_PASS
               valueFrom:
                 secretKeyRef:

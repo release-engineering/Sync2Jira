@@ -1,0 +1,47 @@
+schemaVersion: 2.2.0
+metadata:
+  name: python
+  projectType: Python
+  displayName: sync2jira
+  language: Python
+  version: 0.0.1
+  attributes:
+    alpha.dockerimage-port: 80
+parent:
+  id: python
+  registryUrl: 'https://registry.devfile.io'
+components:
+  - name: image-build
+    image:
+      imageName: python-image:latest
+      dockerfile:
+        uri: docker/Dockerfile
+        buildContext: .
+        rootRequired: false
+  - name: kubernetes-deploy
+    attributes:
+      deployment/replicas: 1
+      deployment/cpuRequest: 10m
+      deployment/memoryRequest: 50Mi
+      deployment/container-port: 80
+    kubernetes:
+      uri: deploy.yaml
+      endpoints:
+      - name: http-80
+        targetPort: 80
+        path: /
+commands:
+  - id: build-image
+    apply:
+      component: image-build
+  - id: deployk8s
+    apply:
+      component: kubernetes-deploy
+  - id: deploy
+    composite:
+      commands:
+        - build-image
+        - deployk8s
+      group:
+        kind: deploy
+        isDefault: true
