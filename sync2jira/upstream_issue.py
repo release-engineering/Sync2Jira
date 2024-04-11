@@ -67,11 +67,17 @@ def handle_github_message(msg, config, pr_filter=True):
         .get(upstream, {})
 
     for key, expected in _filter.items():
-        # special handling for label: we look for it in the list of msg labels
         if key == 'labels':
+            # special handling for label: we look for it in the list of msg labels
             actual = [label['name'] for label in msg['msg']['issue']['labels']]
             if expected not in actual:
                 log.debug("Label %s not set on issue: %s", expected, upstream)
+                return None
+        elif key == 'milestone':
+            # special handling for milestone: use the number
+            actual = msg['msg']['issue'].get(key, {}).get('number')
+            if expected not in actual:
+                log.debug("Milestone %s not set on issue: %s", expected, upstream)
                 return None
         else:
             # direct comparison
