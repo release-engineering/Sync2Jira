@@ -452,6 +452,41 @@ class TestUpstreamIssue(unittest.TestCase):
 
     @mock.patch(PATH + 'Github')
     @mock.patch('sync2jira.intermediary.Issue.from_github')
+    def test_handle_github_message_with_milestone_filter(self,
+                                                         mock_issue_from_github,
+                                                         mock_github):
+        """
+        This function tests 'handle_github_message' where a milestone is used in the filter
+        """
+        # Set up return values
+
+        del self.mock_config['sync2jira']['filters']['github']['org/repo']['filter1']
+        del self.mock_config['sync2jira']['filters']['github']['org/repo']['labels']
+        self.mock_config['sync2jira']['filters']['github']['org/repo']['milestone'] = {'title': 'right'}
+        self.mock_github_message['msg']['issue']['milestone'] = {'title': 'wrong', 'foo': 'bar'}
+
+        # Call function
+        response = u.handle_github_message(
+            msg=self.mock_github_message,
+            config=self.mock_config
+        )
+        # Assert that calls were not made
+        mock_issue_from_github.assert_not_called()
+        self.assertEqual(None, response)
+
+        # Now, mock out the message to match the filter
+        self.mock_github_message['msg']['issue']['milestone'] = {'title': 'right', 'foo': 'bar'}
+
+        # Call function
+        response = u.handle_github_message(
+            msg=self.mock_github_message,
+            config=self.mock_config
+        )
+        # Assert that calls were made this time
+        mock_issue_from_github.assert_called()
+
+    @mock.patch(PATH + 'Github')
+    @mock.patch('sync2jira.intermediary.Issue.from_github')
     def test_handle_github_message_no_comments(self,
                                               mock_issue_from_github,
                                               mock_github):
