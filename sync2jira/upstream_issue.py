@@ -66,9 +66,20 @@ def handle_github_message(msg, config, pr_filter=True):
         .get('github', {})\
         .get(upstream, {})
 
-    issue = msg['msg']['issue']
-    if not _github_filter_matches(issue, _filter, slug=upstream):
-        return None
+    for key, expected in _filter.items():
+        # special handling for label: we look for it in the list of msg labels
+        if key == 'labels':
+            actual = [label['name'] for label in msg['msg']['issue']['labels']]
+            if expected not in actual:
+                log.debug("Label %s not set on issue: %s", expected, upstream)
+                return None
+        else:
+            # direct comparison
+            actual = msg['msg']['issue'].get(key)
+            if actual != expected:
+                log.debug("Actual %r %r != expected %r on issue %s",
+                          key, actual, expected, upstream)
+                return None
 
     if pr_filter and 'pull_request' in msg['msg']['issue']:
         if not msg['msg']['issue'].get('closed_at', None):
@@ -132,29 +143,6 @@ def handle_github_message(msg, config, pr_filter=True):
         msg['msg']['issue']['milestone'] = msg['msg']['issue']['milestone']['title']
 
     return i.Issue.from_github(upstream, msg['msg']['issue'], config)
-
-
-def _github_filter_matches(issue, _filter, slug):
-    for key, expected in _filter.items():
-
-        if isinstance(expected, dict):
-            if not _github_filter_matches(issue.get(key), expected, slug):
-                return False
-        elif key == 'labels':
-            # special handling for label: we look for it in the list of msg labels
-            actual = [label['name'] for label in issue['labels']]
-            if expected not in actual:
-                log.debug("Label %s not set on issue: %s", expected, slug)
-                return False
-        else:
-            # direct comparison
-            actual = issue.get(key)
-            if actual != expected:
-                log.debug("Actual %r %r != expected %r on issue %s",
-                          key, actual, expected, slug)
-                return False
-
-    return True
 
 
 def handle_pagure_message(msg, config):
