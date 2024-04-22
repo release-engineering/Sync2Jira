@@ -405,7 +405,6 @@ spec:
             volumes:
               - name: snyk-secret
                 secret:
-                  optional: true
                   secretName: $(params.SNYK_SECRET)
             workspaces:
               - name: workspace
