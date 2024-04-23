@@ -365,7 +365,7 @@ spec:
                   value: $(params.image-url)
                 - name: IMAGE_DIGEST
                   value: $(params.image-digest)
-              image: quay.io/redhat-appstudio/hacbs-test:v1.3.0@sha256:cd4601a7d71ebd908046db7a9b7010611b8b372fe941664d5163c81250a1a1fc
+              image: quay.io/rbean/testing:hacbs-test
               name: sast-snyk-check
               script: |
                 #!/usr/bin/env bash
@@ -398,6 +398,7 @@ spec:
                   cat sast_snyk_check_out.json
                   TEST_OUTPUT=
                   parse_test_output $(context.task.name) sarif sast_snyk_check_out.json  || true
+                  upload_file "$IMAGE_URL" application/sarif+json sarif sast_snyk_check_out.json
 
                 # When the test is skipped, the "SNYK_EXIT_CODE" is 3 and it can also be 3 in some other situation
                 elif [[ "$test_not_skipped" -eq 0 ]]; then
