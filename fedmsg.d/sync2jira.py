@@ -42,9 +42,6 @@ config = {
 
         'legacy_matching': False,
 
-         # If set to True, when Sync2Jira starts all open issues will be added into Jira
-         'initialize' : True,
-
         'default_jira_instance': 'example',
         'jira_username': 'your-bot-account',
         'jira': {
