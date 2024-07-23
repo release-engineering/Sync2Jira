@@ -1,4 +1,4 @@
-FROM registry.fedoraproject.org/fedora:38
+FROM registry.fedoraproject.org/fedora:41
 LABEL \
     name="sync2jira" \
     description="sync2jira application" \
