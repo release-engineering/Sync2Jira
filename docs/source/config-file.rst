@@ -16,10 +16,9 @@ The config file is made up of multiple parts
 
 .. code-block:: python
 
-    'initialize': True
+    'debug': False
 
-* Initialization set to True will ensure that there is an initial sync done when Sync2Jira starts.
-  It is recommended to leave this as True to ensure that all issues are in sync.
+* Enable or disable debugging output. This will emit on fedmsg messages and can be very noisy; not for production use.
 
 .. code-block:: python
 
