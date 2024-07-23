@@ -227,7 +227,7 @@ def alert_user_of_duplicate_issues(issue, final_result, results_of_query,
     if not jira_instance:
         log.error("No jira_instance for issue and there is no default in the config")
         raise Exception
-    base_url = ['sync2jira']['jira'][jira_instance]['options']['server'] + '/browse/'
+    base_url = config['sync2jira']['jira'][jira_instance]['options']['server'] + '/browse/'
 
     # Format the updated results
     template_ready = []
