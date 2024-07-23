@@ -25,6 +25,9 @@ config = {
         # Mailing list email to send failure-email notices too
         'mailing-list': 'some_email@demo.com',
 
+        # Enable debug logging
+        'debug': False,
+
         # Listen on the message bus
         'listen': True,
 

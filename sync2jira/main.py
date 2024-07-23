@@ -50,14 +50,6 @@ logging.basicConfig(format=FORMAT, level=logging.INFO)
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 logging.basicConfig(format=FORMAT, level=logging.WARNING)
 log = logging.getLogger('sync2jira')
-if os.environ.get('CONFLUENCE_SPACE') == 'mock_confluence_space':
-    # If we are debugging save log output
-    try:
-        hdlr = logging.FileHandler('sync2jira_main.log')
-        log.addHandler(hdlr)
-        log.setLevel(logging.DEBUG)
-    except:  # noqa: E722
-        log.error("Unable to create log file!")
 
 # Only allow fedmsg logs that are critical
 fedmsg_log = logging.getLogger('fedmsg.crypto.utils')
@@ -122,6 +114,12 @@ def load_config(loader=fedmsg.config.load_config):
 
     # Force some vars that we like
     config['mute'] = True
+
+    # debug mode
+    if config['sync2jira']['debug']:
+        hdlr = logging.FileHandler('sync2jira_main.log')
+        log.addHandler(hdlr)
+        log.setLevel(logging.DEBUG)
 
     # Validate it
     if 'sync2jira' not in config:
