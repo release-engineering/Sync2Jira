@@ -613,7 +613,6 @@ def _create_jira_issue(client, issue, config):
     kwargs = dict(
         summary=issue.title,
         description=description,
-        # make a change here, Jay
         issuetype=dict(name=preferred_types[0]),
     )
     if issue.downstream['project']:
