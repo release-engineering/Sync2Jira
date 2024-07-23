@@ -547,6 +547,49 @@ def change_status(client, downstream, status, issue):
         log.warning('Could not update JIRA %s for %s' % (status, issue.title))
 
 
+def _get_preferred_issue_types(config, issue):
+    """
+    Consider the configuration file and issue data to
+    figure out the right issue type to file. Used when
+    creating a new issue in Jira.
+
+    :param Dict config: Config dict
+    :param sync2jira.intermediary.Issue issue: Issue object
+    :returns: A list of issue types in order of preference
+    :rtype: List
+    """
+    # History:
+    # https://github.com/release-engineering/Sync2Jira/issues/147
+    # Configuration artifact:
+    #   'issue_types': {
+    #     'bug': 'Bug',
+    #     'enhancement': 'Story'
+    #   }
+    type_list = []
+    log.debug(config)
+    conf = config['sync2jira']['map']['github'][issue.upstream]
+    log.debug(conf)
+    # we consider the issue_types mapping if it exists. If it does, exclude all other logic.
+    if 'issue_types' in conf:
+        for tag, issue_type in conf['issue_types'].items():
+            if tag in issue.tags:
+                type_list.insert(0, issue_type)
+        type_list.sort()
+
+    # if issue_types was not provided, we consider the type option next. If that is not set
+    # fall back to the old behavior.
+    if not type_list:
+        if 'type' in conf:
+            type_list.insert(0, conf['type'])
+        else:
+            if "RFE" in issue.title:
+                type_list.insert(0, 'Story')
+            else:
+                type_list.insert(0, 'Bug')
+    log.debug('Preferred issue type list: %s' % type_list)
+    return type_list
+
+
 def _create_jira_issue(client, issue, config):
     """
     Create a JIRA issue and adds all relevant
@@ -564,14 +607,13 @@ def _create_jira_issue(client, issue, config):
         return
 
     custom_fields = issue.downstream.get('custom_fields', {})
-    default_type = issue.downstream.get('type', "Bug")
-
+    preferred_types = _get_preferred_issue_types(config, issue)
     description = _build_description(issue)
 
     kwargs = dict(
         summary=issue.title,
         description=description,
-        issuetype=dict(name="Story" if "RFE" in issue.title else default_type),
+        issuetype=dict(name=preferred_types[0]),
     )
     if issue.downstream['project']:
         kwargs['project'] = dict(key=issue.downstream['project'])
@@ -632,6 +674,9 @@ def _create_jira_issue(client, issue, config):
     if 'upstream_id' in issue.downstream.get('issue_updates', []):
         comment = f"Creating issue for " \
             f"[{issue.upstream}-#{issue.upstream_id}|{issue.url}]"
+        client.add_comment(downstream, comment)
+    if len(preferred_types) > 1:
+        comment = 'Some labels look like issue types but were not considered: %s' % preferred_types[1:]
         client.add_comment(downstream, comment)
 
     remote_link = dict(url=issue.url, title=remote_link_title)
