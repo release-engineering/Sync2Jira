@@ -116,7 +116,7 @@ def load_config(loader=fedmsg.config.load_config):
     config['mute'] = True
 
     # debug mode
-    if config['sync2jira']['debug']:
+    if config.get('sync2jira', {}).get('debug', False):
         hdlr = logging.FileHandler('sync2jira_main.log')
         log.addHandler(hdlr)
         log.setLevel(logging.DEBUG)

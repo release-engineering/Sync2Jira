@@ -4,7 +4,6 @@ name: Run Tox
 # yamllint disable rule:truthy
 on:
   - push
-  - pull_request
 
 jobs:
   build:
@@ -17,17 +16,10 @@ jobs:
         id: test
         uses: fedora-python/tox-github-action@main
         with:
-          tox_env: py311,lint
-          # Same list of packages in Dockerfile
+          tox_env: py312,lint
           dnf_install: >-
             --repo fedora --repo updates
-            python3-requests
-            python3-jira
-            python3-fedmsg-core
-            python3-pygithub
-            python3-jinja2
-            python3-pypandoc
-            python3-requests-kerberos
+              krb5-devel
 
       - name: Coveralls
         uses: AndreMiras/coveralls-python-action@develop

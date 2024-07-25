@@ -567,7 +567,10 @@ def _get_preferred_issue_types(config, issue):
     #   }
     type_list = []
     log.debug(config)
-    conf = config['sync2jira']['map']['github'][issue.upstream]
+
+    map = config['sync2jira'].get('map', {})
+    conf = map.get('github', {}).get(issue.upstream, {})
+
     log.debug(conf)
     # we consider the issue_types mapping if it exists. If it does, exclude all other logic.
     if 'issue_types' in conf:
