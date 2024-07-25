@@ -10,3 +10,4 @@ arrow
 # Weird indirect deps
 flit-core
 maturin
+pip-tools
