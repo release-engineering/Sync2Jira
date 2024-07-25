@@ -1,4 +1,4 @@
-FROM registry.fedoraproject.org/fedora:38
+FROM registry.access.redhat.com/ubi9/ubi:latest
 
 ARG SYNC2JIRA_GIT_REPO=https://github.com/release-engineering/Sync2Jira.git
 ARG SYNC2JIRA_GIT_REF=master
@@ -26,14 +26,7 @@ LABEL \
 RUN dnf -y install \
     git \
     python3-pip \
-    python3-requests \
-    python3-jira \
-    python3-fedmsg-core \
-    python3-pygithub \
-    python3-jinja2 \
-    python3-pypandoc \
-    python3-requests-kerberos \
-    python3-flask \
+    krb5-devel \
   && dnf -y clean all
 
 USER root
@@ -43,6 +36,9 @@ RUN mkdir -p /usr/local/src/sync2jira
 
 # Copy over our repo
 COPY . /usr/local/src/sync2jira
+
+# Install deps
+RUN pip install -r /usr/local/src/sync2jira/requirements.txt
 
 # Install Sync2Jira
 RUN  pip3 install --no-deps -v /usr/local/src/sync2jira
