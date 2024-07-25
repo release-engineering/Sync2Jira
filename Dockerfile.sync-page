@@ -10,12 +10,15 @@ LABEL \
     org.opencontainers.image.name="sync2jira-sync-page" \
     description="sync2jira application" \
     org.opencontainers.image.description="sync2jira application" \
-    vendor="sync2jira developers" \
-    org.opencontainers.image.vendor="sync2jira developers" \
+    io.k8s.description="sync2jira application" \
+    vendor="Red Hat, Inc." \
+    org.opencontainers.image.vendor="Red Hat, Inc." \
     license="GPLv2+" \
     org.opencontainers.image.license="GPLv2+" \
     url="$SYNC2JIRA_GIT_REPO" \
     org.opencontainers.image.url="$SYNC2JIRA_GIT_REPO" \
+    release="$SYNC2JIRA_GIT_REF" \
+    com.redhat.component="null" \
     build-date="" \
     distribution-scope="public"
 
