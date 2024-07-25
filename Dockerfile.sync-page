@@ -1,10 +1,23 @@
 FROM registry.fedoraproject.org/fedora:38
+
+ARG SYNC2JIRA_GIT_REPO=https://github.com/release-engineering/Sync2Jira.git
+ARG SYNC2JIRA_GIT_REF=master
+ARG SYNC2JIRA_CACERT_URL=
+ARG SYNC2JIRA_VERSION=
+
 LABEL \
-    name="sync2jira" \
+    name="sync2jira-sync-page" \
+    org.opencontainers.image.name="sync2jira-sync-page" \
     description="sync2jira application" \
+    org.opencontainers.image.description="sync2jira application" \
     vendor="sync2jira developers" \
+    org.opencontainers.image.vendor="sync2jira developers" \
     license="GPLv2+" \
-    build-date=""
+    org.opencontainers.image.license="GPLv2+" \
+    url="$SYNC2JIRA_GIT_REPO" \
+    org.opencontainers.image.url="$SYNC2JIRA_GIT_REPO" \
+    build-date="" \
+    distribution-scope="public"
 
 # Installing sync2jira dependencies
 RUN dnf -y install \
@@ -19,13 +32,6 @@ RUN dnf -y install \
     python3-requests-kerberos \
     python3-flask \
   && dnf -y clean all
-
-ARG SYNC2JIRA_GIT_REPO=https://github.com/release-engineering/Sync2Jira.git
-ARG SYNC2JIRA_GIT_REF=master
-ARG SYNC2JIRA_CACERT_URL=
-ARG SYNC2JIRA_VERSION=
-ENV SYNC2JIRA_VERSION=$SYNC2JIRA_VERSION
-ENV SYNC2JIRA_CACERT_URL=$SYNC2JIRA_CACERT_URL
 
 USER root
 
