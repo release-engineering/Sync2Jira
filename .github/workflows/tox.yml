@@ -17,6 +17,9 @@ jobs:
         uses: fedora-python/tox-github-action@main
         with:
           tox_env: py312,lint
+          dnf_install: >-
+            --repo fedora --repo updates
+              krb5-devel
 
       - name: Coveralls
         uses: AndreMiras/coveralls-python-action@develop
