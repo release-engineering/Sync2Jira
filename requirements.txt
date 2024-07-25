@@ -48,6 +48,8 @@ markupsafe==2.1.5
     # via
     #   jinja2
     #   werkzeug
+maturin==1.7.0
+    # via -r requirements.in
 oauthlib==3.2.2
     # via requests-oauthlib
 packaging==24.1
