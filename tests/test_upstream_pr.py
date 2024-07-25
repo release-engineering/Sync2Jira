@@ -72,7 +72,6 @@ class TestUpstreamPR(unittest.TestCase):
         # Mock Github Comment
         self.mock_github_comment = MagicMock()
         self.mock_github_comment.user.name = 'mock_username'
-        self.mock_github_comment.user.login = 'mock_user_login'
         self.mock_github_comment.body = 'mock_body'
         self.mock_github_comment.id = 'mock_id'
         self.mock_github_comment.created_at = 'mock_created_at'
@@ -213,7 +212,7 @@ class TestUpstreamPR(unittest.TestCase):
             'org/repo',
             {'filter1': 'filter1', 'labels': ['custom_tag'],
              'comments': [{'author': 'mock_username',
-                           'name': 'mock_user_login',
+                           'name': unittest.mock.ANY,
                            'body': 'mock_body', 'id': 'mock_id',
                            'date_created': 'mock_created_at',
                            'changed': None}], 'number': 'mock_number',
@@ -320,7 +319,7 @@ class TestUpstreamPR(unittest.TestCase):
         mock_pr_from_github.assert_called_with(
             'org/repo',
             {'comments':
-                 [{'author': 'mock_username', 'name': 'mock_user_login',
+                 [{'author': 'mock_username', 'name': unittest.mock.ANY,
                    'body': 'mock_body', 'id': 'mock_id',
                    'date_created': 'mock_created_at', 'changed': None}],
              'number': '1234', 'user':

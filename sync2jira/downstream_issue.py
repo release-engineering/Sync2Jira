@@ -285,7 +285,7 @@ def alert_user_of_duplicate_issues(issue, final_result, results_of_query,
     # Create and send email
     templateLoader = jinja2.FileSystemLoader(
         searchpath='usr/local/src/sync2jira/sync2jira/')
-    templateEnv = jinja2.Environment(loader=templateLoader)
+    templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)
     template = templateEnv.get_template('email_template.jinja')
     html_text = template.render(user=user,
                                 admins=admin_template,
