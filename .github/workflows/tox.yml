@@ -4,7 +4,6 @@ name: Run Tox
 # yamllint disable rule:truthy
 on:
   - push
-  - pull_request
 
 jobs:
   build:
