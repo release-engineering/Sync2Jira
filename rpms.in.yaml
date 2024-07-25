@@ -1,0 +1,7 @@
+contentOrigin:
+  repofiles:
+    - ./ubi.repo
+packages:
+  - git
+  - python3-pip
+  - krb5-devel

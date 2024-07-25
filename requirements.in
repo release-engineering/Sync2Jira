@@ -1,0 +1,8 @@
+jira
+requests
+fedmsg
+PyGithub
+pypandoc
+urllib3
+jinja2
+flask
