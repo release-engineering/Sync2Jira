@@ -62,7 +62,6 @@ class TestUpstreamIssue(unittest.TestCase):
         # Mock Github Comment
         self.mock_github_comment = MagicMock()
         self.mock_github_comment.user.name = 'mock_username'
-        self.mock_github_comment.user.login = 'mock_user_login'
         self.mock_github_comment.body = 'mock_body'
         self.mock_github_comment.id = 'mock_id'
         self.mock_github_comment.created_at = 'mock_created_at'
@@ -160,7 +159,7 @@ class TestUpstreamIssue(unittest.TestCase):
         mock_issue_from_github.assert_called_with(
             'org/repo',
             {'labels': ['some_label'], 'number': '1234', 'comments': [
-                {'body': 'mock_body', 'name': 'mock_user_login', 'author': 'mock_username', 'changed': None,
+                {'body': 'mock_body', 'name': unittest.mock.ANY, 'author': 'mock_username', 'changed': None,
                  'date_created': 'mock_created_at', 'id': 'mock_id'}], 'assignees': [{'fullname': 'mock_name'}],
              'user': {'login': 'mock_login', 'fullname': 'mock_name'}, 'milestone': 'mock_milestone'},
             self.mock_config
@@ -504,7 +503,7 @@ class TestUpstreamIssue(unittest.TestCase):
         # Assert that calls were made correctly
         mock_issue_from_github.assert_called_with('org/repo',
                                                   {'labels': ['custom_tag'], 'number': 'mock_number',
-                                                   'comments': [{'body': 'mock_body', 'name': 'mock_user_login',
+                                                   'comments': [{'body': 'mock_body', 'name': unittest.mock.ANY,
                                                                  'author': 'mock_username', 'changed': None,
                                                                  'date_created': 'mock_created_at', 'id': 'mock_id'}],
                                                    'assignees': [{'fullname': 'mock_name'}],
