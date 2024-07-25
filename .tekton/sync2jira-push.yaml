@@ -25,6 +25,8 @@ spec:
     value: quay.io/redhat-user-workloads/sync2jira-tenant/sync2jira/sync2jira:{{revision}}
   - name: dockerfile
     value: Dockerfile
+  - name: build-source-image
+    value: true
   pipelineRef:
     name: build
   workspaces:
