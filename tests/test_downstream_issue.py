@@ -10,7 +10,6 @@ from datetime import datetime
 import sync2jira.downstream_issue as d
 from sync2jira.intermediary import Issue
 
-from nose.tools import eq_
 import jira.client
 from jira import JIRAError
 
@@ -178,7 +177,7 @@ class TestDownstreamIssue(unittest.TestCase):
         target1 = "target1"
         client.return_value.search_issues = mock.MagicMock(return_value=[target1])
         result = d._get_existing_jira_issue_legacy(jira.client.JIRA(), issue, config)
-        eq_(result, target1)
+        assert result == target1
 
         client.return_value.search_issues.assert_called_once_with(
             "'External issue URL'='wat' AND 'key'='value' AND "

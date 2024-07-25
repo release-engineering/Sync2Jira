@@ -45,7 +45,6 @@ setup(
     ],
     install_requires=install_requires,
     tests_require=test_requires,
-    test_suite='nose.collector',
     packages=[
         'sync2jira',
     ],
