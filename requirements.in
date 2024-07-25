@@ -6,3 +6,5 @@ pypandoc
 urllib3
 jinja2
 flask
+arrow
+flit-core
