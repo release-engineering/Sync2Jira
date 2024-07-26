@@ -27,6 +27,7 @@ RUN dnf -y install \
     python3-pip \
     krb5-devel \
     python-devel \
+    gcc \
   && dnf -y clean all
 
 ENV SYNC2JIRA_VERSION=$SYNC2JIRA_VERSION
