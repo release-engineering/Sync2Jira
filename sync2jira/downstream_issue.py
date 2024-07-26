@@ -791,12 +791,7 @@ def _update_transition(client, existing, issue):
     # downstream JIRA ticket
 
     # First get the closed status from the config file
-    try:
-        # For python 3 >
-        closed_status = list(filter(lambda d: "transition" in d, issue.downstream.get('issue_updates', {})))[0]['transition']
-    except ValueError:
-        # for python 2.7
-        closed_status = (filter(lambda d: "transition" in d, issue.downstream.get('issue_updates', {})))[0]['transition']
+    closed_status = list(filter(lambda d: "transition" in d, issue.downstream.get('issue_updates', {})))[0]['transition']
     if closed_status is not True and issue.status == 'Closed' \
             and existing.fields.status.name.upper() != closed_status.upper():
         # Now we need to update the status of the JIRA issue
@@ -857,20 +852,11 @@ def _update_fixVersion(updates, existing, issue, client):
     """
     fix_version = []
     # If we are not supposed to overwrite JIRA content
-    try:
-        # For python 3 >
-        if not bool(list(filter(lambda d: "fixVersion" in d, updates))[0]['fixVersion']['overwrite']):
-            # We need to make sure we're not deleting any fixVersions on JIRA
-            # Get all fixVersions for the issue
-            for version in existing.fields.fixVersions:
-                fix_version.append({'name': version.name})
-    except ValueError:
-        # for python 2.7
-        if not bool((filter(lambda d: "fixVersion" in d, updates))[0]['fixVersion']['overwrite']):
-            # We need to make sure we're not deleting any fixVersions on JIRA
-            # Get all fixVersions for the issue
-            for version in existing.fields.fixVersions:
-                fix_version.append({'name': version.name})
+    if not bool(list(filter(lambda d: "fixVersion" in d, updates))[0]['fixVersion']['overwrite']):
+        # We need to make sure we're not deleting any fixVersions on JIRA
+        # Get all fixVersions for the issue
+        for version in existing.fields.fixVersions:
+            fix_version.append({'name': version.name})
 
     # Github and Pagure do not allow for multiple fixVersions (milestones)
     # But JIRA does, that is why we're looping here. Hopefully one
@@ -912,12 +898,7 @@ def _update_assignee(client, existing, issue, updates):
         :returns: Nothing
     """
     # First check if overwrite is set to True
-    try:
-        # For python 3 >
-        overwrite = bool(list(filter(lambda d: "assignee" in d, updates))[0]['assignee']['overwrite'])
-    except ValueError:
-        # for python 2.7
-        overwrite = bool((filter(lambda d: "assignee" in d, updates))[0]['assignee']['overwrite'])
+    overwrite = bool(list(filter(lambda d: "assignee" in d, updates))[0]['assignee']['overwrite'])
 
     # First check if the issue is already assigned to the same person
     update = False
@@ -980,14 +961,8 @@ def _update_tags(updates, existing, issue):
     updated_labels = issue.tags
 
     # Ensure no duplicates if overwrite is set to false
-    try:
-        # for python 3 >
-        if not bool(list(filter(lambda d: "tags" in d, updates))[0]['tags']['overwrite']):
-            updated_labels = _label_matching(updated_labels, existing.fields.labels)
-    except ValueError:
-        # for python 2.7
-        if not bool(filter(lambda d: "tags" in d, updates)[0]['tags']['overwrite']):
-            updated_labels = _label_matching(updated_labels, existing.fields.labels)
+    if not bool(list(filter(lambda d: "tags" in d, updates))[0]['tags']['overwrite']):
+        updated_labels = _label_matching(updated_labels, existing.fields.labels)
 
     # Ensure that the tags are all valid
     updated_labels = verify_tags(updated_labels)
