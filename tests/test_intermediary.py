@@ -362,5 +362,20 @@ class TestIntermediary(unittest.TestCase):
         mock_datetime.fromtimestamp.assert_called_with(float(1234))
         mock_matcher.assert_called_with(self.mock_pagure_pr['initial_comment'], formatted_comments)
 
+    def test_matcher(self):
+        """ This tests the matcher function """
+        # Positive case
+        content = "Relates to JIRA: XYZ-5678"
+        comments = [{"body": "Relates to JIRA: ABC-1234"}]
+        expected = True
+        actual = bool(i.matcher(content, comments))
+        assert expected == actual
+
+        # Negative case
+        content = "No JIRAs here..."
+        comments = [{"body": "... nor here"}]
+        expected = False
+        actual = bool(i.matcher(content, comments))
+        assert expected == actual
 
     # TODO: Add new tests from PR
