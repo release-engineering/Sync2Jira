@@ -329,12 +329,7 @@ def map_fixVersion(mapping, issue):
     :param Dict issue: Upstream issue object
     """
     # Get our fixVersion mapping
-    try:
-        # for python 3 >
-        fixVersion_map = list(filter(lambda d: "fixVersion" in d, mapping))[0]['fixVersion']
-    except ValueError:
-        # for python 2.7
-        fixVersion_map = filter(lambda d: "fixVersion" in d, mapping)[0]['fixVersion']
+    fixVersion_map = list(filter(lambda d: "fixVersion" in d, mapping))[0]['fixVersion']
 
     # Now update the fixVersion
     if issue['milestone']:
