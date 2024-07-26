@@ -2,7 +2,6 @@ FROM registry.access.redhat.com/ubi9/ubi:latest
 
 ARG SYNC2JIRA_GIT_REPO=https://github.com/release-engineering/Sync2Jira.git
 ARG SYNC2JIRA_GIT_REF=master
-ARG SYNC2JIRA_CACERT_URL=
 ARG SYNC2JIRA_VERSION=
 
 LABEL \
@@ -30,7 +29,6 @@ RUN dnf -y install \
   && dnf -y clean all
 
 ENV SYNC2JIRA_VERSION=$SYNC2JIRA_VERSION
-ENV SYNC2JIRA_CACERT_URL=$SYNC2JIRA_CACERT_URL
 
 USER root
 
@@ -46,12 +44,6 @@ RUN pip install -r /usr/local/src/sync2jira/requirements.txt
 # Install Sync2Jira
 RUN  pip3 install --no-deps -v /usr/local/src/sync2jira
 
-# To deal with JIRA issues (i.e. SSL errors)
-RUN chmod g+w /etc/pki/tls/certs/ca-bundle.crt
-RUN chmod 777 /usr/local/src/sync2jira/openshift/docker-entrypoint.sh
-
 USER 1001
-
-ENTRYPOINT ["/usr/local/src/sync2jira/openshift/docker-entrypoint.sh"]
 
 CMD ["/usr/local/bin/sync2jira"]
