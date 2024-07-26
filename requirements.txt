@@ -1,5 +1,6 @@
 jira
 requests
+requests_kerberos
 fedmsg
 PyGithub
 pypandoc
