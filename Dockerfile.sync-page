@@ -26,6 +26,8 @@ RUN dnf -y install \
     git \
     python3-pip \
     krb5-devel \
+    python-devel \
+    gcc \
   && dnf -y clean all
 
 USER root
