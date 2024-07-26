@@ -360,12 +360,12 @@ def matcher(content, comments):
         # Parse to extract the JIRA information. 2 types of matches:
         # 1 - To match to JIRA issue (i.e. Relates to JIRA: FACTORY-1234)
         # 2 - To match to upstream issue (i.e. Relates to Issue: !5)
-        match_jira = re.findall("Relates to JIRA: ([\w]*-[\d]*)",  # noqa W605
+        match_jira = re.findall(r"Relates to JIRA: ([\w]*-[\d]*)",
                                 all_data)
         if match_jira:
             for match in match_jira:
                 # Assert that the match was correct
-                if re.match("[\w]*-[\d]*", match): # noqa W605
+                if re.match(r"[\w]*-[\d]*", match):
                     return match
         else:
             return None
