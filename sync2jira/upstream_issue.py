@@ -54,10 +54,10 @@ def handle_github_message(msg, config, pr_filter=True):
     if upstream not in mapped_repos:
         log.debug("%r not in Github map: %r", upstream, mapped_repos.keys())
         return None
-    elif 'issue' not in mapped_repos[upstream]['sync'] and pr_filter is True:
+    elif 'issue' not in mapped_repos[upstream].get('sync', {}) and pr_filter is True:
         log.debug("%r not in Github Issue map: %r", upstream, mapped_repos.keys())
         return None
-    elif 'pullrequest' not in mapped_repos[upstream]['sync'] and pr_filter is False:
+    elif 'pullrequest' not in mapped_repos[upstream].get('sync', {}) and pr_filter is False:
         log.debug("%r not in Github PR map: %r", upstream, mapped_repos.keys())
         return None
 
