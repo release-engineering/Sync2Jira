@@ -77,7 +77,7 @@ def handle_github_message(msg, config, pr_filter=True):
             # special handling for milestone: use the number
             milestone = msg['msg']['issue'].get(key) or {}
             actual = milestone.get('number')
-            if expected not in actual:
+            if expected != actual:
                 log.debug("Milestone %s not set on issue: %s", expected, upstream)
                 return None
         else:
