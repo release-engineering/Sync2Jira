@@ -25,7 +25,7 @@ class Issue(object):
 
     def __init__(self, source, title, url, upstream, comments,
                  config, tags, fixVersion, priority, content,
-                 reporter, assignee, status, id, upstream_id, downstream=None):
+                 reporter, assignee, status, id, storypoints, upstream_id, downstream=None):
         self.source = source
         self._title = title[:254]
         self.url = url
@@ -34,6 +34,7 @@ class Issue(object):
         self.tags = tags
         self.fixVersion = fixVersion
         self.priority = priority
+        self.storypoints = storypoints
 
         # First trim the size of the content
         self.content = trimString(content)
@@ -108,6 +109,7 @@ class Issue(object):
             assignee=issue['assignee'],
             status=issue['status'],
             id=issue['date_created'],
+            storypoints=issue['storypoints'],
             upstream_id=issue['id']
         )
 
@@ -156,6 +158,7 @@ class Issue(object):
             assignee=issue['assignees'],
             status=issue['state'],
             id=issue['id'],
+            storypoints=issue['storypoints'],
             upstream_id=issue['number']
         )
 

@@ -267,6 +267,9 @@ def pagure_issues(upstream, config):
     for issue in data:
         issue['assignee'] = [issue['assignee']]
 
+    if not issue.get('storypoints', None):
+        issue['storypoints'] = ''
+
     issues = (i.Issue.from_pagure(upstream, issue, config) for issue in data)
     for issue in issues:
         yield issue
@@ -357,6 +360,25 @@ def github_issues(upstream, config):
         # Update milestone:
         if issue.get('milestone', None):
             issue['milestone'] = issue['milestone']['title']
+
+        if not issue.get('storypoints', None):
+            issue['storypoints'] = ''
+            graphqlurl = 'https://api.github.com/graphql'
+            orgname = "open-connectors"
+            reponame = "open-connectors"
+            issuenumber = issue['number']
+            github_project_fields = config['sync2jira']['map']['github']["/".join((orgname,reponame))]['github_project_fields']
+            for fieldname, values in github_project_fields.items():
+                ghfieldname = values[0]
+                query = """query MyQuery($orgname: String!, $reponame: String!, $ghfieldname: String!, $issuenumber: Int!) { repository(owner: $orgname, name: $reponame) { issue(number: $issuenumber) { title body projectItems(first: 1) { nodes { fieldValueByName(name: $ghfieldname) { ... on ProjectV2ItemFieldNumberValue { number } } } } } }}"""
+                variables = {"orgname": orgname, "reponame": reponame, "ghfieldname": ghfieldname, "issuenumber": issuenumber}
+                response = requests.post(graphqlurl, headers=headers, json={"query": query, "variables": variables})
+                data = response.json()
+                if fieldname == 'storypoints':
+                    try:
+                        issue[fieldname] = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValueByName']['number']
+                    except (TypeError, KeyError):
+                        continue
 
         final_issues.append(issue)
 
