@@ -735,7 +735,7 @@ def _update_jira_issue(existing, issue, client):
         return
 
     # Get fields representing project item fields in GitHub and Jira
-    github_project_fields = issue.downstream.get('github_project_fields', [])
+    github_project_fields = issue.downstream.get('github_project_fields', {})
     # Only synchronize comments for listings that op-in
     if 'github_project_fields' in updates and len(github_project_fields) > 0:
         log.info("Looking for GitHub project fields")
@@ -962,7 +962,6 @@ def _update_github_project_fields(client, existing, issue, github_project_fields
     :param sync2jira.intermediary.Issue issue: Upstream issue
     :param list: Fields representing GitHub project item fields in GitHub and Jira
     """
-    github_project_fields = issue.downstream.get('github_project_fields', {})
 
     for fieldname, values in github_project_fields.items():
         try:
