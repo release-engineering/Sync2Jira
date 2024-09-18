@@ -35,24 +35,27 @@ import sync2jira.intermediary as i
 
 log = logging.getLogger('sync2jira')
 graphqlurl = 'https://api.github.com/graphql'
-project_items_query = '''query MyQuery($orgname: String!, $reponame: String!,
-                            $ghfieldname: String!, $issuenumber: Int!) {
-    repository(owner: $orgname, name: $reponame) {
-        issue(number: $issuenumber) {
-            title
-            body
-            projectItems(first: 1) {
-                nodes {
-                    fieldValueByName(name: $ghfieldname) {
-                        ... on ProjectV2ItemFieldNumberValue {
-                            number
+project_items_query = '''
+    query MyQuery(
+        $orgname: String!, $reponame: String!, $ghfieldname: String!, $issuenumber: Int!
+    ) {
+        repository(owner: $orgname, name: $reponame) {
+            issue(number: $issuenumber) {
+                title
+                body
+                projectItems(first: 1) {
+                    nodes {
+                        fieldValueByName(name: $ghfieldname) {
+                            ... on ProjectV2ItemFieldNumberValue {
+                                number
+                            }
                         }
                     }
                 }
             }
         }
     }
-}'''
+'''
 
 
 def handle_github_message(msg, config, pr_filter=True):
@@ -382,7 +385,7 @@ def github_issues(upstream, config):
 
         if not issue.get('storypoints', None):
             issue['storypoints'] = ''
-            orgname, reponame = upstream.split('/')
+            orgname, reponame = upstream.rsplit('/', 1)
             issuenumber = issue['number']
             github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
             variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
