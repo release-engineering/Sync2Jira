@@ -963,10 +963,10 @@ def _update_github_project_fields(client, existing, issue, github_project_fields
     :param list: Fields representing GitHub project item fields in GitHub and Jira
     """
 
-    for fieldname, values in github_project_fields.items():
+    for name, values in github_project_fields.items():
         try:
-            if fieldname == 'storypoints':
-                existing.update({values[1]: str(issue.storypoints)})
+            _, jirafieldname = values
+            existing.update({jirafieldname: str(getattr(issue, name))})
         except JIRAError:
             # Add a comment to indicate there was an issue
             client.add_comment(existing, f"Error updating GitHub project field")

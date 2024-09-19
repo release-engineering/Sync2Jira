@@ -390,13 +390,15 @@ def github_issues(upstream, config):
             github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
             variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
             for fieldname, values in github_project_fields.items():
-                variables['ghfieldname'] = values[0]
+                ghfieldname, _ = values
+                variables['ghfieldname'] = ghfieldname
                 response = requests.post(graphqlurl, headers=headers, json={"query": project_items_query, "variables": variables})
                 data = response.json()
                 if fieldname == 'storypoints':
                     try:
                         issue[fieldname] = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValueByName']['number']
-                    except (TypeError, KeyError):
+                    except (TypeError, KeyError) as err:
+                        log.error("Error setting GitHub field.", err)
                         continue
 
         final_issues.append(issue)
