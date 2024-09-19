@@ -53,7 +53,7 @@ config = {
                 'token_auth': 'YOUR_JIRA_ACCESS_TOKEN',
             },
         },
-
+        'default_github_project_fields': {'storypoints': ('Estimate', 'customfield_12316544')},
         'map': {
             'pagure': {
                 'Demo_project': {'project': 'FACTORY', 'component': 'gitbz',

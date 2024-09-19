@@ -387,7 +387,9 @@ def github_issues(upstream, config):
             issue['storypoints'] = ''
             orgname, reponame = upstream.rsplit('/', 1)
             issuenumber = issue['number']
-            github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
+            default_github_project_fields = config['sync2jira']['default_github_project_fields']
+            project_github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
+            github_project_fields = default_github_project_fields | project_github_project_fields
             variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
             for fieldname, values in github_project_fields.items():
                 ghfieldname, _ = values
@@ -398,7 +400,7 @@ def github_issues(upstream, config):
                     try:
                         issue[fieldname] = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValueByName']['number']
                     except (TypeError, KeyError) as err:
-                        log.error("Error setting GitHub field.", err)
+                        log.debug("Error setting GitHub field. %s", err)
                         continue
 
         final_issues.append(issue)
