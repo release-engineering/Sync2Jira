@@ -3,7 +3,7 @@ requests
 requests_kerberos
 fedmsg
 PyGithub
-pypandoc
+pypandoc_binary
 urllib3
 jinja2
 flask
