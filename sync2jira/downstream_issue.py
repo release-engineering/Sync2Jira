@@ -964,8 +964,8 @@ def _update_github_project_fields(client, existing, issue, github_project_fields
     """
 
     for name, values in github_project_fields.items():
+        _, jirafieldname = values
         try:
-            _, jirafieldname = values
             existing.update({jirafieldname: str(getattr(issue, name))})
         except JIRAError:
             # Add a comment to indicate there was an issue
