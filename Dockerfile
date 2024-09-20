@@ -28,6 +28,7 @@ RUN dnf -y install \
     krb5-devel \
     python-devel \
     gcc \
+    pandoc \
   && dnf -y clean all
 
 ENV SYNC2JIRA_VERSION=$SYNC2JIRA_VERSION
