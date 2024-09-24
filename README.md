@@ -31,11 +31,3 @@ On startup:
 - if the `INITIALIZE` environment variable is set to `1`, the script will sync all issues to Jira. Use caution as this may be very expensive and difficult to undo.
 
 Please look at our documentation [here](https://sync2jira.readthedocs.io/en/master/config-file.html) for a full list of what can be synced and how to set it up.
-
-## Branches
-
-We will maintain three branches
-
-1. `master` - This will be where our main code and most up-to-date code lives
-1. `stage` - This will be our staging configuration. PR's will merge through stage to master
-1. `openshift-build` - This branch will maintain OpenShift-Build related information
