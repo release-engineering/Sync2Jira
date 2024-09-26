@@ -116,73 +116,46 @@ def handle_github_message(msg, config, pr_filter=True):
 
 def github_issues(upstream, config):
     """
-    Creates a Generator for all GitHub issues in upstream repo.
+    Returns a generator for all GitHub issues in upstream repo.
 
     :param String upstream: Upstream Repo
     :param Dict config: Config Dict
-    :returns: GitHub Issue object generator
-    :rtype: sync2jira.intermediary.Issue
+    :returns: a generator for GitHub Issue objects
+    :rtype: Generator[sync2jira.intermediary.Issue]
     """
     token = config['sync2jira'].get('github_token')
-    if not token:
-        headers = {}
-        log.warning('No github_token found.  We will be rate-limited...')
-    else:
-        headers = {'Authorization': 'token ' + token}
+    github_client = Github(token, retry=5)
+    for issue in generate_github_items('issues', upstream, config):
+        if 'pull_request' not in issue:  # We don't want to copy these around
+            reformat_github_issue(issue, upstream, github_client)
 
-    _filter = config['sync2jira']\
-        .get('filters', {})\
-        .get('github', {})\
-        .get(upstream, {})
-
-    if 'labels' in _filter:
-        # We have to flatten the labels list to a comma-separated string
-        _filter['labels'] = ','.join(_filter['labels'])
-
-    url = 'https://api.github.com/repos/%s/issues' % upstream
-    if _filter:
-        url += '?' + urlencode(_filter)
-
-    issues = get_all_github_data(url, headers)
-
-    # Initialize Github object so we can get their full name (instead of their username)
-    # And get comments if needed
-    github_client = Github(config['sync2jira']['github_token'], retry=5)
-
-    # We need to format everything to a standard to we can create an issue object
-    final_issues = []
-    for issue in issues:
-        reformat_github_issue(issue, upstream, github_client)
-
-        if not issue.get('storypoints', None):
-            issue['storypoints'] = ''
-            orgname, reponame = upstream.rsplit('/', 1)
-            issuenumber = issue['number']
-            default_github_project_fields = config['sync2jira']['default_github_project_fields']
-            project_github_project_fields = config['sync2jira']['map']['github'].get(upstream, {}).get('github_project_fields', {})
-            github_project_fields = default_github_project_fields | project_github_project_fields
-            variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
-            for fieldname, values in github_project_fields.items():
-                ghfieldname, _ = values
-                variables['ghfieldname'] = ghfieldname
-                response = requests.post(graphqlurl, headers=headers, json={"query": project_items_query, "variables": variables})
-                data = response.json()
-                if fieldname == 'storypoints':
-                    try:
-                        issue[fieldname] = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValueByName']['number']
-                    except (TypeError, KeyError) as err:
-                        log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
-                                  ghfieldname, orgname, reponame, issuenumber, err)
-                        continue
-
-        final_issues.append(issue)
-
-    final_issues = list((
-        i.Issue.from_github(upstream, issue, config) for issue in final_issues
-        if 'pull_request' not in issue  # We don't want to copy these around
-    ))
-    for issue in final_issues:
-        yield issue
+            # Update the Story Point Estimate field in the message
+            if not issue.get('storypoints'):
+                issue['storypoints'] = ''
+                orgname, reponame = upstream.rsplit('/', 1)
+                issuenumber = issue['number']
+                default_github_project_fields = config['sync2jira']['default_github_project_fields']
+                project_github_project_fields = config['sync2jira']['map']['github'].get(upstream, {}).get(
+                    'github_project_fields', {})
+                github_project_fields = default_github_project_fields | project_github_project_fields
+                headers = {'Authorization': 'token ' + token} if token else {}
+                variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
+                for fieldname, values in github_project_fields.items():
+                    ghfieldname, _ = values
+                    variables['ghfieldname'] = ghfieldname
+                    response = requests.post(graphqlurl, headers=headers,
+                                             json={"query": project_items_query, "variables": variables})
+                    data = response.json()
+                    if fieldname == 'storypoints':
+                        try:
+                            issue[fieldname] = \
+                                data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValueByName'][
+                                    'number']
+                        except (TypeError, KeyError) as err:
+                            log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
+                                      ghfieldname, orgname, reponame, issuenumber, err)
+                            continue
+            yield i.Issue.from_github(upstream, issue, config)
 
 
 def reformat_github_issue(issue, upstream, github_client):
@@ -238,6 +211,39 @@ def reformat_github_issue(issue, upstream, github_client):
     # Update the milestone field in the message (to match Pagure format)
     if issue.get('milestone'):
         issue['milestone'] = issue['milestone']['title']
+
+
+def generate_github_items(api_method, upstream, config):
+    """
+    Returns a generator which yields all GitHub issues in upstream repo.
+
+    :param String api_method: API method name
+    :param String upstream: Upstream Repo
+    :param Dict config: Config Dict
+    :returns: a generator for GitHub Issue/PR objects
+    :rtype: Generator[Any, Any, None]
+    """
+    token = config['sync2jira'].get('github_token')
+    if not token:
+        headers = {}
+        log.warning('No github_token found.  We will be rate-limited...')
+    else:
+        headers = {'Authorization': 'token ' + token}
+
+    params = config['sync2jira']\
+        .get('filters', {})\
+        .get('github', {})\
+        .get(upstream, {})
+
+    if 'labels' in params:
+        # We have to flatten the labels list to a comma-separated string
+        params['labels'] = ','.join(params['labels'])
+
+    url = 'https://api.github.com/repos/' + upstream + '/' + api_method
+    if params:
+        url += '?' + urlencode(params)
+
+    return get_all_github_data(url, headers)
 
 
 def get_all_github_data(url, headers):
