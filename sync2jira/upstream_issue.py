@@ -378,8 +378,8 @@ def _get_current_project_node(upstream, project_number, issue_number, gh_issue):
 
 
 def get_all_github_data(url, headers):
-    """ Pagination utility.  Obnoxious. """
-    link = dict(next=url)
+    """A generator which returns each response from a paginated GitHub API call"""
+    link = {'next': url}
     while 'next' in link:
         response = api_call_get(link['next'], headers=headers)
         for issue in response.json():
@@ -390,19 +390,16 @@ def get_all_github_data(url, headers):
 
 
 def _github_link_field_to_dict(field):
-    """
-        Utility for ripping apart github's Link header field.
-        It's kind of ugly.
-    """
+    """Utility for ripping apart GitHub's Link header field."""
 
     if not field:
-        return dict()
-    return dict([
+        return {}
+    return dict(
         (
             part.split('; ')[1][5:-1],
-            part.split('; ')[0][1:-1],
+            part.split('; ')[0][1:-1]
         ) for part in field.split(', ')
-    ])
+    )
 
 
 def api_call_get(url, **kwargs):

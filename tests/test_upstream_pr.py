@@ -32,14 +32,14 @@ class TestUpstreamPR(unittest.TestCase):
             },
         }
 
-        # Mock Github Comment
+        # Mock GitHub Comment
         self.mock_github_comment = MagicMock()
         self.mock_github_comment.user.name = 'mock_username'
         self.mock_github_comment.body = 'mock_body'
         self.mock_github_comment.id = 'mock_id'
         self.mock_github_comment.created_at = 'mock_created_at'
 
-        # Mock Github Message
+        # Mock GitHub Message
         self.mock_github_message = {
             'msg': {
                 'repository': {
@@ -68,7 +68,7 @@ class TestUpstreamPR(unittest.TestCase):
         self.mock_github_pr = MagicMock()
         self.mock_github_pr.get_issue_comments.return_value = [self.mock_github_comment]
 
-        # Mock Github Issue Raw
+        # Mock GitHub Issue Raw
         self.mock_github_issue_raw = {
             'comments': ['some comment'],
             'number': '1234',
