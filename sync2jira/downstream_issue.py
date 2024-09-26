@@ -235,19 +235,20 @@ def alert_user_of_duplicate_issues(issue, final_result, results_of_query,
         template_ready.append(new_entry)
 
     # Get owner name and email from Jira
-    ret = client.search_users(issue.downstream.get('owner'))
+    ds_owner = issue.downstream.get('owner')
+    ret = client.search_users(ds_owner)
     if len(ret) > 1:
-        log.warning('Found multiple users for username %s' % issue.downstream.get('owner'))
+        log.warning('Found multiple users for username %s' % ds_owner)
         found = False
         for person in ret:
-            if person.key == issue.downstream.get('owner'):
+            if person.key == ds_owner:
                 ret = [person]
                 found = True
                 break
         if not found:
-            log.warning('Could not find JIRA user for username %s' % issue.downstream.get('owner'))
+            log.warning('Could not find JIRA user for username %s' % ds_owner)
     if not ret:
-        message = 'No owner could be found for username %s' % issue.downstream.get('owner')
+        message = 'No owner could be found for username %s' % ds_owner
         log.warning(message.strip())
         return
 
@@ -267,7 +268,7 @@ def alert_user_of_duplicate_issues(issue, final_result, results_of_query,
             log.warning('Found multiple users for admin %s' % list(admin.keys())[0])
             found = False
             for person in ret:
-                if person.key == issue.downstream.get('owner'):
+                if person.key == ds_owner:
                     ret = [person]
                     found = True
                     break
@@ -413,17 +414,15 @@ def _get_existing_jira_issue_legacy(client, issue, config):
     """
     This is our old way of matching issues: use the special url field.
     This will be phased out and removed in a future release.
-
     """
 
     kwargs = dict(issue.downstream.items())
     kwargs["External issue URL"] = "%s" % issue.url
     kwargs = sorted(kwargs.items(), key=operator.itemgetter(0))
 
-    query = " AND ".join([
-        "=".join(["'%s'" % k, "'%s'" % v]) for k, v in kwargs
-        if v is not None
-    ]) + " AND (resolution is null OR resolution = Duplicate)"
+    query = " AND ".join(
+        f"'{k}'='{v}'" for k, v in kwargs if v is not None
+    ) + " AND (resolution is null OR resolution = Duplicate)"
     results = client.search_issues(query)
     if results:
         return results[0]
@@ -525,10 +524,11 @@ def assign_user(client, issue, downstream, remove_all=False):
             downstream.update({'assignee': {'name': user.name}})
             return
     # If there is an owner, assign it to them
-    if issue.downstream.get('owner'):
-        client.assign_issue(downstream.id, issue.downstream.get('owner'))
+    owner = issue.downstream.get('owner')
+    if owner:
+        client.assign_issue(downstream.id, owner)
         log.warning('Assigned %s to owner: %s' %
-                    (issue.title, issue.downstream.get('owner')))
+                    (issue.title, owner))
         return
     log.warning('Was not able to assign user %s' % issue.assignee[0]['fullname'])
 
@@ -656,21 +656,22 @@ def _create_jira_issue(client, issue, config):
         name_map = {field['name']: field['id'] for field in all_fields}
         if issue.downstream.get('epic-link'):
             # Try to get and update the custom field
-            custom_field = name_map.get('Epic Link', None)
+            custom_field = name_map.get('Epic Link')
             if custom_field:
                 try:
-                    downstream.update({custom_field: issue.downstream.get('epic-link')})
+                    downstream.update({custom_field: issue.downstream['epic-link']})
                 except JIRAError:
-                    client.add_comment(downstream, f"Error adding Epic-Link: {issue.downstream.get('epic-link')}")
+                    client.add_comment(downstream,
+                                       f"Error adding Epic-Link: {issue.downstream['epic-link']}")
         if issue.downstream.get('qa-contact'):
             # Try to get and update the custom field
-            custom_field = name_map.get('QA Contact', None)
+            custom_field = name_map.get('QA Contact')
             if custom_field:
-                downstream.update({custom_field: issue.downstream.get('qa-contact')})
+                downstream.update({custom_field: issue.downstream['qa-contact']})
         if issue.downstream.get('EXD-Service'):
             # Try to update the custom field
-            exd_service_info = issue.downstream.get('EXD-Service')
-            custom_field = name_map.get('EXD-Service', None)
+            exd_service_info = issue.downstream['EXD-Service']
+            custom_field = name_map.get('EXD-Service')
             if custom_field:
                 try:
                     downstream.update(
@@ -694,7 +695,7 @@ def _create_jira_issue(client, issue, config):
     remote_link = dict(url=issue.url, title=remote_link_title)
     attach_link(client, downstream, remote_link)
 
-    default_status = issue.downstream.get('default_status', None)
+    default_status = issue.downstream.get('default_status')
     if default_status is not None:
         change_status(client, downstream, default_status, issue)
 
@@ -972,7 +973,7 @@ def _update_github_project_fields(client, existing, issue,
     :param jira.client.JIRA client: JIRA client
     :param jira.resource.Issue existing: Existing JIRA issue
     :param sync2jira.intermediary.Issue issue: Upstream issue
-    :param list: Fields representing GitHub project item fields in GitHub and Jira
+    :param dict github_project_fields: Fields representing GitHub project item fields in GitHub and Jira
     """
 
     default_jira_fields = config['sync2jira'].get('default_jira_fields', {})
@@ -1189,7 +1190,7 @@ def sync_with_jira(issue, config):
         log.warning('The JIRA server looks like its down. Shutting down...')
         raise JIRAError
 
-    if issue.downstream.get('issue_updates', None):
+    if issue.downstream.get('issue_updates'):
         if issue.source == 'github' and issue.content and \
                 'github_markdown' in issue.downstream['issue_updates']:
             issue.content = pypandoc.convert_text(issue.content, 'jira', format='gfm')
@@ -1244,7 +1245,7 @@ def _close_as_duplicate(client, duplicate, keeper, config):
 
     # Find the id of some dropped or done state.
     transitions = client.transitions(duplicate)
-    transitions = dict([(t['name'], t['id']) for t in transitions])
+    transitions = dict((t['name'], t['id']) for t in transitions)
     closed = None
     preferences = ['Dropped', 'Reject', 'Done', 'Closed', 'Closed (2)', ]
     for preference in preferences:
@@ -1253,13 +1254,13 @@ def _close_as_duplicate(client, duplicate, keeper, config):
             break
 
     text = 'Marking as duplicate of %s' % keeper.key
-    if any([text in comment.body for comment in client.comments(duplicate)]):
+    if any(text in comment.body for comment in client.comments(duplicate)):
         log.info("Skipping comment.  Already present.")
     else:
         client.add_comment(duplicate, text)
 
     text = '%s is a duplicate.' % duplicate.key
-    if any([text in comment.body for comment in client.comments(keeper)]):
+    if any(text in comment.body for comment in client.comments(keeper)):
         log.info("Skipping comment.  Already present.")
     else:
         client.add_comment(keeper, text)
