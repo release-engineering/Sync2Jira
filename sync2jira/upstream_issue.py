@@ -248,49 +248,60 @@ def reformat_github_issue(issue, upstream, github_client):
     else:
         # We have multiple comments and need to make api call to get them
         repo = github_client.get_repo(upstream)
-        comments = []
         github_issue = repo.get_issue(number=issue['number'])
-        for comment in github_issue.get_comments():
-            # First make API call to get the users name
-            comments.append({
-                'author': comment.user.name or comment.user.login,
-                'name': comment.user.login,
-                'body': comment.body,
-                'id': comment.id,
-                'date_created': comment.created_at,
-                'changed': None
-            })
-        # Assign the message with the newly formatted comments :)
-        issue['comments'] = comments
+        issue['comments'] = reformat_github_comments(github_issue.get_comments())
 
+    # Update the rest of the parts
+    reformat_github_common(issue, github_client)
+
+
+def reformat_github_comments(comments):
+    """Helper function which encapsulates reformatting comments"""
+    return [
+        {
+            'author': comment.user.name or comment.user.login,
+            'name': comment.user.login,
+            'body': comment.body,
+            'id': comment.id,
+            'date_created': comment.created_at,
+            'changed': None
+        } for comment in comments
+    ]
+
+
+def reformat_github_common(item, github_client):
+    """Helper function which tweaks the data format of the parts of Issues and
+     PRs which are common so that they better match Pagure
+    """
+    # Update reporter:
     # Search for the user
-    reporter = github_client.get_user(issue['user']['login'])
+    reporter = github_client.get_user(item['user']['login'])
     # Update the reporter field in the message (to match Pagure format)
     if reporter.name:
-        issue['user']['fullname'] = reporter.name
+        item['user']['fullname'] = reporter.name
     else:
-        issue['user']['fullname'] = issue['user']['login']
+        item['user']['fullname'] = item['user']['login']
 
     # Update assignee(s):
     assignees = []
-    for person in issue['assignees']:
+    for person in item.get('assignees', []):
         assignee = github_client.get_user(person['login'])
         assignees.append({'fullname': assignee.name})
     # Update the assignee field in the message (to match Pagure format)
-    issue['assignees'] = assignees
+    item['assignees'] = assignees
 
     # Update the label field in the message (to match Pagure format)
-    if issue['labels']:
-        # loop through all the labels on GitHub and add them
+    if item['labels']:
+        # Loop through all the labels on GitHub and add them
         # to the new label list and then reassign the message
         new_label = []
-        for label in issue['labels']:
+        for label in item['labels']:
             new_label.append(label['name'])
-        issue['labels'] = new_label
+        item['labels'] = new_label
 
     # Update the milestone field in the message (to match Pagure format)
-    if issue.get('milestone'):
-        issue['milestone'] = issue['milestone']['title']
+    if item.get('milestone'):
+        item['milestone'] = item['milestone']['title']
 
 
 def generate_github_items(api_method, upstream, config):
