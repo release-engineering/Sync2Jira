@@ -87,47 +87,7 @@ def reformat_github_pr(pr, upstream, github_client):
     else:
         # We have multiple comments and need to make api call to get them
         repo = github_client.get_repo(upstream)
-        comments = []
         github_pr = repo.get_pull(number=pr['number'])
-        for comment in github_pr.get_issue_comments():
-            # First make API call to get the users name
-            comments.append({
-                'author': comment.user.name or comment.user.login,
-                'name': comment.user.login,
-                'body': comment.body,
-                'id': comment.id,
-                'date_created': comment.created_at,
-                'changed': None
-            })
-        # Assign the message with the newly formatted comments :)
-        pr['comments'] = comments
+        pr['comments'] = u_issue.reformat_github_comments(github_pr.get_issue_comments())
 
-    # Update reporter:
-    # Search for the user
-    reporter = github_client.get_user(pr['user']['login'])
-    # Update the reporter field in the message (to match Pagure format)
-    if reporter.name:
-        pr['user']['fullname'] = reporter.name
-    else:
-        pr['user']['fullname'] = pr['user']['login']
-
-    # Update assignee(s):
-    assignees = []
-    for person in pr.get('assignees', []):
-        assignee = github_client.get_user(person['login'])
-        assignees.append({'fullname': assignee.name})
-    # Update the assignee field in the message (to match Pagure format)
-    pr['assignees'] = assignees
-
-    # Update the label field in the message (to match Pagure format)
-    if pr['labels']:
-        # Loop through all the labels on GitHub and add them
-        # to the new label list and then reassign the message
-        new_label = []
-        for label in pr['labels']:
-            new_label.append(label['name'])
-        pr['labels'] = new_label
-
-    # Update milestone:
-    if pr.get('milestone'):
-        pr['milestone'] = pr['milestone']['title']
+    u_issue.reformat_github_common(pr, github_client)
