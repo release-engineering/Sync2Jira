@@ -151,7 +151,7 @@ def handle_github_message(msg, config, pr_filter=True):
                 return None
         elif key == 'milestone':
             # special handling for milestone: use the number
-            milestone = issue.get(key) or {}
+            milestone = issue.get(key, {})
             actual = milestone.get('number')
             if expected != actual:
                 log.debug("Milestone %s not set on issue: %s", expected, upstream)
@@ -164,10 +164,9 @@ def handle_github_message(msg, config, pr_filter=True):
                           key, actual, expected, upstream)
                 return None
 
-    if pr_filter and 'pull_request' in issue:
-        if not issue.get('closed_at'):
-            log.debug("%r is a pull request.  Ignoring.", issue.get('html_url'))
-            return None
+    if pr_filter and 'pull_request' in issue and 'closed_at' not in issue:
+        log.debug("%r is a pull request.  Ignoring.", issue.get('html_url', '<missing URL>'))
+        return None
 
     github_client = Github(config['sync2jira']['github_token'], retry=5)
     reformat_github_issue(issue, upstream, github_client)
@@ -387,7 +386,7 @@ def get_all_github_data(url, headers):
             comments = api_call_get(issue['comments_url'], headers=headers)
             issue['comments'] = comments.json()
             yield issue
-        link = _github_link_field_to_dict(response.headers.get('link', None))
+        link = _github_link_field_to_dict(response.headers.get('link'))
 
 
 def _github_link_field_to_dict(field):
