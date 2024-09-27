@@ -4,12 +4,10 @@ This is a helper program to listen for UMB trigger. Test and then deploy Sync2Ji
 # Built-In Modules
 import os
 import logging
-import sys
-import types
 
 # Local Modules
 from sync2jira.main import main as m
-from jira_values import PAGURE, GITHUB
+from jira_values import GITHUB
 from runtime_config import runtime_config
 
 # 3rd Party Modules
@@ -42,13 +40,6 @@ def main():
     failed = False
 
     # Compare to our old values
-    log.info("[OS-BUILD] Comparing values with Pagure...")
-    try:
-        compare_data(client, PAGURE)
-    except Exception as e:
-        failed = True
-        log.info(f"[OS-BUILD] When comparing Pagure something went wrong.\nException {e}")
-
     log.info("[OS-BUILD] Comparing values with GitHub...")
     try:
         compare_data(client, GITHUB)
