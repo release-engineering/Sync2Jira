@@ -10,7 +10,7 @@ Want to quickly get started working with Sync2Jira? Follow these steps:
 
         'github_token': 'YOUR_TOKEN',
 
-3. Enter relevent JIRA information
+3. Enter relevant JIRA information
     .. code-block:: python
 
         'default_jira_instance': 'example',

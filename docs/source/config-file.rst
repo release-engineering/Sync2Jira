@@ -59,7 +59,7 @@ The config file is made up of multiple parts
     },
 
 * Here you can configure multiple JIRA instances if you have projects with differing downstream JIRA instances.
-  Ensure to name them approproialty, in name of the JIRA instance above is `example`.
+  Ensure to name them appropriately, in name of the JIRA instance above is `example`.
 
 .. code-block:: python
 
@@ -96,7 +96,7 @@ The config file is made up of multiple parts
     * :code:`'type'`
         * Optional: Set the issue type that will be created. The default is Bug.
     * :code:`'issue_types': {'bug': 'Bug', 'enhancement': 'Story'}`
-        * Optional: Set the issue type based on github labels. If none match, fall back to what :code:`type` is set to.
+        * Optional: Set the issue type based on GitHub labels. If none match, fall back to what :code:`type` is set to.
    * :code:`'EXD-Service': {'guild': 'SOME_GUILD', 'value': 'SOME_VALUE'}`
         * Sync custom EXD-Service field
 
@@ -104,8 +104,9 @@ The config file is made up of multiple parts
 
             :pullrequest: After enabling PR syncing, just type "Relates to JIRA: XXXX-1234" in the comment or description of the PR to sync with a JIRA issue. After this, updates such as when it has been merged will automatically be added to the JIRA ticket.
 
-* You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with downstream components
-  You can add the following to the :code:`issue_updates` array:
+* You can add your projects here. The :code:`'project'` field is associated
+  with downstream JIRA projects, and :code:`'component'` with downstream
+  components.  You can add the following to the :code:`issue_updates` array:
 
     * :code:`'comments'`
         * Sync comments and comment edits
@@ -121,7 +122,7 @@ The config file is made up of multiple parts
         * Sync title
     * :code:`{'transition': True/'CUSTOM_TRANSITION'}`
         * Sync status (open/closed), Sync only status/Attempt to transition JIRA ticket to CUSTOM_TRANSITION on upstream closure
-    * :code:`{'on_close': {'apply_lables': ['label', ...]}}`
+    * :code:`{'on_close': {'apply_labels': ['label', ...]}}`
         * When the upstream issue is closed, apply additional labels on the corresponding Jira ticket.
     * :code:`github_markdown`
         * If description syncing is turned on, this flag will convert Github markdown to Jira syntax. This uses the pypandoc module.
@@ -133,7 +134,7 @@ The config file is made up of multiple parts
     .. note::
 
         :Overwrite: Setting this to :code:`True` will ensure that Upstream (GitHub or Pagure) values will overwrite downstream ones (i.e. if its empty upstream it'll be empty downstream)
-        :CUSTOM_TRANSITION: Setting this value will get Sync2Jira to automatially transition downstream tickets once their upstream counterparts get closed. Set this to whatever 'closed' means downstream.
+        :CUSTOM_TRANSITION: Setting this value will get Sync2Jira to automatically transition downstream tickets once their upstream counterparts get closed. Set this to whatever 'closed' means downstream.
 
 * You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with downstream components
   You can add the following to the :code:`pr_updates` array:
@@ -146,7 +147,7 @@ The config file is made up of multiple parts
 * You can add the following to the mapping array. This array will map an upstream field to the downstream counterpart with XXX replaced.
 
     * :code:`{'fixVersion': 'Test XXX'}`
-        * Maps upstream milestone (suppose it's called 'milesone') to downstream fixVersion with a mapping (for our example it would be 'Test milesone')
+        * Maps upstream milestone (suppose it's called 'milestone') to downstream fixVersion with a mapping (for our example it would be 'Test milestone')
 
 * It is strongly encouraged for teams to use the :code:`owner` field. If configured, owners will be alerted if Sync2Jira finds duplicate downstream issues.
   Further the owner will be used as a default in case the program is unable to find a valid assignee.
