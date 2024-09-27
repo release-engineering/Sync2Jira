@@ -19,12 +19,6 @@
 
 import logging
 
-try:
-    string_type = str
-except ImportError:
-    import types
-    string_type = types.StringTypes
-
 from github import Github
 
 import sync2jira.intermediary as i
