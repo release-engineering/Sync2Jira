@@ -8,8 +8,8 @@
 
 ## What is Sync2Jira?
 
-This is a process that listens to activity on upstream repos on pagure and
-github via fedmsg, and syncs new issues there to a Jira instance elsewhere.
+This is a process that listens to activity on upstream repos on Pagure and
+GitHub via fedmsg, and syncs new issues there to a Jira instance elsewhere.
 
 ## Documentation
 
@@ -21,7 +21,9 @@ We have set up a quick-start [here](https://sync2jira.readthedocs.io/en/master/q
 
 Configuration is in folder `fedmsg.d`.
 
-You can maintain a mapping there that allows you to match one upstream repo (say, 'pungi' on pagure) to a downstream project/component pair in Jira (say, 'COMPOSE', and 'Pungi').
+You can maintain a mapping there that allows you to match one upstream repo
+(say, 'pungi' on Pagure) to a downstream project/component pair in Jira (say,
+'COMPOSE', and 'Pungi').
 
 On startup:
 
@@ -29,11 +31,3 @@ On startup:
 - if the `INITIALIZE` environment variable is set to `1`, the script will sync all issues to Jira. Use caution as this may be very expensive and difficult to undo.
 
 Please look at our documentation [here](https://sync2jira.readthedocs.io/en/master/config-file.html) for a full list of what can be synced and how to set it up.
-
-## Branches
-
-We will maintain three branches
-
-1. `master` - This will be where our main code and most up to date code lives
-1. `stage` - This will be our staging configuration. PR's will merge through stage to master
-1. `openshift-build` - This branch will maintain OpenShift-Build related information
