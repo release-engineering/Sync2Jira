@@ -29,7 +29,6 @@ class TestMain(unittest.TestCase):
                 'testing': {},
                 'legacy_matching': False,
                 'map': {
-                    'pagure': {'key_pagure': {'sync': ['issue', 'pullrequest']}},
                     'github': {'key_github': {'sync': ['issue', 'pullrequest']}}
                 },
                 'initialize': True,
@@ -60,15 +59,15 @@ class TestMain(unittest.TestCase):
         self._check_for_exception(loader, 'No sync2jira.map section')
 
     def test_config_validate_mispelled_mappings(self):
-        loader = lambda: {'sync2jira': {'map': {'pageur': {}}}, 'jira': {}}
+        loader = lambda: {'sync2jira': {'map': {'githob': {}}}, 'jira': {}}
         self._check_for_exception(loader, 'Specified handlers: "pageur", must')
 
     def test_config_validate_missing_jira(self):
-        loader = lambda: {'sync2jira': {'map': {'pagure': {}}}}
+        loader = lambda: {'sync2jira': {'map': {'github': {}}}}
         self._check_for_exception(loader, 'No sync2jira.jira section')
 
     def test_config_validate_all_good(self):
-        loader = lambda: {'sync2jira': {'map': {'pagure': {}}, 'jira': {}}}
+        loader = lambda: {'sync2jira': {'map': {'github': {}}, 'jira': {}}}
         m.load_config(loader)  # ahhh, no exception.
 
     @mock.patch(PATH + 'u_issue')
@@ -83,32 +82,25 @@ class TestMain(unittest.TestCase):
         """
         # Set up return values
         mock_load_config.return_value = self.mock_config
-        mock_u.pagure_issues.return_value = ['mock_issue_github']
-        mock_u.github_issues.return_value = ['mock_issue_pagure']
+        mock_u.github_issues.return_value = ['mock_issue_github']
 
         # Call the function
         m.close_duplicates()
 
         # Assert everything was called correctly
         mock_load_config.assert_called_once()
-        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
         mock_d.close_duplicates.assert_any_call('mock_issue_github', self.mock_config)
-        mock_d.close_duplicates.assert_any_call('mock_issue_pagure', self.mock_config)
 
     @mock.patch(PATH + 'u_issue')
     @mock.patch(PATH + 'd_issue')
     @mock.patch(PATH + 'load_config')
-    def test_close_duplicates_errors(self,
-                              mock_load_config,
-                              mock_d,
-                              mock_u):
+    def test_close_duplicates_errors(self, mock_load_config, mock_d, mock_u):
         """
         This tests the 'close_duplicates' function where closing duplicates raises an exception
         """
         # Set up return values
         mock_load_config.return_value = self.mock_config
-        mock_u.pagure_issues.return_value = ['mock_issue']
         mock_u.github_issues.return_value = ['mock_issue']
         mock_d.close_duplicates.side_effect = Exception()
 
@@ -118,7 +110,6 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_load_config.assert_called_once()
-        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
         mock_u.github_issues.assert_not_called()
         mock_d.close_duplicates.assert_called_with('mock_issue', self.mock_config)
 
@@ -138,7 +129,6 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_load_config.assert_called_once()
-        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
 
     @mock.patch(PATH + 'initialize_recent')
@@ -214,37 +204,14 @@ class TestMain(unittest.TestCase):
         This tests 'initialize' function where everything goes smoothly!
         """
         # Set up return values
-        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
         mock_u.github_issues.return_value = ['mock_issue_github']
 
         # Call the function
         m.initialize_issues(self.mock_config)
 
         # Assert everything was called correctly
-        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
-        mock_d.sync_with_jira.assert_any_call('mock_issue_pagure', self.mock_config)
         mock_d.sync_with_jira.assert_any_call('mock_issue_github', self.mock_config)
-
-    @mock.patch(PATH + 'u_issue')
-    @mock.patch(PATH + 'd_issue')
-    def test_initialize_repo_name_pagure(self,
-                                         mock_d,
-                                         mock_u):
-        """
-        This tests 'initialize' function where we want to sync an individual repo for Pagure
-        """
-        # Set up return values
-        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
-        mock_u.github_issues.return_value = ['mock_issue_github']
-
-        # Call the function
-        m.initialize_issues(self.mock_config, repo_name='key_pagure')
-
-        # Assert everything was called correctly
-        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
-        mock_u.github_issues.assert_not_called()
-        mock_d.sync_with_jira.assert_called_with('mock_issue_pagure', self.mock_config)
 
     @mock.patch(PATH + 'u_issue')
     @mock.patch(PATH + 'd_issue')
@@ -255,7 +222,6 @@ class TestMain(unittest.TestCase):
         This tests 'initialize' function where we want to sync an individual repo for GitHub
         """
         # Set up return values
-        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
         mock_u.github_issues.return_value = ['mock_issue_github']
 
         # Call the function
@@ -263,7 +229,6 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
-        mock_u.pagure_issues.assert_not_called()
         mock_d.sync_with_jira.assert_called_with('mock_issue_github', self.mock_config)
 
     @mock.patch(PATH + 'u_issue')
@@ -275,7 +240,6 @@ class TestMain(unittest.TestCase):
         This tests 'initialize' function where syncing with JIRA throws an exception
         """
         # Set up return values
-        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
         mock_u.github_issues.return_value = ['mock_issue_github']
         mock_d.sync_with_jira.side_effect = Exception()
 
@@ -284,8 +248,7 @@ class TestMain(unittest.TestCase):
             m.initialize_issues(self.mock_config)
 
         # Assert everything was called correctly
-        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
-        mock_d.sync_with_jira.assert_any_call('mock_issue_pagure', self.mock_config)
+        mock_u.github_issues.assert_called_with('key_github', self.mock_config)
 
     @mock.patch(PATH + 'u_issue')
     @mock.patch(PATH + 'd_issue')
@@ -301,15 +264,12 @@ class TestMain(unittest.TestCase):
         """
         # Set up return values
         mock_error = MagicMock(side_effect=Exception('API rate limit exceeded'))
-        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
         mock_u.github_issues.side_effect = mock_error
 
         # Call the function
         m.initialize_issues(self.mock_config, testing=True)
 
         # Assert everything was called correctly
-        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
-        mock_d.sync_with_jira.assert_any_call('mock_issue_pagure', self.mock_config)
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
         mock_sleep.assert_called_with(3600)
         mock_report_failure.assert_not_called()
@@ -328,7 +288,6 @@ class TestMain(unittest.TestCase):
         """
         # Set up return values
         mock_error = MagicMock(side_effect=Exception('Random Error'))
-        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
         mock_u.github_issues.side_effect = mock_error
 
         # Call the function
@@ -336,8 +295,6 @@ class TestMain(unittest.TestCase):
             m.initialize_issues(self.mock_config, testing=True)
 
         # Assert everything was called correctly
-        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
-        mock_d.sync_with_jira.assert_any_call('mock_issue_pagure', self.mock_config)
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
         mock_sleep.assert_not_called()
         mock_report_failure.assert_called_with(self.mock_config)
@@ -371,7 +328,7 @@ class TestMain(unittest.TestCase):
         """
         # Set up return values
         mock_handlers_issue['github.issue.comment'].return_value = None
-        mock_fedmsg.tail_messages.return_value = [("dummy", "dummy", "d.d.d.pagure.issue.drop", self.mock_message)]
+        mock_fedmsg.tail_messages.return_value = [("dummy", "dummy", "d.d.d.github.issue.drop", self.mock_message)]
 
         # Call the function
         m.listen(self.mock_config)
@@ -441,7 +398,6 @@ class TestMain(unittest.TestCase):
         # Assert everything was called correctly
         mock_d.sync_with_jira.assert_not_called()
         mock_u.handle_github_message.assert_not_called()
-        mock_u.handle_pagure_message.assert_not_called()
 
     @mock.patch(PATH + 'issue_handlers')
     @mock.patch(PATH + 'u_issue')
@@ -462,7 +418,6 @@ class TestMain(unittest.TestCase):
         # Assert everything was called correctly
         mock_d.sync_with_jira.assert_not_called()
         mock_u.handle_github_message.assert_not_called()
-        mock_u.handle_pagure_message.assert_not_called()
 
     @mock.patch(PATH + 'issue_handlers')
     @mock.patch(PATH + 'u_issue')
@@ -483,7 +438,6 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_d.sync_with_jira.assert_called_with('dummy_issue', self.mock_config)
-        mock_u.handle_pagure_message.assert_not_called()
 
     @mock.patch(PATH + 'handle_msg')
     @mock.patch(PATH + 'query')

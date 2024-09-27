@@ -24,9 +24,6 @@ class TestUpstreamPR(unittest.TestCase):
                     'github': {
                         'org/repo': {'sync': ['pullrequest']},
                     },
-                    'pagure': {
-                        'org/repo': {'sync': ['pullrequest']},
-                    },
                 },
                 'jira': {
                     # Nothing, really..
@@ -34,39 +31,9 @@ class TestUpstreamPR(unittest.TestCase):
                 'filters': {
                     'github':
                         {'org/repo': {'filter1': 'filter1', 'labels': 'custom_tag'}},
-                    'pagure':
-                        {'org/repo': {'filter1': 'filter1', 'tags': ['custom_tag']}},
                 },
                 'github_token': 'mock_token'
             },
-        }
-        # Mock Pagure Message
-        self.mock_pagure_message = {
-            'msg': {
-                'pullrequest': {
-                    'assignee': 'mock_assignee',
-                    'project': {
-                        'name': 'org/repo'
-                    },
-                    'issue': {
-                        'filter1': 'filter1',
-                        'tags': ['custom_tag'],
-                        'comments': [{
-                                        'date_created': '1234',
-                                        'user': {
-                                            'name': 'mock_name'
-                                        },
-                                        'comment': 'mock_body',
-                                        'id': '1234',
-                                    }],
-                        'assignee': 'mock_assignee'
-                    },
-                    'tags': ['new_tag'],
-                    'comment': 'new_comment',
-                    'status': 'Open'
-                },
-                'topic': 'io.pagure.prod.pagure.issue.drop',
-            }
         }
 
         # Mock Github Comment
@@ -133,61 +100,6 @@ class TestUpstreamPR(unittest.TestCase):
         self.mock_github_client.get_repo.return_value = self.mock_github_repo
         self.mock_github_client.get_user.return_value = self.mock_github_person
 
-    @mock.patch('sync2jira.intermediary.PR.from_pagure')
-    def test_handle_pagure_message(self,
-                                   mock_pr_from_pagure):
-        """
-        This function tests 'handle_pagure_message'
-        """
-        # Set up return values
-        mock_pr_from_pagure.return_value = "Successful Call!"
-
-        # Call the function
-        response = u.handle_pagure_message(
-            msg=self.mock_pagure_message,
-            config=self.mock_config,
-            suffix='comment',
-        )
-
-        # Assert that calls were made correctly
-        mock_pr_from_pagure.assert_called_with(
-            'org/repo', {'assignee': ['mock_assignee'],
-                         'project': {'name': 'org/repo'},
-                         'issue': {'filter1': 'filter1',
-                                   'tags': ['custom_tag'],
-                                   'comments':
-                                       [{'date_created': '1234', 'user':
-                                           {'name': 'mock_name'},
-                                         'comment': 'mock_body',
-                                         'id': '1234'}],
-                                   'assignee': 'mock_assignee'},
-                         'tags': ['new_tag'],
-                         'comment': 'new_comment', 'status': 'Open'},
-            'open',
-            self.mock_config,
-        )
-        self.assertEqual(response, 'Successful Call!')
-
-    @mock.patch('sync2jira.intermediary.PR.from_pagure')
-    def test_handle_pagure_message_not_in_mapped(self,
-                                                 mock_pr_from_pagure):
-        """
-        This function tests 'handle_pagure_message' where upstream is not in mapped repo
-        """
-        # Set up return values
-        self.mock_pagure_message['msg']['pullrequest']['project']['name'] = 'bad_repo'
-
-        # Call the function
-        response = u.handle_pagure_message(
-            msg=self.mock_pagure_message,
-            config=self.mock_config,
-            suffix='comment',
-        )
-
-        # Assert all calls made correctly
-        self.assertEqual(None, response)
-        mock_pr_from_pagure.assert_not_called()
-
     @mock.patch(PATH + 'Github')
     @mock.patch('sync2jira.intermediary.PR.from_github')
     def test_handle_github_message(self,
@@ -249,45 +161,6 @@ class TestUpstreamPR(unittest.TestCase):
         mock_github.assert_not_called()
         self.assertEqual(None, response)
 
-    @mock.patch('sync2jira.intermediary.PR.from_pagure')
-    @mock.patch(PATH + 'requests')
-    def test_pagure_issues(self,
-                           mock_requests,
-                           mock_pr_from_pagure):
-        """
-        This function tests 'pagure_issues' function
-        """
-        # Set up return values
-        get_return = MagicMock()
-        get_return.json.return_value = {
-            'requests': [
-                {'assignee': 'mock_assignee'}
-            ]
-
-        }
-        get_return.request.url = 'mock_url'
-        mock_requests.get.return_value = get_return
-        mock_pr_from_pagure.return_value = 'Successful Call!'
-
-        # Call the function
-        response = list(u.pagure_prs(
-            upstream='org/repo',
-            config=self.mock_config,
-        ))
-
-        # Assert everything was called correctly
-        self.assertEqual(response[0], 'Successful Call!')
-        mock_requests.get.assert_called_with(
-            'https://pagure.io/api/0/org/repo/pull-requests',
-            params={'filter1': 'filter1', 'tags': ['custom_tag']}
-        )
-        mock_pr_from_pagure.assert_called_with(
-            'org/repo',
-            {'assignee': ['mock_assignee']},
-            'open',
-            self.mock_config
-        )
-
     @mock.patch('sync2jira.intermediary.PR.from_github')
     @mock.patch(PATH + 'Github')
     @mock.patch(PATH + 'u_issue.get_all_github_data')
@@ -319,11 +192,11 @@ class TestUpstreamPR(unittest.TestCase):
         mock_pr_from_github.assert_called_with(
             'org/repo',
             {'comments':
-                 [{'author': 'mock_username', 'name': unittest.mock.ANY,
-                   'body': 'mock_body', 'id': 'mock_id',
-                   'date_created': 'mock_created_at', 'changed': None}],
+                [{'author': 'mock_username', 'name': unittest.mock.ANY,
+                    'body': 'mock_body', 'id': 'mock_id',
+                    'date_created': 'mock_created_at', 'changed': None}],
              'number': '1234', 'user':
-                 {'login': 'mock_login', 'fullname': 'mock_name'},
+                {'login': 'mock_login', 'fullname': 'mock_name'},
              'assignees': [{'fullname': 'mock_name'}],
              'labels': ['some_label'], 'milestone': 'mock_milestone'},
             'open',

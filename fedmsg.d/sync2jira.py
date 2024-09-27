@@ -55,11 +55,6 @@ config = {
         },
         'default_github_project_fields': {'storypoints': ('Estimate', 'customfield_12316544')},
         'map': {
-            'pagure': {
-                'Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
-                                 'updates': [...], 'sync': ['pullrequest', 'issue']},
-                # 'koji': { 'project': 'BREW', 'component': None, },
-            },
             'github': {
                 'GITHUB_USERNAME/Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
                                                  'updates': [...], 'sync': ['pullrequest', 'issue']},
