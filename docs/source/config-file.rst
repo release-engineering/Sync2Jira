@@ -95,7 +95,7 @@ The config file is made up of multiple parts
         * Optional: Field to have custom set labels on all downstream issues created.
     * :code:`'type'`
         * Optional: Set the issue type that will be created. The default is Bug.
-    * :code:`'issue_type': {'bug': 'Bug', 'enhancement': 'Story'}`
+    * :code:`'issue_types': {'bug': 'Bug', 'enhancement': 'Story'}`
         * Optional: Set the issue type based on github labels. If none match, fall back to what :code:`type` is set to.
    * :code:`'EXD-Service': {'guild': 'SOME_GUILD', 'value': 'SOME_VALUE'}`
         * Sync custom EXD-Service field
