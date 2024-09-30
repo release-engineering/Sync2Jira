@@ -15,9 +15,9 @@ Have you ever wanted to add new upstream repos? Well now you can!
         * This function will be used to initialize and sync upstream/downstream issues
 3. Now modify the `sync2jira/main.py` functions: 
     * :code:`def initialize_pr(config, ...)` and :code:`def initialize_issues(config, ...)`
-        * Add another section (like Pagure and GitHub) to utilize the :code:`REPO-NAME_issues` function you just made.
+        * Add another section (like GitHub) to utilize the :code:`REPO-NAME_issues` function you just made.
     * :code:`def listen(config)`
-        * Add another section to the if statement under Pagure and GitHub
+        * Add another section to the if statement under GitHub
             * :code:`elif 'REPO-NAME' in suffix:`
             * Now utilize the :code:`handle_REPO-NAME_message` function you just made
 4. If all goes smoothly, your new repo should work with Sync2Jira!
