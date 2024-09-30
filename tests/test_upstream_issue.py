@@ -68,7 +68,7 @@ class TestUpstreamIssue(unittest.TestCase):
             }
         }
 
-        # Mock github issue
+        # Mock GitHub issue
         self.mock_github_issue = MagicMock()
         self.mock_github_issue.get_comments.return_value = [self.mock_github_comment]
 
@@ -154,7 +154,7 @@ class TestUpstreamIssue(unittest.TestCase):
                                     mock_github,
                                     mock_issue_from_github):
         """
-        This function tests 'github_issues' function where we have no github token
+        This function tests 'github_issues' function where we have no GitHub token
         and no comments
         """
         # Set up return values

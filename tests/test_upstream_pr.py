@@ -68,7 +68,7 @@ class TestUpstreamPR(unittest.TestCase):
             }
         }
 
-        # Mock github issue
+        # Mock GitHub issue
         self.mock_github_pr = MagicMock()
         self.mock_github_pr.get_issue_comments.return_value = [self.mock_github_comment]
 

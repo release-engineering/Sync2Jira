@@ -30,7 +30,7 @@ with open('test-requirements.txt', 'rb') as f:
 setup(
     name='sync2jira',
     version=2.0,
-    description="Sync github issues to jira, via fedmsg",
+    description="Sync GitHub issues to jira, via fedmsg",
     author='Ralph Bean',
     author_email='rbean@redhat.com',
     url='https://github.com/release-engineering/Sync2Jira',
