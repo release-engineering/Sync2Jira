@@ -9,7 +9,7 @@ from flask import Flask, render_template, request, redirect
 from sync2jira.main import load_config, initialize_pr, initialize_issues
 
 # Global Variables
-app = Flask(__name__, static_url_path = "/assets", static_folder = "assets")
+app = Flask(__name__, static_url_path="/assets", static_folder="assets")
 BASE_URL = os.environ['BASE_URL']
 REDIRECT_URL = os.environ['REDIRECT_URL']
 config = load_config()
@@ -52,6 +52,7 @@ def index():
     """
     return redirect("/github")
 
+
 @app.route('/github', methods=['GET'])
 def github():
     """
@@ -62,15 +63,6 @@ def github():
                            github=config['sync2jira']['map']['github'],
                            url=f"https://{REDIRECT_URL}")
 
-@app.route('/pagure', methods=['GET'])
-def pagure():
-    """
-    Pagure Sync Page
-    """
-    # Build and return our updated HTML page
-    return render_template('sync-page-pagure.jinja',
-                           pagure=config['sync2jira']['map']['pagure'],
-                           url=f"https://{REDIRECT_URL}")
 
 if __name__ == '__main__':
     app.run(host=BASE_URL)

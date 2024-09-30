@@ -30,10 +30,10 @@ with open('test-requirements.txt', 'rb') as f:
 setup(
     name='sync2jira',
     version=2.0,
-    description="Sync pagure and github issues to jira, via fedmsg",
+    description="Sync GitHub issues to jira, via fedmsg",
     author='Ralph Bean',
     author_email='rbean@redhat.com',
-    url='https://pagure.io/sync-to-jira',
+    url='https://github.com/release-engineering/Sync2Jira',
     license='LGPLv2+',
     classifiers=[
         "Development Status :: 5 - Production/Stable",

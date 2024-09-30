@@ -25,23 +25,10 @@ runtime_config = {
         'default_jira_instance': 'pnt-jira',
 
         'filters': {
-            'pagure': {
-            },
             'github': {
             },
         },
         'map': {
-            'pagure': {
-                'Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
-                                 'issue_updates': [{'transition': True},
-                                                   'description',
-                                                   'title',
-                                                   {'tags': {'overwrite': True}},
-                                                   {'fixVersion': {'overwrite': True}},
-                                                   {'assignee': {'overwrite': True}},
-                                                   'url'],
-                                 'sync': ['issue']},
-            },
             'github': {
                 'sidpremkumar/Demo_repo': {'project': 'FACTORY', 'component': 'gitbz',
                                            'issue_updates': [{'transition': True},
