@@ -17,7 +17,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110.15.0 USA
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
-""" Sync github issues to a jira instance, via fedmsg.
+""" Sync GitHub issues to a jira instance, via fedmsg.
 
 Run with systemd, please.
 """
@@ -138,8 +138,8 @@ def load_config(loader=fedmsg.config.load_config):
 
 def listen(config):
     """
-    Listens to activity on upstream repos on github \
-    via fedmsg, and syncs new issues there to the JIRA instance \
+    Listens to activity on upstream repos on GitHub
+    via fedmsg, and syncs new issues there to the JIRA instance
     defined in 'fedmsg.d/sync2jira.py'
 
     :param Dict config: Config dict
@@ -165,9 +165,9 @@ def listen(config):
 
 def initialize_issues(config, testing=False, repo_name=None):
     """
-    Initial initialization needed to sync any upstream \
-    repo with JIRA. Goes through all issues and \
-    checks if they're already on JIRA / Need to be \
+    Initial initialization needed to sync any upstream
+    repo with JIRA. Goes through all issues and
+    checks if they're already on JIRA / Need to be
     created.
 
     :param Dict config: Config dict for JIRA
@@ -183,7 +183,7 @@ def initialize_issues(config, testing=False, repo_name=None):
             continue
         if repo_name is not None and upstream != repo_name:
             continue
-        # Try and except for github API limit
+        # Try and except for GitHub API limit
         try:
             for issue in u_issue.github_issues(upstream, config):
                 try:
@@ -205,14 +205,14 @@ def initialize_issues(config, testing=False, repo_name=None):
                     # Only send the failure email if we are not developing
                     report_failure(config)
                     raise
-    log.info("Done with github issue initialization.")
+    log.info("Done with GitHub issue initialization.")
 
 
 def initialize_pr(config, testing=False, repo_name=None):
     """
-    Initial initialization needed to sync any upstream \
-    repo with JIRA. Goes through all PRs and \
-    checks if they're already on JIRA / Need to be \
+    Initial initialization needed to sync any upstream
+    repo with JIRA. Goes through all PRs and
+    checks if they're already on JIRA / Need to be
     created.
 
     :param Dict config: Config dict for JIRA
@@ -228,7 +228,7 @@ def initialize_pr(config, testing=False, repo_name=None):
             continue
         if repo_name is not None and upstream != repo_name:
             continue
-        # Try and except for github API limit
+        # Try and except for GitHub API limit
         try:
             for pr in u_pr.github_prs(upstream, config):
                 try:
@@ -251,7 +251,7 @@ def initialize_pr(config, testing=False, repo_name=None):
                     # Only send the failure email if we are not developing
                     report_failure(config)
                     raise
-    log.info("Done with github PR initialization.")
+    log.info("Done with GitHub PR initialization.")
 
 
 def initialize_recent(config):
@@ -469,7 +469,7 @@ def close_duplicates():
             except Exception:
                 log.error("Failed on %r", issue)
                 raise
-    log.info("Done with github duplicates.")
+    log.info("Done with GitHub duplicates.")
 
 
 if __name__ == '__main__':

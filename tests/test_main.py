@@ -249,6 +249,7 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
+        mock_d.sync_with_jira.assert_any_call('mock_issue_github', self.mock_config)
 
     @mock.patch(PATH + 'u_issue')
     @mock.patch(PATH + 'd_issue')
@@ -271,6 +272,7 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
+        mock_d.sync_with_jira.assert_any_call('mock_issue_github', self.mock_config)
         mock_sleep.assert_called_with(3600)
         mock_report_failure.assert_not_called()
 
@@ -296,6 +298,7 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
+        mock_d.sync_with_jira.assert_any_call('mock_issue_github', self.mock_config)
         mock_sleep.assert_not_called()
         mock_report_failure.assert_called_with(self.mock_config)
 
