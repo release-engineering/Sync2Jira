@@ -114,7 +114,7 @@ def load_config(loader=fedmsg.config.load_config):
     if 'map' not in config['sync2jira']:
         raise ValueError("No sync2jira.map section found in fedmsg.d/ config")
 
-    possible = set(['github'])
+    possible = {'github'}
     specified = set(config['sync2jira']['map'].keys())
     if not specified.issubset(possible):
         message = "Specified handlers: %s, must be a subset of %s."
