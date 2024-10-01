@@ -730,6 +730,13 @@ def _update_jira_issue(existing, issue, client):
     if not updates:
         return
 
+    # Get fields representing project item fields in GitHub and Jira
+    github_project_fields = issue.downstream.get('github_project_fields', {})
+    # Only synchronize comments for listings that op-in
+    if 'github_project_fields' in updates and len(github_project_fields) > 0:
+        log.info("Looking for GitHub project fields")
+        _update_github_project_fields(client, existing, issue, github_project_fields)
+
     # Only synchronize comments for listings that op-in
     if 'comments' in updates:
         log.info("Looking for new comments")
@@ -942,6 +949,23 @@ def _update_jira_labels(issue, labels):
     data = {'labels': _labels}
     issue.update(data)
     log.info('Updated %s tag(s)' % len(_labels))
+
+def _update_github_project_fields(client, existing, issue, github_project_fields):
+    """Update a Jira issue with GitHub project item field values
+
+    :param jira.client.JIRA client: JIRA client
+    :param jira.resource.Issue existing: Existing JIRA issue
+    :param sync2jira.intermediary.Issue issue: Upstream issue
+    :param list: Fields representing GitHub project item fields in GitHub and Jira
+    """
+
+    for name, values in github_project_fields.items():
+        _, jirafieldname = values
+        try:
+            existing.update({jirafieldname: str(getattr(issue, name))})
+        except JIRAError:
+            # Add a comment to indicate there was an issue
+            client.add_comment(existing, f"Error updating GitHub project field")
 
 
 def _update_tags(updates, existing, issue):

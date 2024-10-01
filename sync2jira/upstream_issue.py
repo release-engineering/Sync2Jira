@@ -34,6 +34,28 @@ import sync2jira.intermediary as i
 
 
 log = logging.getLogger('sync2jira')
+graphqlurl = 'https://api.github.com/graphql'
+project_items_query = '''
+    query MyQuery(
+        $orgname: String!, $reponame: String!, $ghfieldname: String!, $issuenumber: Int!
+    ) {
+        repository(owner: $orgname, name: $reponame) {
+            issue(number: $issuenumber) {
+                title
+                body
+                projectItems(first: 1) {
+                    nodes {
+                        fieldValueByName(name: $ghfieldname) {
+                            ... on ProjectV2ItemFieldNumberValue {
+                                number
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+'''
 
 
 def handle_github_message(msg, config, pr_filter=True):
@@ -151,7 +173,6 @@ def handle_github_message(msg, config, pr_filter=True):
 
     return i.Issue.from_github(upstream, msg['msg']['issue'], config)
 
-
 def github_issues(upstream, config):
     """
     Creates a Generator for all GitHub issues in upstream repo.
@@ -237,6 +258,27 @@ def github_issues(upstream, config):
         # Update milestone:
         if issue.get('milestone', None):
             issue['milestone'] = issue['milestone']['title']
+
+        if not issue.get('storypoints', None):
+            issue['storypoints'] = ''
+            orgname, reponame = upstream.rsplit('/', 1)
+            issuenumber = issue['number']
+            default_github_project_fields = config['sync2jira']['default_github_project_fields']
+            project_github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
+            github_project_fields = default_github_project_fields | project_github_project_fields
+            variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
+            for fieldname, values in github_project_fields.items():
+                ghfieldname, _ = values
+                variables['ghfieldname'] = ghfieldname
+                response = requests.post(graphqlurl, headers=headers, json={"query": project_items_query, "variables": variables})
+                data = response.json()
+                if fieldname == 'storypoints':
+                    try:
+                        issue[fieldname] = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValueByName']['number']
+                    except (TypeError, KeyError) as err:
+                        log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
+                            ghfieldname, orgname, reponame, issuenumber, err)
+                        continue
 
         final_issues.append(issue)
 
