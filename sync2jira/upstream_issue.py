@@ -18,14 +18,7 @@
 # Authors:  Ralph Bean <rbean@redhat.com>
 
 import logging
-
-try:
-    from urllib.parse import urlencode  # py3
-    string_type = str
-except ImportError:
-    from urllib import urlencode  # py2
-    import types
-    string_type = types.StringTypes
+from urllib.parse import urlencode
 
 import requests
 from github import Github
