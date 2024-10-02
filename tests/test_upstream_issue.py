@@ -1,11 +1,6 @@
-import mock
 import unittest
-try:
-    # Python 3.3 >
-    from unittest.mock import MagicMock  # noqa: F401
-except ImportError:
-    from mock import MagicMock  # noqa: F401
-
+import unittest.mock as mock
+from unittest.mock import MagicMock
 
 import sync2jira.upstream_issue as u
 
