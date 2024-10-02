@@ -81,16 +81,16 @@ class TestUpstreamPR(unittest.TestCase):
             }
         }
 
-        # Mock Github Reporter
+        # Mock GitHub Reporter
         self.mock_github_person = MagicMock()
         self.mock_github_person.name = 'mock_name'
 
-        # Mock Github Repo
+        # Mock GitHub Repo
         self.mock_github_repo = MagicMock()
         self.mock_github_repo.get_pull.return_value = self.mock_github_pr
         self.mock_github_repo.get_issue.return_value = self.mock_github_pr
 
-        # Mock Github Client
+        # Mock GitHub Client
         self.mock_github_client = MagicMock()
         self.mock_github_client.get_repo.return_value = self.mock_github_repo
         self.mock_github_client.get_user.return_value = self.mock_github_person

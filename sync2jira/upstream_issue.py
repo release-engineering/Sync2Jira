@@ -64,8 +64,8 @@ def handle_github_message(msg, config, pr_filter=True):
     owner = msg['msg']['repository']['owner']['login']
     repo = msg['msg']['repository']['name']
     upstream = '{owner}/{repo}'.format(owner=owner, repo=repo)
-    mapped_repos = config['sync2jira']['map']['github']
 
+    mapped_repos = config['sync2jira']['map']['github']
     if upstream not in mapped_repos:
         log.debug("%r not in Github map: %r", upstream, mapped_repos.keys())
         return None
