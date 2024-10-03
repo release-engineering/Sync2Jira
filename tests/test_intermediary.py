@@ -1,5 +1,5 @@
-import mock
 import unittest
+import unittest.mock as mock
 
 import sync2jira.intermediary as i
 
@@ -126,7 +126,7 @@ class TestIntermediary(unittest.TestCase):
 
     def test_mapping_github(self):
         """
-        This tests the mapping feature from github
+        This tests the mapping feature from GitHub
         """
         # Set up return values
         self.mock_config['sync2jira']['map']['github']['github'] = {
@@ -165,7 +165,7 @@ class TestIntermediary(unittest.TestCase):
     def test_from_github_pr_reopen(self,
                                    mock_matcher):
         """
-        This tests the from GitHub for a PR
+        This tests the message from GitHub for a PR
         """
         # Set up return values
         mock_matcher.return_value = "JIRA-1234"
