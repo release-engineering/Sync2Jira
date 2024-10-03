@@ -64,6 +64,7 @@ class Issue(object):
     def upstream_title(self):
         return self._title
 
+    @classmethod
     def from_github(cls, upstream, issue, config):
         """Helper function to create intermediary object."""
         upstream_source = 'github'
