@@ -271,7 +271,7 @@ def github_issues(upstream, config):
                         issue[fieldname] = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValueByName']['number']
                     except (TypeError, KeyError) as err:
                         log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
-                            ghfieldname, orgname, reponame, issuenumber, err)
+                                  ghfieldname, orgname, reponame, issuenumber, err)
                         continue
 
         final_issues.append(issue)
