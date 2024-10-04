@@ -950,6 +950,7 @@ def _update_jira_labels(issue, labels):
     issue.update(data)
     log.info('Updated %s tag(s)' % len(_labels))
 
+
 def _update_github_project_fields(client, existing, issue, github_project_fields):
     """Update a Jira issue with GitHub project item field values
 
@@ -963,9 +964,9 @@ def _update_github_project_fields(client, existing, issue, github_project_fields
         _, jirafieldname = values
         try:
             existing.update({jirafieldname: str(getattr(issue, name))})
-        except JIRAError:
+        except JIRAError as err:
             # Add a comment to indicate there was an issue
-            client.add_comment(existing, f"Error updating GitHub project field")
+            client.add_comment(existing, f"Error updating GitHub project field: {err}")
 
 
 def _update_tags(updates, existing, issue):

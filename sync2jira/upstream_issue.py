@@ -166,6 +166,7 @@ def handle_github_message(msg, config, pr_filter=True):
 
     return i.Issue.from_github(upstream, msg['msg']['issue'], config)
 
+
 def github_issues(upstream, config):
     """
     Creates a Generator for all GitHub issues in upstream repo.
