@@ -3,14 +3,20 @@ name: Run Tox
 
 # yamllint disable rule:truthy
 on:
-  - push
+  push:
+    branches:
+      - main
+      - legacy
+    tags:
+      - v*
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Run Tox tests
         id: test
