@@ -25,7 +25,7 @@ class TestUpstreamPR(unittest.TestCase):
                 },
                 'filters': {
                     'github':
-                        {'org/repo': {'filter1': 'filter1', 'labels': 'custom_tag'}},
+                        {'org/repo': {'filter1': 'filter1', 'labels': ['custom_tag']}},
                 },
                 'github_token': 'mock_token'
             },
