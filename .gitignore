@@ -20,3 +20,4 @@ fedmsg.d/sync2jira.py
 /.tox
 *.pyc
 __pycache__
+.vscode/settings.json
