@@ -28,7 +28,7 @@ import sync2jira.intermediary as i
 
 log = logging.getLogger('sync2jira')
 graphqlurl = 'https://api.github.com/graphql'
-project_items_query = '''
+storypoints_query = '''
     query MyQuery(
         $orgname: String!, $reponame: String!, $ghfieldname: String!, $issuenumber: Int!
     ) {
@@ -49,6 +49,28 @@ project_items_query = '''
         }
     }
 '''
+priority_query = '''
+    query MyQuery(
+        $orgname: String!, $reponame: String!, $ghfieldname: String!, $issuenumber: Int!
+    ) {
+        repository(owner: $orgname, name: $reponame) {
+            issue(number: $issuenumber) {
+                title
+                body
+                projectItems(first: 1) {
+                    nodes {
+                        fieldValueByName(name: $ghfieldname) {
+                            ... on ProjectV2ItemFieldSingleSelectValue {
+                                name
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+'''
+
 
 
 def handle_github_message(msg, config, pr_filter=True):
@@ -266,16 +288,36 @@ def github_issues(upstream, config):
             github_project_fields = default_github_project_fields | project_github_project_fields
             variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
             for fieldname, values in github_project_fields.items():
-                ghfieldname, _ = values
-                variables['ghfieldname'] = ghfieldname
-                response = requests.post(graphqlurl, headers=headers, json={"query": project_items_query, "variables": variables})
-                data = response.json()
                 if fieldname == 'storypoints':
+                    ghfieldname, _ = tuple(values['fieldmap'].items())[0]
+                    variables['ghfieldname'] = ghfieldname
+                    response = requests.post(graphqlurl, headers=headers, json={"query": storypoints_query, "variables": variables})
+                    data = response.json()
                     try:
                         issue[fieldname] = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValueByName']['number']
                     except (TypeError, KeyError) as err:
                         log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
                                   ghfieldname, orgname, reponame, issuenumber, err)
+                        continue
+        if not issue.get('priority', None):
+            issue['priority'] = ''
+            orgname, reponame = upstream.rsplit('/', 1)
+            issuenumber = issue['number']
+            default_github_project_fields = config['sync2jira']['default_github_project_fields']
+            project_github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
+            github_project_fields = default_github_project_fields | project_github_project_fields
+            variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
+            for fieldname, values in github_project_fields.items():
+                if fieldname == 'priority':
+                    ghfieldname, _ = tuple(values['fieldmap'].items())[0]
+                    variables['ghfieldname'] = ghfieldname
+                    response = requests.post(graphqlurl, headers=headers, json={"query": priority_query, "variables": variables})
+                    data = response.json()
+                    try:
+                        issue[fieldname] = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValueByName']['name']
+                    except (TypeError, KeyError) as err:
+                        log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
+                            ghfieldname, orgname, reponame, issuenumber, err)
                         continue
 
         final_issues.append(issue)
