@@ -94,7 +94,7 @@ class Issue(object):
             map_fixVersion(mapping, issue)
 
         # TODO: Priority is broken
-        return Issue(
+        return cls(
             source=upstream_source,
             title=issue['title'],
             url=issue['html_url'],
@@ -272,7 +272,7 @@ def trimString(content):
     Helper function to trim a string to ensure it is not over 50000 char
     Ref: https://github.com/release-engineering/Sync2Jira/issues/123
 
-    :param String commentBody: Comment content
+    :param String content: Comment content
     :rtype: String
     """
     if len(content) > 50000:
