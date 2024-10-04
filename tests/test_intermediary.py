@@ -65,6 +65,19 @@ class TestIntermediary(unittest.TestCase):
             'number': 1234,
         }
 
+    def checkResponseFields(self, response):
+        self.assertEqual(response.source, 'github')
+        self.assertEqual(response.title, '[github] mock_title')
+        self.assertEqual(response.url, 'mock_url')
+        self.assertEqual(response.upstream, 'github')
+        self.assertEqual(response.comments, [{'body': 'mock_body', 'name': 'mock_name', 'author': 'mock_author',
+                                              'changed': None, 'date_created': 'mock_date', 'id': 'mock_id'}])
+        self.assertEqual(response.priority, None)
+        self.assertEqual(response.content, 'mock_content')
+        self.assertEqual(response.reporter, 'mock_reporter')
+        self.assertEqual(response.assignee, 'mock_assignee')
+        self.assertEqual(response.id, '1234')
+
     def test_from_github_open(self):
         """
         This tests the 'from_github' function under the Issue class where the state is open
@@ -77,20 +90,10 @@ class TestIntermediary(unittest.TestCase):
         )
 
         # Assert that we made the calls correctly
-        self.assertEqual(response.source, 'github')
-        self.assertEqual(response.title, '[github] mock_title')
-        self.assertEqual(response.url, 'mock_url')
-        self.assertEqual(response.upstream, 'github')
-        self.assertEqual(response.comments, [{'body': 'mock_body', 'name': 'mock_name', 'author': 'mock_author',
-                                              'changed': None, 'date_created': 'mock_date', 'id': 'mock_id'}])
-        self.assertEqual(response.tags, 'mock_tags')
+        self.checkResponseFields(response)
+
         self.assertEqual(response.fixVersion, ['mock_milestone'])
-        self.assertEqual(response.priority, None)
-        self.assertEqual(response.content, 'mock_content')
-        self.assertEqual(response.reporter, 'mock_reporter')
-        self.assertEqual(response.assignee, 'mock_assignee')
         self.assertEqual(response.status, 'Open')
-        self.assertEqual(response.id, '1234')
         self.assertEqual(response.downstream, {'mock_downstream': 'mock_key'})
 
     def test_from_github_closed(self):
@@ -108,20 +111,11 @@ class TestIntermediary(unittest.TestCase):
         )
 
         # Assert that we made the calls correctly
-        self.assertEqual(response.source, 'github')
-        self.assertEqual(response.title, '[github] mock_title')
-        self.assertEqual(response.url, 'mock_url')
-        self.assertEqual(response.upstream, 'github')
-        self.assertEqual(response.comments, [{'body': 'mock_body', 'name': 'mock_name', 'author': 'mock_author',
-                                              'changed': None, 'date_created': 'mock_date', 'id': 'mock_id'}])
+        self.checkResponseFields(response)
+
         self.assertEqual(response.tags, 'mock_tags')
         self.assertEqual(response.fixVersion, ['mock_milestone'])
-        self.assertEqual(response.priority, None)
-        self.assertEqual(response.content, 'mock_content')
-        self.assertEqual(response.reporter, 'mock_reporter')
-        self.assertEqual(response.assignee, 'mock_assignee')
         self.assertEqual(response.status, 'Closed')
-        self.assertEqual(response.id, '1234')
         self.assertEqual(response.downstream, {'mock_downstream': 'mock_key'})
 
     def test_mapping_github(self):
@@ -143,20 +137,11 @@ class TestIntermediary(unittest.TestCase):
         )
 
         # Assert that we made the calls correctly
-        self.assertEqual(response.source, 'github')
-        self.assertEqual(response.title, '[github] mock_title')
-        self.assertEqual(response.url, 'mock_url')
-        self.assertEqual(response.upstream, 'github')
-        self.assertEqual(response.comments, [{'body': 'mock_body', 'name': 'mock_name', 'author': 'mock_author',
-                                              'changed': None, 'date_created': 'mock_date', 'id': 'mock_id'}])
+        self.checkResponseFields(response)
+
         self.assertEqual(response.tags, 'mock_tags')
         self.assertEqual(response.fixVersion, ['Test mock_milestone'])
-        self.assertEqual(response.priority, None)
-        self.assertEqual(response.content, 'mock_content')
-        self.assertEqual(response.reporter, 'mock_reporter')
-        self.assertEqual(response.assignee, 'mock_assignee')
         self.assertEqual(response.status, 'Closed')
-        self.assertEqual(response.id, '1234')
         self.assertEqual(response.downstream, {
             'mock_downstream': 'mock_key',
             'mapping': [{'fixVersion': 'Test XXX'}]})
@@ -179,19 +164,10 @@ class TestIntermediary(unittest.TestCase):
         )
 
         # Assert that we made the calls correctly
-        self.assertEqual(response.source, 'github')
-        self.assertEqual(response.title, '[github] mock_title')
-        self.assertEqual(response.url, 'mock_url')
-        self.assertEqual(response.upstream, 'github')
-        self.assertEqual(response.comments, [{'body': 'mock_body', 'name': 'mock_name', 'author': 'mock_author',
-                                              'changed': None, 'date_created': 'mock_date', 'id': 'mock_id'}])
-        self.assertEqual(response.priority, None)
-        self.assertEqual(response.content, 'mock_content')
-        self.assertEqual(response.reporter, 'mock_reporter')
-        self.assertEqual(response.assignee, 'mock_assignee')
-        self.assertEqual(response.status, None)
-        self.assertEqual(response.id, '1234')
+        self.checkResponseFields(response)
+
         self.assertEqual(response.suffix, 'reopened')
+        self.assertEqual(response.status, None)
         self.assertEqual(response.downstream, {'mock_downstream': 'mock_key'})
         self.assertEqual(response.jira_key, "JIRA-1234")
         self.mock_github_pr['comments'][0]['changed'] = None
