@@ -258,7 +258,7 @@ def github_issues(upstream, config):
             orgname, reponame = upstream.rsplit('/', 1)
             issuenumber = issue['number']
             default_github_project_fields = config['sync2jira']['default_github_project_fields']
-            project_github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
+            project_github_project_fields = config['sync2jira']['map']['github'].get(upstream, {}).get('github_project_fields', {})
             github_project_fields = default_github_project_fields | project_github_project_fields
             variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
             for fieldname, values in github_project_fields.items():
