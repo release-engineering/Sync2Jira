@@ -142,6 +142,10 @@ def github_prs(upstream, config):
         .get('github', {}) \
         .get(upstream, {})
 
+    if 'labels' in _filter:
+        # We have to flatten the labels list to a comma-separated string
+        _filter['labels'] = ','.join(_filter['labels'])
+
     # Build our URL
     url = 'https://api.github.com/repos/%s/pulls' % upstream
     if _filter:

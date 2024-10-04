@@ -84,9 +84,9 @@ def handle_github_message(msg, config, pr_filter=True):
     for key, expected in _filter.items():
         if key == 'labels':
             # special handling for label: we look for it in the list of msg labels
-            actual = [label['name'] for label in msg['msg']['issue']['labels']]
-            if expected not in actual:
-                log.debug("Label %s not set on issue: %s", expected, upstream)
+            actual = {label['name'] for label in msg['msg']['issue']['labels']}
+            if actual.isdisjoint(expected):
+                log.debug("Labels %s not found on issue: %s", expected, upstream)
                 return None
         elif key == 'milestone':
             # special handling for milestone: use the number
@@ -187,6 +187,13 @@ def github_issues(upstream, config):
         .get('filters', {})\
         .get('github', {})\
         .get(upstream, {})
+
+    if 'labels' in _filter:
+        # We have to flatten the labels list to a comma-separated string
+        expected = _filter['labels']
+        if not isinstance(expected,str):
+            assert isinstance(expected,list)
+            _filter['labels'] = ','.join(expected)
 
     url = 'https://api.github.com/repos/%s/issues' % upstream
     if _filter:
