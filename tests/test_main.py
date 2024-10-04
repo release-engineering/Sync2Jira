@@ -56,7 +56,7 @@ class TestMain(unittest.TestCase):
 
     def test_config_validate_mispelled_mappings(self):
         loader = lambda: {'sync2jira': {'map': {'githob': {}}}, 'jira': {}}
-        self._check_for_exception(loader, 'Specified handlers: "pageur", must')
+        self._check_for_exception(loader, 'Specified handlers: "githob", must')
 
     def test_config_validate_missing_jira(self):
         loader = lambda: {'sync2jira': {'map': {'github': {}}}}
