@@ -15,6 +15,9 @@ class TestUpstreamIssue(unittest.TestCase):
     def setUp(self):
         self.mock_config = {
             'sync2jira': {
+                'default_github_project_fields': {
+                    'storypoints': ('Estimate', 'customfield_12310243')
+                },
                 'map': {
                     'github': {
                         'org/repo': {'sync': ['issue']},
@@ -130,10 +133,22 @@ class TestUpstreamIssue(unittest.TestCase):
         self.mock_github_client.get_user.assert_any_call('mock_assignee_login')
         mock_issue_from_github.assert_called_with(
             'org/repo',
-            {'labels': ['some_label'], 'number': '1234', 'comments': [
-                {'body': 'mock_body', 'name': unittest.mock.ANY, 'author': 'mock_username', 'changed': None,
-                 'date_created': 'mock_created_at', 'id': 'mock_id'}], 'assignees': [{'fullname': 'mock_name'}],
-             'user': {'login': 'mock_login', 'fullname': 'mock_name'}, 'milestone': 'mock_milestone'},
+            {
+                'labels': ['some_label'],
+                'number': '1234',
+                'comments': [
+                    {
+                        'body': 'mock_body',
+                        'name': unittest.mock.ANY,
+                        'author': 'mock_username',
+                        'changed': None,
+                        'date_created': 'mock_created_at',
+                        'id': 'mock_id'}
+                ],
+                'assignees': [{'fullname': 'mock_name'}],
+                'user': {'login': 'mock_login', 'fullname': 'mock_name'},
+                'milestone': 'mock_milestone',
+                'storypoints': ''},
             self.mock_config
         )
         self.mock_github_client.get_repo.assert_called_with('org/repo')
@@ -180,8 +195,16 @@ class TestUpstreamIssue(unittest.TestCase):
         self.mock_github_client.get_user.assert_any_call('mock_assignee_login')
         mock_issue_from_github.assert_called_with(
             'org/repo',
-            {'labels': ['some_label'], 'number': '1234', 'comments': [], 'assignees': [{'fullname': 'mock_name'}],
-             'user': {'login': 'mock_login', 'fullname': 'mock_name'}, 'milestone': 'mock_milestone'},
+            {
+                'labels': ['some_label'],
+                'number': '1234',
+                'comments': [],
+                'assignees': [{'fullname': 'mock_name'}],
+                'user': {
+                    'login': 'mock_login',
+                    'fullname': 'mock_name'},
+                'milestone': 'mock_milestone',
+                'storypoints': ''},
             self.mock_config
         )
         self.assertEqual(response[0], 'Successful Call!')

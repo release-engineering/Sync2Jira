@@ -41,6 +41,7 @@ class TestIntermediary(unittest.TestCase):
             'state': 'open',
             'date_created': 'mock_date',
             'number': '1',
+            'storypoints': 'mock_storypoints',
         }
 
         self.mock_github_pr = {
@@ -95,6 +96,7 @@ class TestIntermediary(unittest.TestCase):
         self.assertEqual(response.fixVersion, ['mock_milestone'])
         self.assertEqual(response.status, 'Open')
         self.assertEqual(response.downstream, {'mock_downstream': 'mock_key'})
+        self.assertEqual(response.storypoints, 'mock_storypoints')
 
     def test_from_github_closed(self):
         """
@@ -117,6 +119,7 @@ class TestIntermediary(unittest.TestCase):
         self.assertEqual(response.fixVersion, ['mock_milestone'])
         self.assertEqual(response.status, 'Closed')
         self.assertEqual(response.downstream, {'mock_downstream': 'mock_key'})
+        self.assertEqual(response.storypoints, 'mock_storypoints')
 
     def test_mapping_github(self):
         """
@@ -145,6 +148,7 @@ class TestIntermediary(unittest.TestCase):
         self.assertEqual(response.downstream, {
             'mock_downstream': 'mock_key',
             'mapping': [{'fixVersion': 'Test XXX'}]})
+        self.assertEqual(response.storypoints, 'mock_storypoints')
 
     @mock.patch(PATH + 'matcher')
     def test_from_github_pr_reopen(self,
