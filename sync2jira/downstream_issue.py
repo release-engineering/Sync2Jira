@@ -109,8 +109,8 @@ def get_jira_client(issue, config):
 
     if not isinstance(issue, Issue) and not isinstance(issue, PR):
         log.error("passed in issue is not an Issue instance")
-        log.error("It is a %s" % type(issue).__name__)
-        raise TypeError("Got %s, expected Issue" % type(issue).__name__)
+        log.error("It is a %s", type(issue).__name__)
+        raise TypeError(f"Got {type(issue).__name__}, expected Issue")
 
     # Use the Jira instance set in the issue config. If none then
     # use the configured default jira instance.
@@ -137,9 +137,8 @@ def _matching_jira_issue_query(client, issue, config, free=False):
     :rtype: List
     """
     # Searches for any remote link to the issue.url
-    query = 'issueFunction in linkedIssuesOfRemote("%s") and ' \
-        'issueFunction in linkedIssuesOfRemote("%s")' % (
-            remote_link_title, issue.url)
+    query = (f'issueFunction in linkedIssuesOfRemote("{remote_link_title}") and '
+             f'issueFunction in linkedIssuesOfRemote("{issue.url}")')
     if free:
         query += ' and statusCategory != Done'
     # Query the JIRA client and store the results
@@ -236,9 +235,10 @@ def alert_user_of_duplicate_issues(issue, final_result, results_of_query,
 
     # Get owner name and email from Jira
     ds_owner = issue.downstream.get('owner')
+    ds_owner = ds_owner.strip() if ds_owner else ds_owner
     ret = client.search_users(ds_owner)
     if len(ret) > 1:
-        log.warning('Found multiple users for username %s' % ds_owner)
+        log.warning('Found multiple users for username %s', ds_owner)
         found = False
         for person in ret:
             if person.key == ds_owner:
@@ -246,10 +246,9 @@ def alert_user_of_duplicate_issues(issue, final_result, results_of_query,
                 found = True
                 break
         if not found:
-            log.warning('Could not find JIRA user for username %s' % ds_owner)
+            log.warning('Could not find JIRA user for username %s', ds_owner)
     if not ret:
-        message = 'No owner could be found for username %s' % ds_owner
-        log.warning(message.strip())
+        log.warning('No owner could be found for username %s', ds_owner)
         return
 
     user = {'name': ret[0].displayName, 'email': ret[0].emailAddress}
@@ -265,7 +264,7 @@ def alert_user_of_duplicate_issues(issue, final_result, results_of_query,
         admin_username = [name for name in admin][0]
         ret = client.search_users(admin_username)
         if len(ret) > 1:
-            log.warning('Found multiple users for admin %s' % list(admin.keys())[0])
+            log.warning('Found multiple users for admin %s', admin_username)
             found = False
             for person in ret:
                 if person.key == ds_owner:
@@ -273,10 +272,10 @@ def alert_user_of_duplicate_issues(issue, final_result, results_of_query,
                     found = True
                     break
             if not found:
-                log.warning('Could not find JIRA user for admin %s' % list(admin.keys())[0])
+                log.warning('Could not find JIRA user for admin %s', admin_username)
         if not ret:
-            message = 'No admin could be found for username %s' % list(admin.keys())[0]
-            log.warning(message.strip())
+            message = f'No admin could be found for username {admin_username}'
+            log.warning(message)
             raise ValueError(message)
         admins.append(ret[0].emailAddress)
         admin_template.append({'name': ret[0].displayName, 'email': ret[0].emailAddress})
@@ -417,7 +416,7 @@ def _get_existing_jira_issue_legacy(client, issue, config):
     """
 
     kwargs = dict(issue.downstream.items())
-    kwargs["External issue URL"] = "%s" % issue.url
+    kwargs["External issue URL"] = str(issue.url)
     kwargs = sorted(kwargs.items(), key=operator.itemgetter(0))
 
     query = " AND ".join(
@@ -527,10 +526,9 @@ def assign_user(client, issue, downstream, remove_all=False):
     owner = issue.downstream.get('owner')
     if owner:
         client.assign_issue(downstream.id, owner)
-        log.warning('Assigned %s to owner: %s' %
-                    (issue.title, owner))
+        log.warning('Assigned %s to owner: %s', issue.title, owner)
         return
-    log.warning('Was not able to assign user %s' % issue.assignee[0]['fullname'])
+    log.warning('Was not able to assign user %s', issue.assignee[0]['fullname'])
 
 
 def change_status(client, downstream, status, issue):
@@ -552,11 +550,11 @@ def change_status(client, downstream, status, issue):
     if id:
         try:
             client.transition_issue(downstream, id)
-            log.info('Updated downstream to %s status for issue %s' % (status, issue.title))
+            log.info('Updated downstream to %s status for issue %s', status, issue.title)
         except JIRAError:
-            log.error('Updating downstream issue failed for %s: %s' % (status, issue.title))
+            log.error('Updating downstream issue failed for %s: %s', status, issue.title)
     else:
-        log.warning('Could not update JIRA %s for %s' % (status, issue.title))
+        log.warning('Could not update JIRA %s for %s', status, issue.title)
 
 
 def _get_preferred_issue_types(config, issue):
@@ -689,7 +687,8 @@ def _create_jira_issue(client, issue, config):
             f"[{issue.upstream}-#{issue.upstream_id}|{issue.url}]"
         client.add_comment(downstream, comment)
     if len(preferred_types) > 1:
-        comment = 'Some labels look like issue types but were not considered: %s' % preferred_types[1:]
+        comment = ('Some labels look like issue types but were not considered:'
+                   f'{preferred_types[1:]}')
         client.add_comment(downstream, comment)
 
     remote_link = dict(url=issue.url, title=remote_link_title)
@@ -734,7 +733,7 @@ def _update_jira_issue(existing, issue, client, config):
     """
     # Start with comments
     # Only synchronize comments for listings that op-in
-    log.info("Updating information for upstream issue: %s" % issue.title)
+    log.info("Updating information for upstream issue: %s", issue.title)
 
     # Get a list of what the user wants to update for the upstream issue
     updates = issue.downstream.get('issue_updates', [])
@@ -793,7 +792,7 @@ def _update_jira_issue(existing, issue, client, config):
     log.info("Attempting to update downstream issue on upstream closed event")
     _update_on_close(existing, issue, updates)
 
-    log.info('Done updating %s!' % issue.title)
+    log.info('Done updating %s!', issue.title)
 
 
 def _update_transition(client, existing, issue):
@@ -855,7 +854,7 @@ def _update_comments(client, existing, issue):
         comment_body = _comment_format(comment)
         client.add_comment(existing, comment_body)
     if len(comments_d) > 0:
-        log.info("Comments synchronization done on %i comments." % len(comments_d))
+        log.info("Comments synchronization done on %i comments.", len(comments_d))
 
 
 def _update_fixVersion(updates, existing, issue, client):
@@ -898,9 +897,9 @@ def _update_fixVersion(updates, existing, issue, client):
         # If the fixVersion is not in JIRA, it will throw an error
         try:
             existing.update(data)
-            log.info('Updated %s fixVersion(s)' % len(fix_version))
+            log.info('Updated %s fixVersion(s)', len(fix_version))
         except JIRAError:
-            log.warning('Error updating the fixVersion. %s is an invalid fixVersion.' % issue.fixVersion)
+            log.warning('Error updating the fixVersion. %s is an invalid fixVersion.', issue.fixVersion)
             # Add a comment to indicate there was an issue
             client.add_comment(existing, f"Error updating fixVersion: {issue.fixVersion}")
 
@@ -963,7 +962,7 @@ def _update_jira_labels(issue, labels):
 
     data = {'labels': _labels}
     issue.update(data)
-    log.info('Updated %s tag(s)' % len(_labels))
+    log.info('Updated %s tag(s)', len(_labels))
 
 
 def _update_github_project_fields(client, existing, issue,
@@ -1066,7 +1065,7 @@ def _build_description(issue):
 
     if any('transition' in item for item in issue.downstream.get('issue_updates', {})):
         # Just add it to the top of the description
-        formatted_status = "Upstream issue status: %s" % issue.status
+        formatted_status = "Upstream issue status: " + issue.status
         description = formatted_status + '\n' + description
 
     if issue.reporter:
@@ -1278,7 +1277,7 @@ def _close_as_duplicate(client, duplicate, keeper, config):
             else:
                 log.exception("Failed to close %r", duplicate.permalink())
     else:
-        log.warning("Unable to find close transition for %r" % duplicate.key)
+        log.warning("Unable to find close transition for %r", duplicate.key)
 
 
 def close_duplicates(issue, config):
