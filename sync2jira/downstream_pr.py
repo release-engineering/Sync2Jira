@@ -146,7 +146,7 @@ def update_transition(client, existing, pr, transition_type):
     :returns: Nothing
     """
     # Get our closed status
-    closed_status = list(filter(lambda d: transition_type in d, pr.downstream.get('pr_updates', {})))[0][transition_type]
+    closed_status = next(filter(lambda d: transition_type in d, pr.downstream.get('pr_updates', {})))[transition_type]
 
     # Update the state
     d_issue.change_status(client, existing, closed_status, pr)
