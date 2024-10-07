@@ -229,7 +229,7 @@ def map_fixVersion(mapping, issue):
     :param Dict issue: Upstream issue object
     """
     # Get our fixVersion mapping
-    fixVersion_map = list(filter(lambda d: "fixVersion" in d, mapping))[0]['fixVersion']
+    fixVersion_map = next(filter(lambda d: "fixVersion" in d, mapping))['fixVersion']
 
     # Now update the fixVersion
     if issue['milestone']:
