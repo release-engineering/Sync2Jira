@@ -94,7 +94,7 @@ class Issue(object):
             map_fixVersion(mapping, issue)
 
         # TODO: Priority is broken
-        return Issue(
+        return cls(
             source=upstream_source,
             title=issue['title'],
             url=issue['html_url'],
@@ -114,7 +114,7 @@ class Issue(object):
         )
 
     def __repr__(self):
-        return "<Issue %s >" % self.url
+        return f"<Issue {self.url} >"
 
 
 class PR(object):
@@ -230,7 +230,7 @@ def map_fixVersion(mapping, issue):
     :param Dict issue: Upstream issue object
     """
     # Get our fixVersion mapping
-    fixVersion_map = list(filter(lambda d: "fixVersion" in d, mapping))[0]['fixVersion']
+    fixVersion_map = next(filter(lambda d: "fixVersion" in d, mapping))['fixVersion']
 
     # Now update the fixVersion
     if issue['milestone']:
@@ -272,7 +272,7 @@ def trimString(content):
     Helper function to trim a string to ensure it is not over 50000 char
     Ref: https://github.com/release-engineering/Sync2Jira/issues/123
 
-    :param String commentBody: Comment content
+    :param String content: Comment content
     :rtype: String
     """
     if len(content) > 50000:

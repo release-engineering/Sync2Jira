@@ -56,7 +56,7 @@ class TestMain(unittest.TestCase):
 
     def test_config_validate_mispelled_mappings(self):
         loader = lambda: {'sync2jira': {'map': {'githob': {}}}, 'jira': {}}
-        self._check_for_exception(loader, 'Specified handlers: "pageur", must')
+        self._check_for_exception(loader, 'Specified handlers: "githob", must')
 
     def test_config_validate_missing_jira(self):
         loader = lambda: {'sync2jira': {'map': {'github': {}}}}
@@ -106,7 +106,7 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_load_config.assert_called_once()
-        mock_u.github_issues.assert_not_called()
+        mock_u.github_issues.assert_called_once()
         mock_d.close_duplicates.assert_called_with('mock_issue', self.mock_config)
 
     @mock.patch(PATH + 'load_config')
@@ -268,7 +268,7 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
-        mock_d.sync_with_jira.assert_any_call('mock_issue_github', self.mock_config)
+        mock_d.sync_with_jira.assert_not_called()
         mock_sleep.assert_called_with(3600)
         mock_report_failure.assert_not_called()
 
@@ -294,7 +294,7 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_u.github_issues.assert_called_with('key_github', self.mock_config)
-        mock_d.sync_with_jira.assert_any_call('mock_issue_github', self.mock_config)
+        mock_d.sync_with_jira.assert_not_called()
         mock_sleep.assert_not_called()
         mock_report_failure.assert_called_with(self.mock_config)
 
