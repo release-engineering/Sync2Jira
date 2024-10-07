@@ -114,7 +114,7 @@ class Issue(object):
         )
 
     def __repr__(self):
-        return "<Issue %s >" % self.url
+        return f"<Issue {self.url} >"
 
 
 class PR(object):
