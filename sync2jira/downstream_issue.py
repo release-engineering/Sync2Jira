@@ -985,7 +985,7 @@ def _update_github_project_fields(client, existing, issue, github_project_fields
             except JIRAError as err:
                 # Add a comment to indicate there was an issue
                 client.add_comment(existing, f"Error updating GitHub project storypoints field: {err}")
-        elif name == 'priority':
+        elif name == 'priority' and fieldvalue:
             jira_priority = github_project_fields['priority']['options'][fieldvalue]
             try:
                 existing.update({'priority': {'name': jira_priority}})
