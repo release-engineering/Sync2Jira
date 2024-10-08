@@ -978,23 +978,20 @@ def _update_github_project_fields(client, existing, issue, github_project_fields
 
     for name, values in github_project_fields.items():
         fieldvalue = getattr(issue, name)
-        if not fieldvalue:
-            continue
         if name == 'storypoints':
-            _, jirafieldname = tuple(values['fieldmap'].items())[0]
+            jirafieldname =  next(iter(values['fieldmap'].values()))
             try:
                 existing.update({jirafieldname: fieldvalue})
-            except JIRAError:
+            except JIRAError as err:
                 # Add a comment to indicate there was an issue
-                client.add_comment(existing, f"Error updating GitHub project storypoints field")
+                client.add_comment(existing, f"Error updating GitHub project storypoints field: {err}")
         elif name == 'priority':
             jira_priority = github_project_fields['priority']['options'][fieldvalue]
             try:
                 existing.update({'priority': {'name': jira_priority}})
-            except JIRAError:
+            except JIRAError as err:
                 # Add a comment to indicate there was an issue
-                client.add_comment(existing, f"Error updating GitHub project priority field")
-            pass
+                client.add_comment(existing, f"Error updating GitHub project priority field: {err}")
 
 
 def _update_tags(updates, existing, issue):
