@@ -35,6 +35,7 @@ class TestIntermediary(unittest.TestCase):
             'labels': 'mock_tags',
             'milestone': 'mock_milestone',
             'priority': 'mock_priority',
+            'storypoints': '1.0',
             'body': 'mock_content',
             'user': 'mock_reporter',
             'assignees': 'mock_assignee',
@@ -94,6 +95,10 @@ class TestIntermediary(unittest.TestCase):
         self.checkResponseFields(response)
 
         self.assertEqual(response.fixVersion, ['mock_milestone'])
+        self.assertEqual(response.priority, 'mock_priority')
+        self.assertEqual(response.content, 'mock_content')
+        self.assertEqual(response.reporter, 'mock_reporter')
+        self.assertEqual(response.assignee, 'mock_assignee')
         self.assertEqual(response.status, 'Open')
         self.assertEqual(response.downstream, {'mock_downstream': 'mock_key'})
         self.assertEqual(response.storypoints, 'mock_storypoints')
@@ -117,6 +122,10 @@ class TestIntermediary(unittest.TestCase):
 
         self.assertEqual(response.tags, 'mock_tags')
         self.assertEqual(response.fixVersion, ['mock_milestone'])
+        self.assertEqual(response.priority, 'mock_priority')
+        self.assertEqual(response.content, 'mock_content')
+        self.assertEqual(response.reporter, 'mock_reporter')
+        self.assertEqual(response.assignee, 'mock_assignee')
         self.assertEqual(response.status, 'Closed')
         self.assertEqual(response.downstream, {'mock_downstream': 'mock_key'})
         self.assertEqual(response.storypoints, 'mock_storypoints')
@@ -144,6 +153,10 @@ class TestIntermediary(unittest.TestCase):
 
         self.assertEqual(response.tags, 'mock_tags')
         self.assertEqual(response.fixVersion, ['Test mock_milestone'])
+        self.assertEqual(response.priority, 'mock_priority')
+        self.assertEqual(response.content, 'mock_content')
+        self.assertEqual(response.reporter, 'mock_reporter')
+        self.assertEqual(response.assignee, 'mock_assignee')
         self.assertEqual(response.status, 'Closed')
         self.assertEqual(response.downstream, {
             'mock_downstream': 'mock_key',

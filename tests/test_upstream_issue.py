@@ -20,12 +20,13 @@ class TestUpstreamIssue(unittest.TestCase):
                 },
                 'map': {
                     'github': {
-                        'org/repo': {'sync': ['issue']},
+                        'org/repo': {'sync': ['issue'], 'github_project_fields': {}},
                     },
                 },
                 'jira': {
                     # Nothing, really..
                 },
+                'default_github_project_fields': {},
                 'filters': {
                     'github':
                         {'org/repo': {'filter1': 'filter1', 'labels': ['custom_tag']}},
@@ -148,7 +149,8 @@ class TestUpstreamIssue(unittest.TestCase):
                 'assignees': [{'fullname': 'mock_name'}],
                 'user': {'login': 'mock_login', 'fullname': 'mock_name'},
                 'milestone': 'mock_milestone',
-                'storypoints': ''},
+                'storypoints': None,
+                'priority': ''},
             self.mock_config
         )
         self.mock_github_client.get_repo.assert_called_with('org/repo')
@@ -204,7 +206,8 @@ class TestUpstreamIssue(unittest.TestCase):
                     'login': 'mock_login',
                     'fullname': 'mock_name'},
                 'milestone': 'mock_milestone',
-                'storypoints': ''},
+                'storypoints': None,
+                'priority': ''},
             self.mock_config
         )
         self.assertEqual(response[0], 'Successful Call!')
