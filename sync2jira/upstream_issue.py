@@ -96,14 +96,11 @@ ghquery = '''
                 }
               }
             }
-            }
-            }
-            }
           }
+        }
       }
-    }
+    } } }
 '''
-
 
 
 def handle_github_message(msg, config, pr_filter=True):
@@ -334,7 +331,7 @@ def github_issues(upstream, config):
                             issue['storypoints'] = int(item.get('number'))
             except (TypeError, KeyError) as err:
                 log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
-                    ghFieldName, orgname, reponame, issuenumber, err)
+                          ghFieldName, orgname, reponame, issuenumber, err)
                 continue
 
         final_issues.append(issue)

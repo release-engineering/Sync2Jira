@@ -979,7 +979,7 @@ def _update_github_project_fields(client, existing, issue, github_project_fields
     for name, values in github_project_fields.items():
         fieldvalue = getattr(issue, name)
         if name == 'storypoints':
-            jirafieldname =  next(iter(values['fieldmap'].values()))
+            jirafieldname = next(iter(values['fieldmap'].values()))
             try:
                 existing.update({jirafieldname: fieldvalue})
             except JIRAError as err:
