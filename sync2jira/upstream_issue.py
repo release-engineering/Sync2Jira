@@ -166,6 +166,7 @@ def handle_github_message(msg, config, pr_filter=True):
 
     return i.Issue.from_github(upstream, msg['msg']['issue'], config)
 
+
 def github_issues(upstream, config):
     """
     Creates a Generator for all GitHub issues in upstream repo.
@@ -257,7 +258,7 @@ def github_issues(upstream, config):
             orgname, reponame = upstream.rsplit('/', 1)
             issuenumber = issue['number']
             default_github_project_fields = config['sync2jira']['default_github_project_fields']
-            project_github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
+            project_github_project_fields = config['sync2jira']['map']['github'].get(upstream, {}).get('github_project_fields', {})
             github_project_fields = default_github_project_fields | project_github_project_fields
             variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
             for fieldname, values in github_project_fields.items():
@@ -270,7 +271,7 @@ def github_issues(upstream, config):
                         issue[fieldname] = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValueByName']['number']
                     except (TypeError, KeyError) as err:
                         log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
-                            ghfieldname, orgname, reponame, issuenumber, err)
+                                  ghfieldname, orgname, reponame, issuenumber, err)
                         continue
 
         final_issues.append(issue)
