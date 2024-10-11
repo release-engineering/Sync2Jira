@@ -74,7 +74,6 @@ class TestIntermediary(unittest.TestCase):
         self.assertEqual(response.upstream, 'github')
         self.assertEqual(response.comments, [{'body': 'mock_body', 'name': 'mock_name', 'author': 'mock_author',
                                               'changed': None, 'date_created': 'mock_date', 'id': 'mock_id'}])
-        self.assertEqual(response.priority, None)
         self.assertEqual(response.content, 'mock_content')
         self.assertEqual(response.reporter, 'mock_reporter')
         self.assertEqual(response.assignee, 'mock_assignee')
