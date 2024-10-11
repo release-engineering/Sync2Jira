@@ -15,9 +15,6 @@ class TestUpstreamIssue(unittest.TestCase):
     def setUp(self):
         self.mock_config = {
             'sync2jira': {
-                'default_github_project_fields': {
-                    'storypoints': ('Estimate', 'customfield_12310243')
-                },
                 'map': {
                     'github': {
                         'org/repo': {'sync': ['issue'], 'github_project_fields': {}},
@@ -26,7 +23,6 @@ class TestUpstreamIssue(unittest.TestCase):
                 'jira': {
                     # Nothing, really..
                 },
-                'default_github_project_fields': {},
                 'filters': {
                     'github':
                         {'org/repo': {'filter1': 'filter1', 'labels': ['custom_tag']}},

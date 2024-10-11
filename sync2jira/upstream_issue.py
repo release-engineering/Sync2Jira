@@ -34,64 +34,67 @@ ghquery = '''
         $orgname: String!, $reponame: String!, $issuenumber: Int!
     ) {
         repository(owner: $orgname, name: $reponame) {
-            issue(number: $issuenumber) {
-                title
-                body
-                projectItems(first: 1) {
-                    nodes {
-                     fieldValues(first: 10) {
-            nodes {
-              ... on ProjectV2ItemFieldSingleSelectValue {
-                name
-                fieldName: field {
-                  ... on ProjectV2FieldCommon {
-                    name
-                  }
-                }
-              }
-              ... on ProjectV2ItemFieldTextValue {
-                text
-                fieldName: field {
-                  ... on ProjectV2FieldCommon {
-                    name
-                  }
-                }
-              }
-              ... on ProjectV2ItemFieldNumberValue {
-                number
-                fieldName: field {
-                  ... on ProjectV2FieldCommon {
-                    name
-                  }
-                }
-              }
-              ... on ProjectV2ItemFieldDateValue {
-                date
-                fieldName: field {
-                  ... on ProjectV2FieldCommon {
-                    name
-                  }
-                }
-              }
-              ... on ProjectV2ItemFieldUserValue {
-                users(first: 10) {
+          issue(number: $issuenumber) {
+            title
+            body
+            projectItems(first: 1) {
+              nodes {
+                fieldValues(first: 100) {
                   nodes {
-                    login
-                  }
-                }
-                fieldName: field {
-                  ... on ProjectV2FieldCommon {
-                    name
-                  }
-                }
-              }
-              ... on ProjectV2ItemFieldIterationValue {
-                title
-                duration
-                startDate
-                fieldName: field {
-                  ... on ProjectV2FieldCommon {
-                    name
+                    ... on ProjectV2ItemFieldSingleSelectValue {
+                      name
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldTextValue {
+                      text
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldNumberValue {
+                      number
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldDateValue {
+                      date
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldUserValue {
+                      users(first: 10) {
+                        nodes {
+                          login
+                        }
+                      }
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldIterationValue {
+                      title
+                      duration
+                      startDate
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -99,7 +102,6 @@ ghquery = '''
           }
         }
       }
-    } } }
 '''
 
 
@@ -313,26 +315,26 @@ def github_issues(upstream, config):
         issue['priority'] = ''
         orgname, reponame = upstream.rsplit('/', 1)
         issuenumber = issue['number']
-        default_github_project_fields = config['sync2jira']['default_github_project_fields']
-        project_github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
-        github_project_fields = default_github_project_fields | project_github_project_fields
+        github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
         variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
-        for fieldname, values in github_project_fields.items():
-            response = requests.post(graphqlurl, headers=headers, json={"query": ghquery, "variables": variables})
-            data = response.json()
-            try:
-                nodes = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValues']['nodes']
-                for item in nodes:
-                    if item.get('fieldName') and item.get('fieldName').get('name'):
-                        ghFieldName = item.get('fieldName').get('name')
-                        if next(iter(github_project_fields['priority']['fieldmap'].keys())) == ghFieldName:
-                            issue['priority'] = item.get('name')
-                        if next(iter(github_project_fields['storypoints']['fieldmap'].keys())) == ghFieldName:
-                            issue['storypoints'] = int(item.get('number'))
-            except (TypeError, KeyError) as err:
-                log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
-                          ghFieldName, orgname, reponame, issuenumber, err)
-                continue
+        response = requests.post(graphqlurl, headers=headers, json={"query": ghquery, "variables": variables})
+        if response.status_code != 200:
+            log.debug("Error fetching from GitHub: %s", response.text)
+            continue
+        data = response.json()
+        try:
+            nodes = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValues']['nodes']
+            for item in nodes:
+                if 'fieldName' in item:
+                    gh_field_name = item.get('fieldName', {}).get('name')
+                    if gh_field_name in github_project_fields['priority']['fieldmap']:
+                        issue['priority'] = item.get('name')
+                    if gh_field_name in github_project_fields['storypoints']['fieldmap']:
+                        issue['storypoints'] = int(item.get('number'))
+        except (TypeError, KeyError) as err:
+            log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
+                      gh_field_name, orgname, reponame, issuenumber, err)
+            continue
 
         final_issues.append(issue)
 
