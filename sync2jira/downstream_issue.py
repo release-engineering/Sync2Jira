@@ -367,7 +367,7 @@ def _find_comment_in_jira(comment, j_comments):
             else:
                 # Else they are equal and we can return the item
                 return item
-        if comment['date_created'] < UPDATE_DATE:
+        if comment['date_created'] < UPDATE_DATE.replace(tzinfo=timezone.utc):
             # If the comments date is prior to the update_date
             # We should not try to touch the comment
             return item
