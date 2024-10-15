@@ -28,6 +28,7 @@ import arrow
 import jira.client
 from jira import JIRAError
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import jinja2
 import pypandoc
 
@@ -37,7 +38,8 @@ from sync2jira.mailer import send_mail
 
 # The date the service was upgraded
 # This is used to ensure legacy comments are not touched
-UPDATE_DATE = datetime(2019, 7, 9, 18, 18, 36, 480291)
+UTC = ZoneInfo(key='UTC')
+UPDATE_DATE = datetime(2019, 7, 9, 18, 18, 36, 480291, UTC)
 
 log = logging.getLogger('sync2jira')
 
