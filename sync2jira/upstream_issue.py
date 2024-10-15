@@ -190,10 +190,7 @@ def github_issues(upstream, config):
 
     if 'labels' in _filter:
         # We have to flatten the labels list to a comma-separated string
-        expected = _filter['labels']
-        if not isinstance(expected,str):
-            assert isinstance(expected,list)
-            _filter['labels'] = ','.join(expected)
+        _filter['labels'] = ','.join(_filter['labels'])
 
     url = 'https://api.github.com/repos/%s/issues' % upstream
     if _filter:
