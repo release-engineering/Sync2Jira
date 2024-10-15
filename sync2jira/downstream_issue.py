@@ -500,10 +500,24 @@ def assign_user(client, issue, downstream, remove_all=False):
     # assign the issue to the first user (i.e. issue.assignee[0])
 
     # First we need to find the user
+
+    # See if any of the upstream users has full names available. Not all do.
+    def assignee_fullname(issue):
+        for assignee in issue.assignee:
+            if assignee['fullname']:
+                return assignee['fullname']
+        return None
+
+    fullname = assignee_fullname(issue)
+    if not fullname:
+        # We can't find anybody if they don't have a name.
+        return
+
     # Make API call to get a list of users
     users = client.search_assignable_users_for_issues(
-        issue.assignee[0]['fullname'],
+        fullname,
         project=issue.downstream['project'])
+
     # Loop through the query
     for user in users:
         if user.displayName == issue.assignee[0]['fullname']:
