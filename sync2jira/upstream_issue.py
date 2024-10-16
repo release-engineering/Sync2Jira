@@ -327,9 +327,9 @@ def github_issues(upstream, config):
             for item in nodes:
                 if 'fieldName' in item:
                     gh_field_name = item.get('fieldName', {}).get('name')
-                    if gh_field_name in github_project_fields['priority']['fieldmap']:
+                    if 'priority' in github_project_fields and gh_field_name in github_project_fields['priority']['fieldmap']:
                         issue['priority'] = item.get('name')
-                    if gh_field_name in github_project_fields['storypoints']['fieldmap']:
+                    if 'storypoints' in github_project_fields and gh_field_name in github_project_fields['storypoints']['fieldmap']:
                         issue['storypoints'] = int(item.get('number'))
         except (TypeError, KeyError) as err:
             log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
