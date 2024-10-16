@@ -367,7 +367,7 @@ def _find_comment_in_jira(comment, j_comments):
             else:
                 # Else they are equal and we can return the item
                 return item
-        if comment['date_created'] < UPDATE_DATE:
+        if comment['date_created'].replace(tzinfo=timezone.utc) < UPDATE_DATE.replace(tzinfo=timezone.utc):
             # If the comments date is prior to the update_date
             # We should not try to touch the comment
             return item
@@ -977,12 +977,23 @@ def _update_github_project_fields(client, existing, issue, github_project_fields
     """
 
     for name, values in github_project_fields.items():
-        _, jirafieldname = values
-        try:
-            existing.update({jirafieldname: str(getattr(issue, name))})
-        except JIRAError as err:
-            # Add a comment to indicate there was an issue
-            client.add_comment(existing, f"Error updating GitHub project field: {err}")
+        fieldvalue = getattr(issue, name)
+        if name == 'storypoints':
+            jirafieldname = next(iter(values['fieldmap'].values()))
+            try:
+                existing.update({jirafieldname: fieldvalue})
+            except JIRAError as err:
+                # Add a comment to indicate there was an issue
+                client.add_comment(existing, f"Error updating GitHub project storypoints field: {err}")
+        elif name == 'priority':
+            jira_priority = github_project_fields['priority']['options'].get(fieldvalue)
+            if not jira_priority:
+                jira_priority = ''
+            try:
+                existing.update({'priority': {'name': jira_priority}})
+            except JIRAError as err:
+                # Add a comment to indicate there was an issue
+                client.add_comment(existing, f"Error updating GitHub project priority field: {err}")
 
 
 def _update_tags(updates, existing, issue):

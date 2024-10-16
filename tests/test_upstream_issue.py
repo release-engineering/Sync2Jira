@@ -15,12 +15,9 @@ class TestUpstreamIssue(unittest.TestCase):
     def setUp(self):
         self.mock_config = {
             'sync2jira': {
-                'default_github_project_fields': {
-                    'storypoints': ('Estimate', 'customfield_12310243')
-                },
                 'map': {
                     'github': {
-                        'org/repo': {'sync': ['issue']},
+                        'org/repo': {'sync': ['issue'], 'github_project_fields': {}},
                     },
                 },
                 'jira': {
@@ -28,7 +25,7 @@ class TestUpstreamIssue(unittest.TestCase):
                 },
                 'filters': {
                     'github':
-                        {'org/repo': {'filter1': 'filter1', 'labels': 'custom_tag'}},
+                    {'org/repo': {'filter1': 'filter1', 'labels': 'custom_tag'}},
                 },
                 'github_token': 'mock_token'
             },
@@ -148,7 +145,8 @@ class TestUpstreamIssue(unittest.TestCase):
                 'assignees': [{'fullname': 'mock_name'}],
                 'user': {'login': 'mock_login', 'fullname': 'mock_name'},
                 'milestone': 'mock_milestone',
-                'storypoints': ''},
+                'storypoints': None,
+                'priority': ''},
             self.mock_config
         )
         self.mock_github_client.get_repo.assert_called_with('org/repo')
@@ -204,7 +202,8 @@ class TestUpstreamIssue(unittest.TestCase):
                     'login': 'mock_login',
                     'fullname': 'mock_name'},
                 'milestone': 'mock_milestone',
-                'storypoints': ''},
+                'storypoints': None,
+                'priority': ''},
             self.mock_config
         )
         self.assertEqual(response[0], 'Successful Call!')

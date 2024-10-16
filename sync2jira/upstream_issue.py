@@ -28,26 +28,80 @@ import sync2jira.intermediary as i
 
 log = logging.getLogger('sync2jira')
 graphqlurl = 'https://api.github.com/graphql'
-project_items_query = '''
+
+ghquery = '''
     query MyQuery(
-        $orgname: String!, $reponame: String!, $ghfieldname: String!, $issuenumber: Int!
+        $orgname: String!, $reponame: String!, $issuenumber: Int!
     ) {
         repository(owner: $orgname, name: $reponame) {
-            issue(number: $issuenumber) {
-                title
-                body
-                projectItems(first: 1) {
-                    nodes {
-                        fieldValueByName(name: $ghfieldname) {
-                            ... on ProjectV2ItemFieldNumberValue {
-                                number
-                            }
+          issue(number: $issuenumber) {
+            title
+            body
+            projectItems(first: 1) {
+              nodes {
+                fieldValues(first: 100) {
+                  nodes {
+                    ... on ProjectV2ItemFieldSingleSelectValue {
+                      name
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
                         }
+                      }
                     }
+                    ... on ProjectV2ItemFieldTextValue {
+                      text
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldNumberValue {
+                      number
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldDateValue {
+                      date
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldUserValue {
+                      users(first: 10) {
+                        nodes {
+                          login
+                        }
+                      }
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldIterationValue {
+                      title
+                      duration
+                      startDate
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                  }
                 }
+              }
             }
+          }
         }
-    }
+      }
 '''
 
 
@@ -253,26 +307,30 @@ def github_issues(upstream, config):
         if issue.get('milestone', None):
             issue['milestone'] = issue['milestone']['title']
 
-        if not issue.get('storypoints', None):
-            issue['storypoints'] = ''
-            orgname, reponame = upstream.rsplit('/', 1)
-            issuenumber = issue['number']
-            default_github_project_fields = config['sync2jira']['default_github_project_fields']
-            project_github_project_fields = config['sync2jira']['map']['github'].get(upstream, {}).get('github_project_fields', {})
-            github_project_fields = default_github_project_fields | project_github_project_fields
-            variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
-            for fieldname, values in github_project_fields.items():
-                ghfieldname, _ = values
-                variables['ghfieldname'] = ghfieldname
-                response = requests.post(graphqlurl, headers=headers, json={"query": project_items_query, "variables": variables})
-                data = response.json()
-                if fieldname == 'storypoints':
-                    try:
-                        issue[fieldname] = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValueByName']['number']
-                    except (TypeError, KeyError) as err:
-                        log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
-                                  ghfieldname, orgname, reponame, issuenumber, err)
-                        continue
+        issue['storypoints'] = None
+        issue['priority'] = ''
+        orgname, reponame = upstream.rsplit('/', 1)
+        issuenumber = issue['number']
+        github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
+        variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
+        response = requests.post(graphqlurl, headers=headers, json={"query": ghquery, "variables": variables})
+        if response.status_code != 200:
+            log.debug("Error fetching from GitHub: %s", response.text)
+            continue
+        data = response.json()
+        try:
+            nodes = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValues']['nodes']
+            for item in nodes:
+                if 'fieldName' in item:
+                    gh_field_name = item.get('fieldName', {}).get('name')
+                    if 'priority' in github_project_fields and gh_field_name in github_project_fields['priority']['fieldmap']:
+                        issue['priority'] = item.get('name')
+                    if 'storypoints' in github_project_fields and gh_field_name in github_project_fields['storypoints']['fieldmap']:
+                        issue['storypoints'] = int(item.get('number'))
+        except (TypeError, KeyError) as err:
+            log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
+                      gh_field_name, orgname, reponame, issuenumber, err)
+            continue
 
         final_issues.append(issue)
 
