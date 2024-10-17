@@ -109,7 +109,7 @@ class Issue(object):
             assignee=issue['assignees'],
             status=issue['state'],
             id=issue['id'],
-            storypoints=issue['storypoints'],
+            storypoints=issue.get('storypoints', ''),
             upstream_id=issue['number']
         )
 
