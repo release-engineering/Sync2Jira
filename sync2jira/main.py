@@ -329,25 +329,18 @@ def query(limit=None, **kwargs):
 
     # Set up for paging requests
     all_results = []
-    page = params.get('page', 1)
 
     # Important to set ASC order when paging to avoid duplicates
     params['order'] = 'asc'
 
-    results = get(params=params)
-
-    # Collect the messages
-    all_results.extend(results['raw_messages'])
-
-    # Set up for loop
-    fetched = results['count']
-    total = limit or results['total']
-
-    # Fetch results until no more are left
-    while fetched < total:
-        page += 1
-        params['page'] = page
-
+    # Fetch results:
+    #  - once, if limit is 0 or None (the default)
+    #  - until we hit the limit
+    #  - until there are no more left to fetch
+    fetched = 0
+    total = limit or 1
+    count = 1
+    while fetched < total and count > 0:
         results = get(params=params)
         count = results['count']
         fetched += count
@@ -357,6 +350,7 @@ def query(limit=None, **kwargs):
             break
 
         all_results.extend(results['raw_messages'])
+        params['page'] = params.get('page', 1) + 1
 
     return all_results
 
@@ -380,10 +374,7 @@ def main(runtime_test=False, runtime_config=None):
     :return: Nothing
     """
     # Load config and disable warnings
-    if not runtime_test or not runtime_config:
-        config = load_config()
-    else:
-        config = runtime_config
+    config = load_config() if not (runtime_test and runtime_config) else runtime_config
 
     logging.basicConfig(level=logging.INFO)
     warnings.simplefilter("ignore")
