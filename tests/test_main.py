@@ -493,7 +493,7 @@ class TestMain(unittest.TestCase):
             'total': 1
         }
         # Call the function
-        response = m.query()
+        response = list(m.query())
 
         # Assert everything was called correctly
         mock_get.assert_called_once()

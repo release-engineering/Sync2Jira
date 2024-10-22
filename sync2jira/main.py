@@ -327,9 +327,6 @@ def query(limit=None, **kwargs):
     # Pack up the kwargs into a parameter list for request
     params = deepcopy(kwargs)
 
-    # Set up for paging requests
-    all_results = []
-
     # Important to set ASC order when paging to avoid duplicates
     params['order'] = 'asc'
 
@@ -349,10 +346,10 @@ def query(limit=None, **kwargs):
         if count == 0:
             break
 
-        all_results.extend(results['raw_messages'])
-        params['page'] = params.get('page', 1) + 1
+        for result in results['raw_messages']:
+            yield result
 
-    return all_results
+        params['page'] = params.get('page', 1) + 1
 
 
 def get(params):
