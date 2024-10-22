@@ -17,18 +17,17 @@
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
 
-# Build-In Modules
-import operator
-import logging
-import re
+# Python Standard Library Modules
+from datetime import datetime, timezone
 import difflib
+import logging
+import operator
+import re
 
 # 3rd Party Modules
 import arrow
-import jira.client
 from jira import JIRAError
-from datetime import datetime
-from zoneinfo import ZoneInfo
+import jira.client
 import jinja2
 import pypandoc
 
@@ -38,8 +37,7 @@ from sync2jira.mailer import send_mail
 
 # The date the service was upgraded
 # This is used to ensure legacy comments are not touched
-UTC = ZoneInfo(key='UTC')
-UPDATE_DATE = datetime(2019, 7, 9, 18, 18, 36, 480291, UTC)
+UPDATE_DATE = datetime(2019, 7, 9, 18, 18, 36, 480291, tzinfo=timezone.utc)
 
 log = logging.getLogger('sync2jira')
 
