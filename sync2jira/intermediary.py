@@ -36,7 +36,7 @@ class Issue(object):
         self.storypoints = storypoints
 
         # First trim the size of the content
-        self.content = trimString(content)
+        self.content = trim_string(content)
 
         # JIRA treats utf-8 characters in ways we don't totally understand, so scrub content down to
         # simple ascii characters right from the start.
@@ -73,7 +73,7 @@ class Issue(object):
             comments.append({
                 'author': comment['author'],
                 'name': comment['name'],
-                'body': trimString(comment['body']),
+                'body': trim_string(comment['body']),
                 'id': comment['id'],
                 'date_created': comment['date_created'],
                 'changed': None
@@ -137,7 +137,7 @@ class PR(object):
         # simple ascii characters right from the start.
         if content:
             # First trim the size of the content
-            self.content = trimString(content)
+            self.content = trim_string(content)
 
             self.content = self.content.encode('ascii', errors='replace').decode('ascii')
 
@@ -165,7 +165,7 @@ class PR(object):
         return u'[%s] %s' % (self.upstream, self._title)
 
     @classmethod
-    def from_github(self, upstream, pr, suffix, config):
+    def from_github(cls, upstream, pr, suffix, config):
         """Helper function to create intermediary object."""
         # Set our upstream source
         upstream_source = 'github'
@@ -176,7 +176,7 @@ class PR(object):
             comments.append({
                 'author': comment['author'],
                 'name': comment['name'],
-                'body': trimString(comment['body']),
+                'body': trim_string(comment['body']),
                 'id': comment['id'],
                 'date_created': comment['date_created'],
                 'changed': None
@@ -199,7 +199,7 @@ class PR(object):
                 suffix = 'closed'
 
         # Return our PR object
-        return PR(
+        return cls(
             source=upstream_source,
             jira_key=match,
             title=pr['title'],
@@ -267,7 +267,7 @@ def matcher(content, comments):
             return None
 
 
-def trimString(content):
+def trim_string(content):
     """
     Helper function to trim a string to ensure it is not over 50000 char
     Ref: https://github.com/release-engineering/Sync2Jira/issues/123
