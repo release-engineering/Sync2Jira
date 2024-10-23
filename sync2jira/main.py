@@ -87,7 +87,7 @@ DATAGREPPER_URL = "http://apps.fedoraproject.org/datagrepper/raw"
 INITIALIZE = os.getenv('INITIALIZE', '0')
 
 
-def load_config(loader=fedmsg.config.load_config):
+def load_config(loader=fedmsg.config.conf.load_config):
     """
     Generates and validates the config file \
     that will be used by fedmsg and JIRA client.
@@ -103,8 +103,8 @@ def load_config(loader=fedmsg.config.load_config):
 
     # debug mode
     if config.get('sync2jira', {}).get('debug', False):
-        hdlr = logging.FileHandler('sync2jira_main.log')
-        log.addHandler(hdlr)
+        handler = logging.FileHandler('sync2jira_main.log')
+        log.addHandler(handler)
         log.setLevel(logging.DEBUG)
 
     # Validate it
@@ -193,8 +193,8 @@ def initialize_issues(config, testing=False, repo_name=None):
                     raise
         except Exception as e:
             if "API rate limit exceeded" in e.__str__():
-                # If we've hit out API limit:
-                # Sleep for 1 hour and call our function again
+                # If we've hit our API limit, sleep for 1 hour, and call our
+                # function again.
                 log.info("Hit Github API limit. Sleeping for 1 hour...")
                 sleep(3600)
                 if not testing:
@@ -239,8 +239,8 @@ def initialize_pr(config, testing=False, repo_name=None):
                     raise
         except Exception as e:
             if "API rate limit exceeded" in e.__str__():
-                # If we've hit out API limit:
-                # Sleep for 1 hour and call our function again
+                # If we've hit our API limit, sleep for 1 hour, and call our
+                # function again.
                 log.info("Hit Github API limit. Sleeping for 1 hour...")
                 sleep(3600)
                 if not testing:
@@ -282,14 +282,14 @@ def initialize_recent(config):
 
 def handle_msg(msg, suffix, config):
     """
-    Function to handle incomming message from datagrepper
+    Function to handle incoming message from datagrepper
     :param Dict msg: Incoming message
     :param String suffix: Incoming suffix
     :param Dict config: Config dict
     """
     issue = None
     pr = None
-    # Github '.issue.' is used for both PR and Issue
+    # GitHub '.issue.' is used for both PR and Issue
     # Check for that edge case
     if suffix == 'github.issue.comment':
         if 'pull_request' in msg['msg']['issue'] and msg['msg']['action'] != 'deleted':
@@ -363,7 +363,7 @@ def get(params):
 def main(runtime_test=False, runtime_config=None):
     """
     Main function to check for initial sync
-    and listen for fedmgs.
+    and listen for fedmsgs.
 
     :param Bool runtime_test: Flag to indicate if we are performing a runtime test. Default false
     :param Dict runtime_config: Config file to be used if it is a runtime test. runtime_test must be true
@@ -387,7 +387,7 @@ def main(runtime_test=False, runtime_config=None):
             if runtime_test:
                 return
         else:
-            # Pool datagrepper from the last 10 mins
+            # Pull from datagrepper for the last 10 minutes
             log.info("Initialization False. Pulling data from datagrepper...")
             initialize_recent(config)
         try:
@@ -405,14 +405,13 @@ def report_failure(config):
     """
     Helper function to alert admins in case of failure.
 
-
     :param Dict config: Config dict for JIRA
     """
     # Email our admins with the traceback
-    templateLoader = jinja2.FileSystemLoader(
+    template_loader = jinja2.FileSystemLoader(
         searchpath='usr/local/src/sync2jira/sync2jira/')
-    templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)
-    template = templateEnv.get_template('failure_template.jinja')
+    template_env = jinja2.Environment(loader=template_loader, autoescape=True)
+    template = template_env.get_template('failure_template.jinja')
     html_text = template.render(traceback=traceback.format_exc())
 
     # Send mail
