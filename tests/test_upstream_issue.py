@@ -34,14 +34,14 @@ class TestUpstreamIssue(unittest.TestCase):
             },
         }
 
-        # Mock Github Comment
+        # Mock GitHub Comment
         self.mock_github_comment = MagicMock()
         self.mock_github_comment.user.name = 'mock_username'
         self.mock_github_comment.body = 'mock_body'
         self.mock_github_comment.id = 'mock_id'
         self.mock_github_comment.created_at = 'mock_created_at'
 
-        # Mock Github Message
+        # Mock GitHub Message
         self.mock_github_message = {
             'msg': {
                 'repository': {
@@ -70,7 +70,7 @@ class TestUpstreamIssue(unittest.TestCase):
         self.mock_github_issue = MagicMock()
         self.mock_github_issue.get_comments.return_value = [self.mock_github_comment]
 
-        # Mock Github Issue Raw
+        # Mock GitHub Issue Raw
         self.mock_github_issue_raw = {
             'comments': ['some comment'],
             'number': '1234',
@@ -358,11 +358,11 @@ class TestUpstreamIssue(unittest.TestCase):
         self.mock_github_issue.get_comments.assert_any_call()
         self.mock_github_client.get_user.assert_called_with('mock_login')
 
-    @mock.patch(PATH + '_fetch_github_data')
+    @mock.patch(PATH + 'api_call_get')
     @mock.patch(PATH + '_github_link_field_to_dict')
     def test_get_all_github_data(self,
                                  mock_github_link_field_to_dict,
-                                 mock_fetch_github_data):
+                                 mock_api_call_get):
         """
         This tests the '_get_all_github_data' function
         """
@@ -370,7 +370,7 @@ class TestUpstreamIssue(unittest.TestCase):
         get_return = MagicMock()
         get_return.json.return_value = [{'comments_url': 'mock_comments_url'}]
         get_return.headers = {'link': 'mock_link'}
-        mock_fetch_github_data.return_value = get_return
+        mock_api_call_get.return_value = get_return
 
         # Call the function
         response = list(u.get_all_github_data(
@@ -379,16 +379,15 @@ class TestUpstreamIssue(unittest.TestCase):
         ))
 
         # Assert everything was called correctly
-        mock_fetch_github_data.assert_any_call('mock_url', 'mock_headers')
-        mock_fetch_github_data.assert_any_call('mock_comments_url', 'mock_headers')
+        mock_api_call_get.assert_any_call('mock_url', headers='mock_headers')
+        mock_api_call_get.assert_any_call('mock_comments_url', headers='mock_headers')
         mock_github_link_field_to_dict.assert_called_with('mock_link')
         self.assertEqual('mock_comments_url', response[0]['comments_url'])
 
     @mock.patch(PATH + 'requests')
-    def test_fetch_github_data_error(self,
-                                     mock_requests):
+    def test_api_call_get_error(self, mock_requests):
         """
-        Tests the '_fetch_github_data' function where we raise an IOError
+        Tests the 'api_call_get' function where we raise an IOError
         """
         # Set up return values
         get_return = MagicMock()
@@ -405,7 +404,7 @@ class TestUpstreamIssue(unittest.TestCase):
 
         # Call the function
         with self.assertRaises(IOError):
-            u._fetch_github_data(
+            u.api_call_get(
                 url='mock_url',
                 headers='mock_headers'
             )
@@ -414,9 +413,9 @@ class TestUpstreamIssue(unittest.TestCase):
         mock_requests.get.assert_called_with('mock_url', headers='mock_headers')
 
     @mock.patch(PATH + 'requests')
-    def test_fetch_github_data(self, mock_requests):
+    def test_api_call_get(self, mock_requests):
         """
-        Tests the '_fetch_github_data' function where everything goes smoothly!
+        Tests the 'api_call_get' function where everything goes smoothly!
         """
         # Set up return values
         get_return = MagicMock()
@@ -426,7 +425,7 @@ class TestUpstreamIssue(unittest.TestCase):
 
         # Call the function
 
-        response = u._fetch_github_data(
+        response = u.api_call_get(
             url='mock_url',
             headers='mock_headers'
         )

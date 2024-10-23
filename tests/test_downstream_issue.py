@@ -1,8 +1,7 @@
 import unittest
 import unittest.mock as mock
 from unittest.mock import MagicMock
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone
 
 import sync2jira.downstream_issue as d
 from sync2jira.intermediary import Issue
@@ -11,8 +10,6 @@ import jira.client
 from jira import JIRAError
 
 PATH = 'sync2jira.downstream_issue.'
-
-UTC = ZoneInfo(key='UTC')
 
 
 class TestDownstreamIssue(unittest.TestCase):
@@ -1486,7 +1483,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_jira_comment.raw = {'body': 'mock_legacy_comment_body'}
         mock_comment = {
             'id': '12345',
-            'date_created': datetime(2019, 8, 8, 0, 0, 0, 0, UTC)
+            'date_created': datetime(2019, 8, 8, tzinfo=timezone.utc)
         }
 
         # Call the function
@@ -1512,7 +1509,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_jira_comment.raw = {'body': '12345'}
         mock_comment = {
             'id': '12345',
-            'date_created': datetime(2019, 8, 8, 0, 0, 0, 0, UTC)
+            'date_created': datetime(2019, 8, 8, tzinfo=timezone.utc)
         }
 
         # Call the function
@@ -1538,7 +1535,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_jira_comment.raw = {'body': 'old_comment'}
         mock_comment = {
             'id': '12345',
-            'date_created': datetime(2019, 1, 1, 0, 0, 0, 0, UTC)
+            'date_created': datetime(2019, 1, 1, tzinfo=timezone.utc)
         }
 
         # Call the function
@@ -1562,7 +1559,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_comment_format_legacy.return_value = 'mock_legacy_comment_body'
         mock_comment = {
             'id': '12345',
-            'date_created': datetime(2019, 1, 1, 0, 0, 0, 0, UTC)
+            'date_created': datetime(2019, 1, 1, tzinfo=timezone.utc)
         }
 
         # Call the function
