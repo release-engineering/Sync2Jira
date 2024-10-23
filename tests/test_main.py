@@ -54,7 +54,7 @@ class TestMain(unittest.TestCase):
         loader = lambda: {'sync2jira': {}}
         self._check_for_exception(loader, 'No sync2jira.map section')
 
-    def test_config_validate_mispelled_mappings(self):
+    def test_config_validate_misspelled_mappings(self):
         loader = lambda: {'sync2jira': {'map': {'githob': {}}}, 'jira': {}}
         self._check_for_exception(loader, 'Specified handlers: "githob", must')
 
@@ -64,7 +64,7 @@ class TestMain(unittest.TestCase):
 
     def test_config_validate_all_good(self):
         loader = lambda: {'sync2jira': {'map': {'github': {}}, 'jira': {}}}
-        m.load_config(loader)  # ahhh, no exception.
+        m.load_config(loader)  # Should succeed without an exception.
 
     @mock.patch(PATH + 'u_issue')
     @mock.patch(PATH + 'd_issue')
@@ -366,13 +366,13 @@ class TestMain(unittest.TestCase):
         Tests 'report_failure' function
         """
         # Set up return values
-        mock_templateLoader = MagicMock()
-        mock_templateEnv = MagicMock()
+        mock_template_loader = MagicMock()
+        mock_template_env = MagicMock()
         mock_template = MagicMock()
         mock_template.render.return_value = 'mock_html'
-        mock_templateEnv.get_template.return_value = mock_template
-        mock_jinja2.FileSystemLoader.return_value = mock_templateLoader
-        mock_jinja2.Environment.return_value = mock_templateEnv
+        mock_template_env.get_template.return_value = mock_template
+        mock_jinja2.FileSystemLoader.return_value = mock_template_loader
+        mock_jinja2.Environment.return_value = mock_template_env
 
         # Call the function
         m.report_failure({'sync2jira': {'mailing-list': 'mock_email'}})
