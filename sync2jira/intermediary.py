@@ -93,7 +93,6 @@ class Issue(object):
         if any('fixVersion' in item for item in mapping):
             map_fixVersion(mapping, issue)
 
-        # TODO: Priority is broken
         return cls(
             source=upstream_source,
             title=issue['title'],

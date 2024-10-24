@@ -317,7 +317,7 @@ def github_issues(upstream, config):
         issuenumber = issue['number']
         github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
         variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
-        response = requests.post(graphqlurl, headers=headers, json={"query": ghquery, "variables": variables})
+        response = get_github_project_details(graphqlurl, headers, ghquery, variables)
         if response.status_code != 200:
             log.debug("Error fetching from GitHub: %s", response.text)
             continue
@@ -345,6 +345,10 @@ def github_issues(upstream, config):
     for issue in final_issues:
         yield issue
 
+
+def get_github_project_details(graphqlurl, headers, ghquery, variables):
+    response = requests.post(graphqlurl, headers=headers, json={"query": ghquery, "variables": variables})
+    return response
 
 def get_all_github_data(url, headers):
     """ Pagination utility.  Obnoxious. """
