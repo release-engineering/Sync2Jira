@@ -94,12 +94,16 @@ class TestUpstreamIssue(unittest.TestCase):
         self.mock_github_client.get_repo.return_value = self.mock_github_repo
         self.mock_github_client.get_user.return_value = self.mock_github_person
 
+        # Mock GitHub project response
+
     @mock.patch('sync2jira.intermediary.Issue.from_github')
+    @mock.patch(PATH + 'get_github_project_details')
     @mock.patch(PATH + 'Github')
     @mock.patch(PATH + 'get_all_github_data')
     def test_github_issues(self,
                            mock_get_all_github_data,
                            mock_github,
+                           mock_github_project_details,
                            mock_issue_from_github):
         """
         This function tests 'github_issues' function
@@ -108,6 +112,7 @@ class TestUpstreamIssue(unittest.TestCase):
         mock_github.return_value = self.mock_github_client
         mock_get_all_github_data.return_value = [self.mock_github_issue_raw]
         mock_issue_from_github.return_value = 'Successful Call!'
+        mock_github_project_details.return_value.status_code = 200
 
         # Call the function
         response = list(u.github_issues(
@@ -155,11 +160,13 @@ class TestUpstreamIssue(unittest.TestCase):
         self.assertEqual(response[0], 'Successful Call!')
 
     @mock.patch('sync2jira.intermediary.Issue.from_github')
+    @mock.patch(PATH + 'get_github_project_details')
     @mock.patch(PATH + 'Github')
     @mock.patch(PATH + 'get_all_github_data')
     def test_github_issues_no_token(self,
                                     mock_get_all_github_data,
                                     mock_github,
+                                    mock_github_project_details,
                                     mock_issue_from_github):
         """
         This function tests 'github_issues' function where we have no GitHub token
@@ -171,6 +178,7 @@ class TestUpstreamIssue(unittest.TestCase):
         mock_github.return_value = self.mock_github_client
         mock_get_all_github_data.return_value = [self.mock_github_issue_raw]
         mock_issue_from_github.return_value = 'Successful Call!'
+        mock_github_project_details.return_value.status_code = 200
 
         # Call the function
         response = list(u.github_issues(

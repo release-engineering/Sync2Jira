@@ -350,6 +350,7 @@ def get_github_project_details(graphqlurl, headers, ghquery, variables):
     response = requests.post(graphqlurl, headers=headers, json={"query": ghquery, "variables": variables})
     return response
 
+
 def get_all_github_data(url, headers):
     """ Pagination utility.  Obnoxious. """
     link = dict(next=url)
