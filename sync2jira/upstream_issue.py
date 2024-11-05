@@ -190,12 +190,10 @@ def github_issues(upstream, config):
 
     url = 'https://api.github.com/repos/%s/issues' % upstream
     if _filter:
-        # We have to flatten the labels list to a comma-separated string
-        url_filter = {
-            key: ','.join(expected) if key == 'labels' else expected
-            for key, expected in _filter.items()
-        }
-        url += '?' + urlencode(url_filter)
+        if isinstance(_filter.get('labels'), list):
+            # We have to flatten the labels list to a comma-separated string
+            _filter['labels'] = ','.join(_filter['labels'])
+        url += '?' + urlencode(_filter)
 
     issues = get_all_github_data(url, headers)
 
