@@ -142,14 +142,15 @@ def github_prs(upstream, config):
         .get('github', {}) \
         .get(upstream, {})
 
-    if 'labels' in _filter:
-        # We have to flatten the labels list to a comma-separated string
-        _filter['labels'] = ','.join(_filter['labels'])
-
     # Build our URL
     url = 'https://api.github.com/repos/%s/pulls' % upstream
     if _filter:
-        url += '?' + urlencode(_filter)
+        # We have to flatten the labels list to a comma-separated string
+        url_filter = {
+            key: ','.join(expected) if key == 'labels' else expected
+            for key, expected in _filter.items()
+        }
+        url += '?' + urlencode(url_filter)
 
     # Get our issues using helper functions
     prs = u_issue.get_all_github_data(url, headers)
