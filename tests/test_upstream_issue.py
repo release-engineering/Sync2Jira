@@ -212,6 +212,40 @@ class TestUpstreamIssue(unittest.TestCase):
         self.mock_github_repo.get_issue.assert_not_called()
         self.mock_github_issue.get_comments.assert_not_called()
 
+    @mock.patch('sync2jira.intermediary.Issue.from_github')
+    @mock.patch(PATH + 'Github')
+    @mock.patch(PATH + 'get_all_github_data')
+    def test_github_issues_no_token(self,
+                                    mock_get_all_github_data,
+                                    mock_github,
+                                    mock_issue_from_github):
+        """
+        This function tests 'github_issues' function with a filter including multiple labels
+        """
+        # Set up return values
+        self.mock_config['sync2jira']['filters']['github']['org/repo']['labels'].extend(['another_tag', 'and_another'])
+        mock_github.return_value =  self.mock_github_client
+        mock_get_all_github_data.return_value = [self.mock_github_issue_raw]
+        mock_issue_from_github.return_value = 'Successful Call!'
+
+        # Call the function
+        list(u.github_issues(
+            upstream='org/repo',
+            config=self.mock_config
+        ))
+
+        # Assert that calls were made correctly
+        try:
+            mock_get_all_github_data.assert_called_with(
+                'https://api.github.com/repos/org/repo/issues?labels=custom_tag%2Canother_tag%2Cand_another&filter1=filter1',
+                {'Authorization': 'token mock_token'}
+            )
+        except AssertionError:
+            mock_get_all_github_data.assert_called_with(
+                'https://api.github.com/repos/org/repo/issues?filter1=filter1&labels=custom_tag%2Canother_tag%2Cand_another',
+                {'Authorization': 'token mock_token'}
+            )
+
     @mock.patch(PATH + 'Github')
     @mock.patch('sync2jira.intermediary.Issue.from_github')
     def test_handle_github_message_not_in_mapped(self,
