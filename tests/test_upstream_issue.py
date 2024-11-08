@@ -241,10 +241,10 @@ class TestUpstreamIssue(unittest.TestCase):
             'labels=custom_tag%2Canother_tag%2Cand_another',
             mock_get_all_github_data.call_args[0][0]
         )
-        # Assert the config value was mutated, as expected
+        # Assert the config value was not mutated
         self.assertEqual(
             self.mock_config['sync2jira']['filters']['github']['org/repo']['labels'],
-            'custom_tag,another_tag,and_another'
+            ['custom_tag','another_tag','and_another']
         )
 
         # Restore the return value to the original object
@@ -261,10 +261,10 @@ class TestUpstreamIssue(unittest.TestCase):
             'labels=custom_tag%2Canother_tag%2Cand_another',
             mock_get_all_github_data.call_args[0][0]
         )
-        # Assert the config value is still what's expected
+         # Assert the config value was not mutated
         self.assertEqual(
             self.mock_config['sync2jira']['filters']['github']['org/repo']['labels'],
-            'custom_tag,another_tag,and_another'
+            ['custom_tag','another_tag','and_another']
         )
 
     @mock.patch(PATH + 'Github')
