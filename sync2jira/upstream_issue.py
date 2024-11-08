@@ -19,6 +19,7 @@
 
 import logging
 from urllib.parse import urlencode
+from copy import deepcopy
 
 import requests
 from github import Github
@@ -190,11 +191,14 @@ def github_issues(upstream, config):
 
     url = 'https://api.github.com/repos/%s/issues' % upstream
     if _filter:
-        url_filter = {
-            # We have to flatten the labels list to a comma-separated string
-            key: ','.join(expected) if key == 'labels' and isinstance(expected, list) else expected
-            for key, expected in _filter.items()
-        }
+        labels = _filter.get('labels')
+        if isinstance(labels, list):
+            # We have to flatten the labels list to a comma-separated string,
+            # so make a copy to avoid mutating the config object
+            url_filter = deepcopy(_filter)
+            url_filter['labels'] = ','.join(labels)
+        else:
+            url_filter = _filter  # Use the existing filter, unmodified
         url += '?' + urlencode(url_filter)
 
     issues = get_all_github_data(url, headers)
