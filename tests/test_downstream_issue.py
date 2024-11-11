@@ -28,6 +28,7 @@ class TestDownstreamIssue(unittest.TestCase):
             'sync2jira': {
                 'default_jira_instance': 'another_jira_instance',
                 'jira_username': 'mock_user',
+                'default_jira_fields': {'storypoints': 'customfield_12310243'},
                 'jira': {
                     'mock_jira_instance': {'mock_jira': 'mock_jira'},
                     'another_jira_instance': {'token_auth': 'mock_token',
@@ -70,6 +71,8 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_issue.assignee = [{'fullname': 'mock_assignee'}]
         self.mock_issue.status = 'Open'
         self.mock_issue.id = '1234'
+        self.mock_issue.storypoints = 2
+        self.mock_issue.priority = 'P1'
 
         # Mock issue updates
         self.mock_updates = [
@@ -128,7 +131,6 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         # Set up return values
         self.mock_issue.downstream = {}
-        self.mock_config['sync2jira']['default_jira_instance'] = {}
 
         # Call the function
         with self.assertRaises(Exception):
@@ -370,7 +372,8 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_update_jira_issue.assert_called_with(
             self.mock_downstream,
             self.mock_issue,
-            mock_client
+            mock_client,
+            self.mock_config
         )
         self.mock_downstream.update.assert_any_call({'customfield_1': 'DUMMY-1234'})
         self.mock_downstream.update.assert_any_call({'customfield_2': 'dummy@dummy.com'})
@@ -424,7 +427,8 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_update_jira_issue.assert_called_with(
             self.mock_downstream,
             self.mock_issue,
-            mock_client
+            mock_client,
+            self.mock_config
         )
         self.mock_downstream.update.assert_any_call({'customfield_1': 'DUMMY-1234'})
         self.mock_downstream.update.assert_any_call(
@@ -479,7 +483,8 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_update_jira_issue.assert_called_with(
             self.mock_downstream,
             self.mock_issue,
-            mock_client
+            mock_client,
+            self.mock_config
         )
         self.mock_downstream.update.assert_any_call({'customfield_1': 'DUMMY-1234'})
         self.mock_downstream.update.assert_any_call(
@@ -533,7 +538,8 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_update_jira_issue.assert_called_with(
             self.mock_downstream,
             self.mock_issue,
-            mock_client
+            mock_client,
+            self.mock_config
         )
         self.assertEqual(response, self.mock_downstream)
         mock_client.add_comment.assert_not_called()
@@ -571,7 +577,8 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert all calls were made correctly
         mock_get_jira_client.assert_called_with(self.mock_issue, self.mock_config)
-        mock_update_jira_issue.assert_called_with(self.mock_downstream, self.mock_issue, mock_client)
+        mock_update_jira_issue.assert_called_with(self.mock_downstream, self.mock_issue,
+                                                  mock_client, self.mock_config)
         mock_create_jira_issue.assert_not_called()
         mock_existing_jira_issue_legacy.assert_not_called()
 
@@ -673,7 +680,8 @@ class TestDownstreamIssue(unittest.TestCase):
         d._update_jira_issue(
             existing=self.mock_downstream,
             issue=self.mock_issue,
-            client=mock_client
+            client=mock_client,
+            config=self.mock_config
         )
 
         # Assert all calls were made correctly
@@ -1665,3 +1673,39 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert everything was called correctly
         self.mock_downstream.update.assert_not_called()
+
+    @mock.patch('jira.client.JIRA')
+    def test_update_github_project_fields_storypoints(self, mock_client):
+        """
+        This function tests `_update_github_project_fields`
+        with story points value.
+        """
+        github_project_fields = {
+         "storypoints": {
+           "gh_field": "Estimate"
+         }}
+        d._update_github_project_fields(mock_client, self.mock_downstream, self.mock_issue,
+                                  github_project_fields, self.mock_config)
+        self.mock_downstream.update.assert_called_with({'customfield_12310243': 2})
+
+
+    @mock.patch('jira.client.JIRA')
+    def test_update_github_project_fields_priority(self, mock_client):
+        """
+        This function tests `_update_github_project_fields`
+        with priority value.
+        """
+        github_project_fields = {
+         "priority": {
+           "gh_field": "Priority",
+           "options": {
+             "P0": "Blocker",
+             "P1": "Critical",
+             "P2": "Major",
+             "P3": "Minor",
+             "P4": "Optional",
+             "P5": "Trivial"
+        }}}
+        d._update_github_project_fields(mock_client, self.mock_downstream, self.mock_issue,
+                                  github_project_fields, self.mock_config)
+        self.mock_downstream.update.assert_called_with({'priority': {'name': 'Critical'}})

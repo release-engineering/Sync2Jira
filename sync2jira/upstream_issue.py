@@ -29,26 +29,85 @@ import sync2jira.intermediary as i
 
 log = logging.getLogger('sync2jira')
 graphqlurl = 'https://api.github.com/graphql'
-project_items_query = '''
+
+ghquery = '''
     query MyQuery(
-        $orgname: String!, $reponame: String!, $ghfieldname: String!, $issuenumber: Int!
+        $orgname: String!, $reponame: String!, $issuenumber: Int!
     ) {
         repository(owner: $orgname, name: $reponame) {
-            issue(number: $issuenumber) {
-                title
-                body
-                projectItems(first: 1) {
-                    nodes {
-                        fieldValueByName(name: $ghfieldname) {
-                            ... on ProjectV2ItemFieldNumberValue {
-                                number
-                            }
-                        }
-                    }
+          issue(number: $issuenumber) {
+            title
+            body
+            projectItems(first: 3) {
+              nodes {
+                project {
+                  title
+                  number
+                  url
                 }
+                fieldValues(first: 100) {
+                  nodes {
+                    ... on ProjectV2ItemFieldSingleSelectValue {
+                      name
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldTextValue {
+                      text
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldNumberValue {
+                      number
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldDateValue {
+                      date
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldUserValue {
+                      users(first: 10) {
+                        nodes {
+                          login
+                        }
+                      }
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                    ... on ProjectV2ItemFieldIterationValue {
+                      title
+                      duration
+                      startDate
+                      fieldName: field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
+          }
         }
-    }
+      }
 '''
 
 
@@ -207,8 +266,10 @@ def github_issues(upstream, config):
     # And get comments if needed
     github_client = Github(config['sync2jira']['github_token'], retry=5)
 
+    orgname, reponame = upstream.rsplit('/', 1)
     # We need to format everything to a standard to we can create an issue object
     final_issues = []
+    project_number = config['sync2jira']['map']['github'][upstream].get('github_project_number')
     for issue in issues:
         # Update comments:
         # If there are no comments just make an empty array
@@ -262,26 +323,41 @@ def github_issues(upstream, config):
         if issue.get('milestone', None):
             issue['milestone'] = issue['milestone']['title']
 
-        if not issue.get('storypoints', None):
-            issue['storypoints'] = ''
-            orgname, reponame = upstream.rsplit('/', 1)
+        issue_updates = config['sync2jira']['map']['github'][upstream].get('issue_updates', {})
+
+        if 'github_project_fields' in issue_updates:
+            issue['storypoints'] = None
+            issue['priority'] = ''
             issuenumber = issue['number']
-            default_github_project_fields = config['sync2jira']['default_github_project_fields']
-            project_github_project_fields = config['sync2jira']['map']['github'].get(upstream, {}).get('github_project_fields', {})
-            github_project_fields = default_github_project_fields | project_github_project_fields
+            github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
             variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
-            for fieldname, values in github_project_fields.items():
-                ghfieldname, _ = values
-                variables['ghfieldname'] = ghfieldname
-                response = requests.post(graphqlurl, headers=headers, json={"query": project_items_query, "variables": variables})
-                data = response.json()
-                if fieldname == 'storypoints':
-                    try:
-                        issue[fieldname] = data['data']['repository']['issue']['projectItems']['nodes'][0]['fieldValueByName']['number']
-                    except (TypeError, KeyError) as err:
-                        log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
-                                  ghfieldname, orgname, reponame, issuenumber, err)
-                        continue
+            response = requests.post(graphqlurl, headers=headers, json={"query": ghquery, "variables": variables})
+            if response.status_code != 200:
+                log.debug("Error while fetching %s/%s/Issue#%s: %s", orgname, reponame, issuenumber, response.text)
+                continue
+            data = response.json()
+            gh_issue = data['data']['repository']['issue']
+            if not gh_issue:
+                log.debug("Error fetching issue from GitHub: %s. org: %s, repo: %s", response.text, orgname, reponame)
+                continue
+            gh_field_name = ''
+            try:
+                currentProjectNode = _get_current_project_node(upstream, project_number, issuenumber, gh_issue)
+                if not currentProjectNode:
+                    continue
+                for item in currentProjectNode['fieldValues']['nodes']:
+                    if 'fieldName' in item:
+                        gh_field_name = item['fieldName'].get('name')
+                        if 'priority' in github_project_fields\
+                                and gh_field_name == github_project_fields['priority']['gh_field']:
+                            issue['priority'] = item.get('name')
+                        if 'storypoints' in github_project_fields\
+                                and gh_field_name == github_project_fields['storypoints']['gh_field']:
+                            issue['storypoints'] = int(item['number'])
+            except KeyError as err:
+                log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
+                          gh_field_name, orgname, reponame, issuenumber, err)
+                continue
 
         final_issues.append(issue)
 
@@ -291,6 +367,32 @@ def github_issues(upstream, config):
     ))
     for issue in final_issues:
         yield issue
+
+
+def _get_current_project_node(upstream, project_number, issue_number, gh_issue):
+    project_items = gh_issue['projectItems']['nodes']
+    # If there are no project items, there is nothing to return.
+    if len(project_items) == 0:
+        log.debug("Issue %s/%s is not associated with any project", upstream, issue_number)
+        return None
+    # If there is exactly one project item, return it if we don't have a configured project.
+    if not project_number and len(project_items) == 1:
+        return project_items[0]
+    # There are multiple projects associated with this issue; if we don't have a configured
+    # project, then we don't know which one to return, so return none.
+    if not project_number:
+        prj = ", ".join([":".join([x['project']['url'], x['project']['title']]) for x in project_items])
+        log.debug(
+            "Project number is not configured, and the issue %s/%s is associated with more than one project: %s",
+            upstream, issue_number, prj)
+        return None
+    # Return the associated project which matches the configured project if we can find it.
+    for item in project_items:
+        if item['project']['number'] == project_number:
+            return item
+
+    log.debug("Issue is not associated with the configured project, but other associations exist.")
+    return None
 
 
 def get_all_github_data(url, headers):
