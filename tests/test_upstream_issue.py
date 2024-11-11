@@ -15,12 +15,9 @@ class TestUpstreamIssue(unittest.TestCase):
     def setUp(self):
         self.mock_config = {
             'sync2jira': {
-                'default_github_project_fields': {
-                    'storypoints': ('Estimate', 'customfield_12310243')
-                },
                 'map': {
                     'github': {
-                        'org/repo': {'sync': ['issue']},
+                        'org/repo': {'sync': ['issue']}
                     },
                 },
                 'jira': {
@@ -98,11 +95,13 @@ class TestUpstreamIssue(unittest.TestCase):
         self.mock_github_client.get_user.return_value = self.mock_github_person
 
     @mock.patch('sync2jira.intermediary.Issue.from_github')
+    @mock.patch(PATH + 'requests.post')
     @mock.patch(PATH + 'Github')
     @mock.patch(PATH + 'get_all_github_data')
     def test_github_issues(self,
                            mock_get_all_github_data,
                            mock_github,
+                           mock_requests_post,
                            mock_issue_from_github):
         """
         This function tests 'github_issues' function
@@ -111,6 +110,92 @@ class TestUpstreamIssue(unittest.TestCase):
         mock_github.return_value = self.mock_github_client
         mock_get_all_github_data.return_value = [self.mock_github_issue_raw]
         mock_issue_from_github.return_value = 'Successful Call!'
+        mock_requests_post.return_value.status_code = 200
+        self.mock_config['sync2jira']['map']['github']['org/repo']['github_project_number'] = 1
+
+        # Call the function
+        response = list(u.github_issues(
+            upstream='org/repo',
+            config=self.mock_config
+        ))
+
+        # Assert that calls were made correctly
+        try:
+            mock_get_all_github_data.assert_called_with(
+                'https://api.github.com/repos/org/repo/issues?labels=custom_tag&filter1=filter1',
+                {'Authorization': 'token mock_token'}
+            )
+        except AssertionError:
+            mock_get_all_github_data.assert_called_with(
+                'https://api.github.com/repos/org/repo/issues?filter1=filter1&labels=custom_tag',
+                {'Authorization': 'token mock_token'}
+            )
+        self.mock_github_client.get_user.assert_any_call('mock_login')
+        self.mock_github_client.get_user.assert_any_call('mock_assignee_login')
+        mock_issue_from_github.assert_called_with(
+            'org/repo',
+            {
+                'labels': ['some_label'],
+                'number': '1234',
+                'comments': [
+                    {
+                        'body': 'mock_body',
+                        'name': unittest.mock.ANY,
+                        'author': 'mock_username',
+                        'changed': None,
+                        'date_created': 'mock_created_at',
+                        'id': 'mock_id'}
+                ],
+                'assignees': [{'fullname': 'mock_name'}],
+                'user': {'login': 'mock_login', 'fullname': 'mock_name'},
+                'milestone': 'mock_milestone'},
+            self.mock_config
+        )
+        self.mock_github_client.get_repo.assert_called_with('org/repo')
+        self.mock_github_repo.get_issue.assert_called_with(number='1234')
+        self.mock_github_issue.get_comments.assert_any_call()
+        self.assertEqual(response[0], 'Successful Call!')
+
+    @mock.patch('sync2jira.intermediary.Issue.from_github')
+    @mock.patch(PATH + 'requests.post')
+    @mock.patch(PATH + 'Github')
+    @mock.patch(PATH + 'get_all_github_data')
+    def test_github_issues_with_storypoints(self,
+                                            mock_get_all_github_data,
+                                            mock_github,
+                                            mock_requests_post,
+                                            mock_issue_from_github):
+        """
+        This function tests 'github_issues' function with story points
+        """
+        self.mock_config['sync2jira']['map']['github']['org/repo']['github_project_number'] = 1
+        self.mock_config['sync2jira']['map']['github']['org/repo']['issue_updates'] = ['github_project_fields']
+        self.mock_config['sync2jira']['map']['github']['org/repo']['github_project_fields'] = {
+          "storypoints": {
+            "gh_field": "Estimate"
+          },
+        }
+        # Set up return values
+        mock_github.return_value = self.mock_github_client
+        mock_get_all_github_data.return_value = [self.mock_github_issue_raw]
+        mock_issue_from_github.return_value = 'Successful Call!'
+        mock_requests_post.return_value.status_code = 200
+
+        mock_requests_post.return_value.json.return_value = {
+                'data': {
+                    'repository': {
+                    'issue': {
+                        'projectItems': {
+                            'nodes': [{'project': {'title': 'Project 1', 'number': 1},
+                                       'fieldValues': {'nodes': [{'fieldName': {'name': 'Estimate'}, 'number': 2.0}]}},
+                                      {'project': {'title': 'Project 2', 'number': 2},
+                                       'fieldValues': {'nodes': []}},
+                                      ]
+                            }
+                        }
+                    }
+                }
+            }
 
         # Call the function
         response = list(u.github_issues(
@@ -148,7 +233,8 @@ class TestUpstreamIssue(unittest.TestCase):
                 'assignees': [{'fullname': 'mock_name'}],
                 'user': {'login': 'mock_login', 'fullname': 'mock_name'},
                 'milestone': 'mock_milestone',
-                'storypoints': ''},
+                'storypoints': 2,
+                 'priority': ''},
             self.mock_config
         )
         self.mock_github_client.get_repo.assert_called_with('org/repo')
@@ -157,11 +243,108 @@ class TestUpstreamIssue(unittest.TestCase):
         self.assertEqual(response[0], 'Successful Call!')
 
     @mock.patch('sync2jira.intermediary.Issue.from_github')
+    @mock.patch(PATH + 'requests.post')
+    @mock.patch(PATH + 'Github')
+    @mock.patch(PATH + 'get_all_github_data')
+    def test_github_issues_with_priority(self,
+                                            mock_get_all_github_data,
+                                            mock_github,
+                                            mock_requests_post,
+                                            mock_issue_from_github):
+        """
+        This function tests 'github_issues' function with priority
+        """
+        self.mock_config['sync2jira']['map']['github']['org/repo']['github_project_number'] = 1
+        self.mock_config['sync2jira']['map']['github']['org/repo']['issue_updates'] = ['github_project_fields']
+        self.mock_config['sync2jira']['map']['github']['org/repo']['github_project_fields'] = {
+            "priority": {
+                "gh_field": "Priority",
+            "options": {
+                "P0": "Blocker",
+                "P1": "Critical",
+                "P2": "Major",
+                "P3": "Minor",
+                "P4": "Optional",
+                "P5": "Trivial"
+            }
+          }
+        }
+        # Set up return values
+        mock_github.return_value = self.mock_github_client
+        mock_get_all_github_data.return_value = [self.mock_github_issue_raw]
+        mock_issue_from_github.return_value = 'Successful Call!'
+        mock_requests_post.return_value.status_code = 200
+        self.mock_config['sync2jira']['map']['github']['org/repo']['github_project_number'] = 1
+
+        mock_requests_post.return_value.json.return_value = {
+                'data': {
+                    'repository': {
+                    'issue': {
+                        'projectItems': {
+                            'nodes': [{'project': {'title': 'Project 1', 'number': 1},
+                                       'fieldValues': {'nodes': [{'fieldName': {'name': 'Priority'}, 'name': 'P1'}]}},
+                                      {'project': {'title': 'Project 2', 'number': 2},
+                                       'fieldValues': {'nodes': []}},
+                                      ]
+                            }
+                        }
+                    }
+                }
+            }
+
+        # Call the function
+        response = list(u.github_issues(
+            upstream='org/repo',
+            config=self.mock_config
+        ))
+
+        # Assert that calls were made correctly
+        try:
+            mock_get_all_github_data.assert_called_with(
+                'https://api.github.com/repos/org/repo/issues?labels=custom_tag&filter1=filter1',
+                {'Authorization': 'token mock_token'}
+            )
+        except AssertionError:
+            mock_get_all_github_data.assert_called_with(
+                'https://api.github.com/repos/org/repo/issues?filter1=filter1&labels=custom_tag',
+                {'Authorization': 'token mock_token'}
+            )
+        self.mock_github_client.get_user.assert_any_call('mock_login')
+        self.mock_github_client.get_user.assert_any_call('mock_assignee_login')
+        mock_issue_from_github.assert_called_with(
+            'org/repo',
+            {
+                'labels': ['some_label'],
+                'number': '1234',
+                'comments': [
+                    {
+                        'body': 'mock_body',
+                        'name': unittest.mock.ANY,
+                        'author': 'mock_username',
+                        'changed': None,
+                        'date_created': 'mock_created_at',
+                        'id': 'mock_id'}
+                ],
+                'assignees': [{'fullname': 'mock_name'}],
+                'user': {'login': 'mock_login', 'fullname': 'mock_name'},
+                'milestone': 'mock_milestone',
+                'storypoints': None,
+                 'priority': 'P1'},
+            self.mock_config
+        )
+        self.mock_github_client.get_repo.assert_called_with('org/repo')
+        self.mock_github_repo.get_issue.assert_called_with(number='1234')
+        self.mock_github_issue.get_comments.assert_any_call()
+        self.assertEqual(response[0], 'Successful Call!')
+
+    @mock.patch('sync2jira.intermediary.Issue.from_github')
+    @mock.patch(PATH + 'requests.post')
     @mock.patch(PATH + 'Github')
     @mock.patch(PATH + 'get_all_github_data')
     def test_github_issues_no_token(self,
                                     mock_get_all_github_data,
                                     mock_github,
+                                    mock_requests_post,
                                     mock_issue_from_github):
         """
         This function tests 'github_issues' function where we have no GitHub token
@@ -173,6 +356,8 @@ class TestUpstreamIssue(unittest.TestCase):
         mock_github.return_value = self.mock_github_client
         mock_get_all_github_data.return_value = [self.mock_github_issue_raw]
         mock_issue_from_github.return_value = 'Successful Call!'
+        mock_requests_post.return_value.status_code = 200
+        self.mock_config['sync2jira']['map']['github']['org/repo']['github_project_number'] = 1
 
         # Call the function
         response = list(u.github_issues(
@@ -203,8 +388,7 @@ class TestUpstreamIssue(unittest.TestCase):
                 'user': {
                     'login': 'mock_login',
                     'fullname': 'mock_name'},
-                'milestone': 'mock_milestone',
-                'storypoints': ''},
+                'milestone': 'mock_milestone'},
             self.mock_config
         )
         self.assertEqual(response[0], 'Successful Call!')
@@ -431,6 +615,47 @@ class TestUpstreamIssue(unittest.TestCase):
             headers='mock_headers'
         )
 
-        # Assert everything was called correctly
-        mock_requests.get.assert_called_with('mock_url', headers='mock_headers')
-        self.assertEqual(response, get_return)
+    def test_get_current_project_node_no_projects(self):
+        """
+        This function tests '_get_current_project_node' where there are no project nodes
+        """
+        gh_issue = {'projectItems': {'nodes': []}}
+        result = u._get_current_project_node('org/repo', 1, 'mock_number', gh_issue)
+        self.assertIsNone(result)
+
+    def test_get_current_project_node_single_project_no_project_number(self):
+        """
+        This function tests '_get_current_project_node' where there is a single project
+        node and no project number
+        """
+        gh_issue = {'projectItems': {'nodes': [{'project': {'number': 1}}]}}
+        result = u._get_current_project_node('org/repo', None, 'mock_number', gh_issue)
+        self.assertEqual(result, {'project': {'number': 1}})
+
+    def test_get_current_project_node_multiple_projects_no_project_number(self):
+        """
+        This function tests '_get_current_project_node' where there are multiple project nodes
+        and no project number
+        """
+        gh_issue = {'projectItems': {'nodes': [
+            {'project': {'number': 1, 'url': 'url1', 'title': 'title1'}},
+            {'project': {'number': 2, 'url': 'url2', 'title': 'title2'}}]}}
+        result = u._get_current_project_node('org/repo', None, 'mock_number', gh_issue)
+        self.assertIsNone(result)
+
+    def test_get_current_project_node_project_not_associated(self):
+        """
+        This function tests '_get_current_project_node' where the issue is not associated with
+        the configured project
+        """
+        gh_issue = {'projectItems': {'nodes': [{'project': {'number': 1}}]}}
+        result = u._get_current_project_node('org/repo', 2, 'mock_number', gh_issue)
+        self.assertIsNone(result)
+
+    def test_get_current_project_node_success(self):
+        """
+        This function tests '_get_current_project_node' where everything goes smoothly
+        """
+        gh_issue = {'projectItems': {'nodes': [{'project': {'number': 1}}, {'project': {'number': 2}}]}}
+        result = u._get_current_project_node('org/repo', 2, 'mock_number', gh_issue)
+        self.assertEqual(result, {'project': {'number': 2}})

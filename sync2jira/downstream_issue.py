@@ -703,7 +703,7 @@ def _create_jira_issue(client, issue, config):
 
     # Update relevant information (i.e. tags, assignees etc.) if the
     # User opted in
-    _update_jira_issue(downstream, issue, client)
+    _update_jira_issue(downstream, issue, client, config)
 
     return downstream
 
@@ -725,7 +725,7 @@ def _label_matching(jira_labels, issue_labels):
     return updated_labels
 
 
-def _update_jira_issue(existing, issue, client):
+def _update_jira_issue(existing, issue, client, config):
     """
     Updates an existing JIRA issue (i.e. tags, assignee, comments etc).
 
@@ -751,7 +751,8 @@ def _update_jira_issue(existing, issue, client):
     # Only synchronize comments for listings that op-in
     if 'github_project_fields' in updates and len(github_project_fields) > 0:
         log.info("Looking for GitHub project fields")
-        _update_github_project_fields(client, existing, issue, github_project_fields)
+        _update_github_project_fields(client, existing, issue,
+                                      github_project_fields, config)
 
     # Only synchronize comments for listings that op-in
     if 'comments' in updates:
@@ -967,7 +968,8 @@ def _update_jira_labels(issue, labels):
     log.info('Updated %s tag(s)' % len(_labels))
 
 
-def _update_github_project_fields(client, existing, issue, github_project_fields):
+def _update_github_project_fields(client, existing, issue,
+                                  github_project_fields, config):
     """Update a Jira issue with GitHub project item field values
 
     :param jira.client.JIRA client: JIRA client
@@ -976,13 +978,32 @@ def _update_github_project_fields(client, existing, issue, github_project_fields
     :param list: Fields representing GitHub project item fields in GitHub and Jira
     """
 
+    default_jira_fields = config['sync2jira'].get('default_jira_fields', {})
     for name, values in github_project_fields.items():
-        _, jirafieldname = values
-        try:
-            existing.update({jirafieldname: str(getattr(issue, name))})
-        except JIRAError as err:
-            # Add a comment to indicate there was an issue
-            client.add_comment(existing, f"Error updating GitHub project field: {err}")
+        fieldvalue = getattr(issue, name)
+        if name == 'storypoints':
+            try:
+                jirafieldname = default_jira_fields['storypoints']
+            except KeyError:
+                log.error("Configuration error: Missing 'storypoints' in `default_jira_fields`")
+                continue
+            try:
+                existing.update({jirafieldname: fieldvalue})
+            except JIRAError as err:
+                # Add a comment to indicate there was an issue
+                client.add_comment(existing, f"Error updating GitHub project storypoints field: {err}")
+        elif name == 'priority':
+            try:
+                jirafieldname = default_jira_fields['priority']
+            except KeyError:
+                jirafieldname = 'priority'
+            jira_priority = values.get('options', {}).get(fieldvalue)
+            if jira_priority:
+                try:
+                    existing.update({jirafieldname: {'name': jira_priority}})
+                except JIRAError as err:
+                    # Add a comment to indicate there was an issue
+                    client.add_comment(existing, f"Error updating GitHub project priority field: {err}")
 
 
 def _update_tags(updates, existing, issue):
@@ -1157,7 +1178,7 @@ def sync_with_jira(issue, config):
             log.info("Testing flag is true.  Skipping actual update.")
             return
         # Update relevant metadata (i.e. tags, assignee, etc)
-        _update_jira_issue(existing, issue, client)
+        _update_jira_issue(existing, issue, client, config)
         return
 
     # If we're *not* configured to do legacy matching (upgrade mode) then there
