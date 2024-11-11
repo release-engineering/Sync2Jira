@@ -136,6 +136,23 @@ spec:
       name: JAVA_COMMUNITY_DEPENDENCIES
       value: $(tasks.build-container.results.JAVA_COMMUNITY_DEPENDENCIES)
     tasks:
+    - name: rpms-signature-scan
+      params:
+      - name: image-url
+        value: $(tasks.build-container.results.IMAGE_URL)
+      - name: image-digest
+        value: $(tasks.build-container.results.IMAGE_DIGEST)
+      - name: fail-unsigned
+        value: true
+      taskRef:
+        params:
+          - name: name
+            value: rpms-signature-scan
+          - name: bundle
+            value: quay.io/konflux-ci/tekton-catalog/task-rpms-signature-scan:0.1@sha256:8e3515fdc0bbc0bcac994482a2396a8cd23e6a6fa9efaf3ec715ee312a376777
+          - name: kind
+            value: task
+        resolver: bundles
     - name: init
       params:
       - name: image-url
