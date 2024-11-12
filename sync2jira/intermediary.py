@@ -102,7 +102,7 @@ class Issue(object):
             comments=comments,
             tags=issue['labels'],
             fixVersion=[issue['milestone']],
-            priority=issue['priority'],
+            priority=issue.get('priority'),
             content=issue['body'] or '',
             reporter=issue['user'],
             assignee=issue['assignees'],
