@@ -34,6 +34,10 @@ ENV SYNC2JIRA_VERSION=$SYNC2JIRA_VERSION
 
 USER root
 
+# Copy in license file
+RUN mkdir /licenses
+COPY LICENSE /licenses/LICENSE
+
 # Create Sync2Jira folder
 RUN mkdir -p /usr/local/src/sync2jira
 
