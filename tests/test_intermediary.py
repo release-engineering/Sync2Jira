@@ -99,6 +99,48 @@ class TestIntermediary(unittest.TestCase):
         self.assertEqual(response.downstream, {'mock_downstream': 'mock_key'})
         self.assertEqual(response.storypoints, 'mock_storypoints')
 
+    def test_from_github_open_without_priority(self):
+        """
+        This tests the 'from_github' function under the Issue class
+        where the state is open but the priority is not initialized.
+        """
+        mock_github_issue = {
+            'comments': [{
+                'author': 'mock_author',
+                'name': 'mock_name',
+                'body': 'mock_body',
+                'id': 'mock_id',
+                'date_created': 'mock_date'
+            }],
+            'title': 'mock_title',
+            'html_url': 'mock_url',
+            'id': 1234,
+            'labels': 'mock_tags',
+            'milestone': 'mock_milestone',
+            'storypoints': '1.0',
+            'body': 'mock_content',
+            'user': 'mock_reporter',
+            'assignees': 'mock_assignee',
+            'state': 'open',
+            'date_created': 'mock_date',
+            'number': '1',
+            'storypoints': 'mock_storypoints',
+        }
+
+        # Call the function
+        response = i.Issue.from_github(
+            upstream='github',
+            issue=mock_github_issue,
+            config=self.mock_config
+        )
+
+        # Assert that we made the calls correctly
+        self.checkResponseFields(response)
+
+        self.assertEqual(response.priority, None)
+        self.assertEqual(response.status, 'Open')
+
+
     def test_from_github_closed(self):
         """
         This tests the 'from_github' function under the Issue class where the state is closed
