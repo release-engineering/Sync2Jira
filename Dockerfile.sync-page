@@ -32,6 +32,10 @@ RUN dnf -y install \
 
 USER root
 
+# Copy in license file
+RUN mkdir /licenses
+COPY LICENSE /licenses/LICENSE
+
 # Create Sync2Jira folder
 RUN mkdir -p /usr/local/src/sync2jira
 
