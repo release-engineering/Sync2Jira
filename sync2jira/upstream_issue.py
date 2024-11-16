@@ -325,7 +325,11 @@ def github_issues(upstream, config):
 
         issue_updates = config['sync2jira']['map']['github'][upstream].get('issue_updates', {})
 
-        if 'github_project_fields' in issue_updates:
+        if '/pull/' in issue.get('html_url', ''):
+            log.debug(
+                "Issue %s/%s#%s is a pull request; skipping project fields",
+                orgname, reponame, issue['number'])
+        elif 'github_project_fields' in issue_updates:
             issue['storypoints'] = None
             issue['priority'] = ''
             issuenumber = issue['number']
@@ -333,29 +337,35 @@ def github_issues(upstream, config):
             variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
             response = requests.post(graphqlurl, headers=headers, json={"query": ghquery, "variables": variables})
             if response.status_code != 200:
-                log.debug("Error while fetching %s/%s/Issue#%s: %s", orgname, reponame, issuenumber, response.text)
+                log.debug("HTTP error while fetching issue %s/%s#%s: %s",
+                          orgname, reponame, issuenumber, response.text)
                 continue
             data = response.json()
             gh_issue = data['data']['repository']['issue']
             if not gh_issue:
-                log.debug("Error fetching issue from GitHub: %s. org: %s, repo: %s", response.text, orgname, reponame)
+                log.debug("GitHub error while fetching issue %s/%s#%s: %s",
+                          orgname, reponame, issuenumber, response.text)
                 continue
             gh_field_name = ''
             try:
-                currentProjectNode = _get_current_project_node(upstream, project_number, issuenumber, gh_issue)
-                if not currentProjectNode:
-                    continue
-                for item in currentProjectNode['fieldValues']['nodes']:
-                    if 'fieldName' in item:
-                        gh_field_name = item['fieldName'].get('name')
-                        if 'priority' in github_project_fields\
-                                and gh_field_name == github_project_fields['priority']['gh_field']:
-                            issue['priority'] = item.get('name')
-                        if 'storypoints' in github_project_fields\
-                                and gh_field_name == github_project_fields['storypoints']['gh_field']:
+                project_node = _get_current_project_node(
+                    upstream, project_number, issuenumber, gh_issue)
+                item_nodes = project_node['fieldValues']['nodes'] if project_node else []
+                for item in item_nodes:
+                    gh_field_name = item.get('fieldName', {}).get('name')
+                    prio_field = github_project_fields.get('priority', {}).get('gh_field')
+                    if gh_field_name == prio_field:
+                        issue['priority'] = item.get('name')
+                    sp_field = github_project_fields.get('storypoints', {}).get('gh_field')
+                    if gh_field_name == sp_field:
+                        try:
                             issue['storypoints'] = int(item['number'])
+                        except ValueError as err:
+                            log.debug(
+                                "Error while processing storypoints for issue %s/%s#%s: %s",
+                                orgname, reponame, issuenumber, err)
             except KeyError as err:
-                log.debug("Error fetching %s!r from GitHub %s/%s#%s: %s",
+                log.debug("Error fetching %s!r from GitHub issue %s/%s#%s: %s",
                           gh_field_name, orgname, reponame, issuenumber, err)
                 continue
 
@@ -373,25 +383,38 @@ def _get_current_project_node(upstream, project_number, issue_number, gh_issue):
     project_items = gh_issue['projectItems']['nodes']
     # If there are no project items, there is nothing to return.
     if len(project_items) == 0:
-        log.debug("Issue %s/%s is not associated with any project", upstream, issue_number)
+        log.debug("Issue %s#%s is not associated with any project",
+                  upstream, issue_number)
         return None
-    # If there is exactly one project item, return it if we don't have a configured project.
-    if not project_number and len(project_items) == 1:
+    # If there is exactly one project item, return it.  Even if it doesn't
+    # match the configured project, having one is better than having none.
+    if len(project_items) == 1:
+        if project_number and str(project_items[0]['project']['number']) != project_number:
+            log.debug(
+                "Issue %s#%s is not associated with the configured project (%s),"
+                " using %s instead.",
+                upstream, issue_number, project_number,
+                project_items[0]['project']['number'])
         return project_items[0]
-    # There are multiple projects associated with this issue; if we don't have a configured
-    # project, then we don't know which one to return, so return none.
+    # There are multiple projects associated with this issue; if we don't have a
+    # configured project, then we don't know which one to return, so return none.
     if not project_number:
-        prj = ", ".join([":".join([x['project']['url'], x['project']['title']]) for x in project_items])
+        prj = (f"{x['project']['url']}: {x['project']['title']}" for x in project_items)
         log.debug(
-            "Project number is not configured, and the issue %s/%s is associated with more than one project: %s",
-            upstream, issue_number, prj)
+            "Project number is not configured, and the issue %s#%s"
+            " is associated with more than one project: %s",
+            upstream, issue_number, ", ".join(prj))
         return None
-    # Return the associated project which matches the configured project if we can find it.
+    # Return the associated project which matches the configured project if we
+    # can find it.
     for item in project_items:
         if item['project']['number'] == project_number:
             return item
 
-    log.debug("Issue is not associated with the configured project, but other associations exist.")
+    log.debug(
+        "Issue %s#%s is associated with multiple projects, "
+        "but none match the configured project.",
+        upstream, issue_number)
     return None
 
 
