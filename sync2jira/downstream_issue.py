@@ -578,12 +578,10 @@ def _get_preferred_issue_types(config, issue):
     #     'enhancement': 'Story'
     #   }
     type_list = []
-    log.debug(config)
 
     map = config['sync2jira'].get('map', {})
     conf = map.get('github', {}).get(issue.upstream, {})
 
-    log.debug(conf)
     # we consider the issue_types mapping if it exists. If it does, exclude all other logic.
     if 'issue_types' in conf:
         for tag, issue_type in conf['issue_types'].items():
@@ -616,11 +614,6 @@ def _create_jira_issue(client, issue, config):
     :returns: Returns JIRA issue that was created
     :rtype: jira.resources.Issue
     """
-    log.info("Creating %r issue for %r", issue.downstream, issue)
-    if config['sync2jira']['testing']:
-        log.info("Testing flag is true.  Skipping actual creation.")
-        return
-
     custom_fields = issue.downstream.get('custom_fields', {})
     preferred_types = _get_preferred_issue_types(config, issue)
     description = _build_description(issue)
@@ -646,7 +639,11 @@ def _create_jira_issue(client, issue, config):
     if 'labels' in issue.downstream.keys():
         kwargs['labels'] = issue.downstream['labels']
 
-    log.info("Creating issue.")
+    log.info("Creating issue for %r:  %r", issue, kwargs)
+    if config['sync2jira']['testing']:
+        log.info("Testing flag is true.  Skipping actual creation.")
+        return
+
     downstream = client.create_issue(**kwargs)
 
     # Add Epic link, QA, EXD-Service field if present
