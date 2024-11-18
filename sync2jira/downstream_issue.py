@@ -23,6 +23,7 @@ import difflib
 import logging
 import operator
 import re
+from typing import Optional
 
 # 3rd Party Modules
 import arrow
@@ -140,10 +141,10 @@ def _matching_jira_issue_query(client, issue, config, free=False):
     if free:
         query += ' and statusCategory != Done'
     # Query the JIRA client and store the results
-    results_of_query = client.search_issues(query)
+    results_of_query: jira.client.ResultList = client.search_issues(query)
     if len(results_of_query) > 1:
         final_results = []
-        # TODO: there is pagure-specifc code in here that handles the case where a dropped issue's URL is
+        # TODO: there is pagure-specific code in here that handles the case where a dropped issue's URL is
         #       re-used by an issue opened later. i.e. pagure re-uses IDs
         for result in results_of_query:
             description = result.fields.description or ""
@@ -156,9 +157,9 @@ def _matching_jira_issue_query(client, issue, config, free=False):
                 else:
                     # Else search returned a linked issue
                     final_results.append(search)
-            # If that's not the case, check if they have the same upstream title
-            # Upstream username/repo can change if repos are merged
-            elif re.search(r"\[[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':\\|,.<>\/?]*\] "
+            # If that's not the case, check if they have the same upstream title.
+            # Upstream username/repo can change if repos are merged.
+            elif re.search(r"\[[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':\\|,.<>/?]*] "
                            + issue.upstream_title,
                            result.fields.summary):
                 search = check_comments_for_duplicate(client, result,
@@ -279,10 +280,10 @@ def alert_user_of_duplicate_issues(issue, final_result, results_of_query,
         admin_template.append({'name': ret[0].displayName, 'email': ret[0].emailAddress})
 
     # Create and send email
-    templateLoader = jinja2.FileSystemLoader(
+    template_loader = jinja2.FileSystemLoader(
         searchpath='usr/local/src/sync2jira/sync2jira/')
-    templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)
-    template = templateEnv.get_template('email_template.jinja')
+    template_env = jinja2.Environment(loader=template_loader, autoescape=True)
+    template = template_env.get_template('email_template.jinja')
     html_text = template.render(user=user,
                                 admins=admin_template,
                                 issue=issue,
@@ -321,7 +322,7 @@ def check_comments_for_duplicate(client, result, username):
     Checks comment of JIRA issue to see if it has been
     marked as a duplicate.
 
-    :param jira.client.JIRA client: JIRA client)
+    :param jira.client.JIRA client: JIRA client
     :param jira.resource.Issue result: JIRA issue
     :param string username: Username of JIRA user
     :returns: True if duplicate comment was not found or JIRA issue if \
@@ -354,7 +355,7 @@ def _find_comment_in_jira(comment, j_comments):
             # return the item
             return item
         if str(comment['id']) in item.raw['body']:
-            # The comment id's match, if they dont have the same body,
+            # The comment id's match, if they don't have the same body,
             # we need to edit the comment
             if item.raw['body'] != formatted_comment:
                 # We need to update the comment
@@ -441,7 +442,7 @@ def attach_link(client, downstream, remote_link):
     modified_desc = downstream.fields.description + " "
 
     # This is crazy.  Querying for application links requires admin perms which
-    # we don't have, so duckpunch the client to think it has already made the
+    # we don't have, so duck-punch the client to think it has already made the
     # query.
     client._applicationlinks = []  # pylint: disable=protected-access
 
@@ -475,7 +476,7 @@ def _upgrade_jira_issue(client, downstream, issue, config):
 
 def assign_user(client, issue, downstream, remove_all=False):
     """
-    Attempts to assigns a JIRA issue to the correct
+    Attempts to assign a JIRA issue to the correct
     user based on the issue.
 
     :param jira.client.JIRA client: JIRA Client
@@ -492,14 +493,14 @@ def assign_user(client, issue, downstream, remove_all=False):
         return
 
     # JIRA only supports one assignee
-    # If we have more than one assignee (i.e. from Github)
+    # If we have more than one assignee (i.e. from GitHub)
     # assign the issue to the first user (i.e. issue.assignee[0])
 
     # First we need to find the user
 
     # See if any of the upstream users has full names available. Not all do.
-    def assignee_fullname(issue):
-        for assignee in issue.assignee:
+    def assignee_fullname(u_issue):
+        for assignee in u_issue.assignee:
             if assignee['fullname']:
                 return assignee['fullname']
         return None
@@ -540,14 +541,14 @@ def change_status(client, downstream, status, issue):
     :param sync2jira.intermediary.Issue issue: Issue object
     """
     transitions = client.transitions(downstream)
-    id = ''
+    tid = ''
     for t in transitions:
         if t['name'] and status.upper() == str(t['name']).upper():
-            id = int(t['id'])
+            tid = int(t['id'])
             break
-    if id:
+    if tid:
         try:
-            client.transition_issue(downstream, id)
+            client.transition_issue(downstream, tid)
             log.info('Updated downstream to %s status for issue %s', status, issue.title)
         except JIRAError:
             log.error('Updating downstream issue failed for %s: %s', status, issue.title)
@@ -575,8 +576,8 @@ def _get_preferred_issue_types(config, issue):
     #   }
     type_list = []
 
-    map = config['sync2jira'].get('map', {})
-    conf = map.get('github', {}).get(issue.upstream, {})
+    cmap = config['sync2jira'].get('map', {})
+    conf = cmap.get('github', {}).get(issue.upstream, {})
 
     # we consider the issue_types mapping if it exists. If it does, exclude all other logic.
     if 'issue_types' in conf:
@@ -652,7 +653,7 @@ def _create_jira_issue(client, issue, config):
         name_map = {field['name']: field['id'] for field in all_fields}
         if issue.downstream.get('epic-link'):
             # Try to get and update the custom field
-            custom_field = name_map.get('Epic Link')
+            custom_field: Optional[str] = name_map.get('Epic Link')
             if custom_field:
                 try:
                     downstream.update({custom_field: issue.downstream['epic-link']})
@@ -722,7 +723,7 @@ def _label_matching(jira_labels, issue_labels):
 
 def _update_jira_issue(existing, issue, client, config):
     """
-    Updates an existing JIRA issue (i.e. tags, assignee, comments etc).
+    Updates an existing JIRA issue (i.e. tags, assignee, comments, etc.).
 
     :param jira.resources.Issue existing: Existing JIRA issue that was found
     :param sync2jira.intermediary.Issue issue: Upstream issue we're pulling data from
@@ -736,8 +737,8 @@ def _update_jira_issue(existing, issue, client, config):
     # Get a list of what the user wants to update for the upstream issue
     updates = issue.downstream.get('issue_updates', [])
 
-    # Update relevant data if needed
-    # If the user has specified nothing
+    # Update relevant data if needed.
+    # If the user has specified nothing, just return.
     if not updates:
         return
 
@@ -873,9 +874,9 @@ def _update_fixVersion(updates, existing, issue, client):
         for version in existing.fields.fixVersions:
             fix_version.append({'name': version.name})
 
-    # Github does not allow for multiple fixVersions (milestones)
+    # GitHub does not allow for multiple fixVersions (milestones)
     # But JIRA does, that is why we're looping here. Hopefully one
-    # Day Github will support multiple fixVersions :0
+    # Day GitHub will support multiple fixVersions :0
     for version in issue.fixVersion:
         if version is not None:
             # Update the fixVersion only if it's already not in JIRA
@@ -951,7 +952,7 @@ def _update_jira_labels(issue, labels):
     Do this only if the current labels would change.
 
     :param jira.resource.Issue issue: Jira issue to be updated
-    :param list<strings> labels: Lables to be applied on the issue
+    :param list<strings> labels: Labels to be applied on the issue
     :returns: None
     """
     _labels = sorted(labels)
@@ -971,6 +972,7 @@ def _update_github_project_fields(client, existing, issue,
     :param jira.resource.Issue existing: Existing JIRA issue
     :param sync2jira.intermediary.Issue issue: Upstream issue
     :param dict github_project_fields: Fields representing GitHub project item fields in GitHub and Jira
+    :param dict config: configuration options
     """
 
     default_jira_fields = config['sync2jira'].get('default_jira_fields', {})
@@ -1127,7 +1129,7 @@ def _update_on_close(existing, issue, updates):
                 }
             }
         },
-        ...
+        ...,
     ]
 
     :param jira.resource.Issue existing: existing Jira issue
@@ -1153,7 +1155,7 @@ def _update_on_close(existing, issue, updates):
     updated_labels = list(
         set(existing.fields.labels).union(set(on_close_updates['apply_labels']))
     )
-    log.info("Applying 'on_close' labels to downstrem Jira issue")
+    log.info("Applying 'on_close' labels to downstream Jira issue")
     _update_jira_labels(existing, updated_labels)
 
 
@@ -1173,7 +1175,7 @@ def verify_tags(tags):
 
 def sync_with_jira(issue, config):
     """
-    Attempts to sync a upstream issue with JIRA (i.e. by finding
+    Attempts to sync an upstream issue with JIRA (i.e. by finding
     an existing issue or creating a new one).
 
     :param sync2jira.intermediary.Issue issue: Issue object
@@ -1229,13 +1231,13 @@ def sync_with_jira(issue, config):
         _upgrade_jira_issue(client, match, issue, config)
 
 
-def _close_as_duplicate(client, duplicate, keeper, config):
+def _close_as_duplicate(client: jira.client, duplicate, keeper, config):
     """
     Helper function to close an issue as a duplicate.
 
     :param jira.client client: JIRA Client
     :param jira.resources.Issue duplicate: Duplicate JIRA Issue
-    :param jira.resources.Issue keeper: JIRA issue to keep
+    :param jira.resources.Issue keeper: the JIRA issue to keep
     :param Dict config: Config dict
     :returns: Nothing
     """
@@ -1270,14 +1272,19 @@ def _close_as_duplicate(client, duplicate, keeper, config):
         try:
             client.transition_issue(duplicate, closed, resolution={'name': 'Duplicate'})
         except Exception as e:
-            if "Field 'resolution' cannot be set" in e.response.text:
+            if ('response' in dir(e) and 'text' in dir(e.response)
+                    and "Field 'resolution' cannot be set" in e.response.text):
                 # Try closing without a specific resolution.
                 try:
                     client.transition_issue(duplicate, closed)
                 except Exception:
-                    log.exception("Failed to close %r", duplicate.permalink())
+                    log.exception(
+                        "Failed to close %r without a resolution",
+                        duplicate.permalink())
             else:
-                log.exception("Failed to close %r", duplicate.permalink())
+                log.exception(
+                    "Failed to close %r with a resolution of 'Duplicate'",
+                    duplicate.permalink())
     else:
         log.warning("Unable to find close transition for %r", duplicate.key)
 
