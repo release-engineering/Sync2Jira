@@ -185,7 +185,7 @@ The config file is made up of multiple parts
         }
     }
 
-* Specify the GitHub project field and its mapping to Jira. The currently supportted fields are :code:`storypoints`
+* Specify the GitHub project field and its mapping to Jira. The currently supported fields are :code:`storypoints`
   and :code:`priority`.
 
 * The :code:`gh_field` points to the GitHub field name.
