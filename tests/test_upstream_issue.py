@@ -1,6 +1,7 @@
 import unittest
 import unittest.mock as mock
 from unittest.mock import MagicMock
+from copy import deepcopy
 
 import sync2jira.upstream_issue as u
 
@@ -395,6 +396,60 @@ class TestUpstreamIssue(unittest.TestCase):
         self.mock_github_client.get_repo.assert_not_called()
         self.mock_github_repo.get_issue.assert_not_called()
         self.mock_github_issue.get_comments.assert_not_called()
+
+    @mock.patch('sync2jira.intermediary.Issue.from_github')
+    @mock.patch(PATH + 'Github')
+    @mock.patch(PATH + 'get_all_github_data')
+    def test_filter_multiple_labels(self,
+                                    mock_get_all_github_data,
+                                    mock_github,
+                                    mock_issue_from_github):
+        """
+        This function tests 'github_issues' function with a filter including multiple labels
+        """
+        # Set up return values
+        self.mock_config['sync2jira']['filters']['github']['org/repo']['labels'].extend(['another_tag', 'and_another'])
+        mock_github.return_value =  self.mock_github_client
+        mock_issue_from_github.return_value = 'Successful Call!'
+        # We mutate the issue object so we need to pass a copy here
+        mock_get_all_github_data.return_value = [deepcopy(self.mock_github_issue_raw)]
+
+        # Call the function
+        list(u.github_issues(
+            upstream='org/repo',
+            config=self.mock_config
+        ))
+
+        # Assert that the labels filter is correct
+        self.assertIn(
+            'labels=custom_tag%2Canother_tag%2Cand_another',
+            mock_get_all_github_data.call_args[0][0]
+        )
+        # Assert the config value was not mutated
+        self.assertEqual(
+            self.mock_config['sync2jira']['filters']['github']['org/repo']['labels'],
+            ['custom_tag','another_tag','and_another']
+        )
+
+        # Restore the return value to the original object
+        mock_get_all_github_data.return_value = [deepcopy(self.mock_github_issue_raw)]
+
+        # Call the function again to ensure consistency for subsequent calls
+        list(u.github_issues(
+            upstream='org/repo',
+            config=self.mock_config
+        ))
+
+        # Assert that the labels filter is correct
+        self.assertIn(
+            'labels=custom_tag%2Canother_tag%2Cand_another',
+            mock_get_all_github_data.call_args[0][0]
+        )
+         # Assert the config value was not mutated
+        self.assertEqual(
+            self.mock_config['sync2jira']['filters']['github']['org/repo']['labels'],
+            ['custom_tag','another_tag','and_another']
+        )
 
     @mock.patch(PATH + 'Github')
     @mock.patch('sync2jira.intermediary.Issue.from_github')
