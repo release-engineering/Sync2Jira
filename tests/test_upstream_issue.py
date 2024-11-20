@@ -689,7 +689,7 @@ class TestUpstreamIssue(unittest.TestCase):
                     'org/repo', project, 'mock_number', gh_issue)
                 expected_result = (
                     None if node_count == 0 else
-                    nodes[0] if node_count == 1 else
+                    (nodes[0] if project is None else None) if node_count == 1 else
                     nodes[1] if project == 2 else
                     None)
                 self.assertEqual(result, expected_result)
