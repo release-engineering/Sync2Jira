@@ -346,13 +346,14 @@ def github_issues(upstream, config):
                 log.debug("GitHub error while fetching issue %s/%s#%s: %s",
                           orgname, reponame, issuenumber, response.text)
                 continue
-            gh_field_name = ''
-            try:
-                project_node = _get_current_project_node(
-                    upstream, project_number, issuenumber, gh_issue)
-                item_nodes = project_node['fieldValues']['nodes'] if project_node else []
+            project_node = _get_current_project_node(
+                upstream, project_number, issuenumber, gh_issue)
+            if project_node:
+                item_nodes = project_node.get('fieldValues', {}).get('nodes', {})
                 for item in item_nodes:
                     gh_field_name = item.get('fieldName', {}).get('name')
+                    if not gh_field_name:
+                        continue
                     prio_field = github_project_fields.get('priority', {}).get('gh_field')
                     if gh_field_name == prio_field:
                         issue['priority'] = item.get('name')
@@ -360,14 +361,10 @@ def github_issues(upstream, config):
                     if gh_field_name == sp_field:
                         try:
                             issue['storypoints'] = int(item['number'])
-                        except ValueError as err:
+                        except (ValueError, KeyError) as err:
                             log.debug(
                                 "Error while processing storypoints for issue %s/%s#%s: %s",
                                 orgname, reponame, issuenumber, err)
-            except KeyError as err:
-                log.debug("Error fetching %s!r from GitHub issue %s/%s#%s: %s",
-                          gh_field_name, orgname, reponame, issuenumber, err)
-                continue
 
         final_issues.append(issue)
 
@@ -386,25 +383,23 @@ def _get_current_project_node(upstream, project_number, issue_number, gh_issue):
         log.debug("Issue %s#%s is not associated with any project",
                   upstream, issue_number)
         return None
-    # If there is exactly one project item, return it.  Even if it doesn't
-    # match the configured project, having one is better than having none.
-    if len(project_items) == 1:
-        if project_number and str(project_items[0]['project']['number']) != project_number:
-            log.debug(
-                "Issue %s#%s is not associated with the configured project (%s),"
-                " using %s instead.",
-                upstream, issue_number, project_number,
-                project_items[0]['project']['number'])
-        return project_items[0]
-    # There are multiple projects associated with this issue; if we don't have a
-    # configured project, then we don't know which one to return, so return none.
+
     if not project_number:
+        # We don't have a configured project.  If there is exactly one project
+        # item, we'll assume it's the right one and return it.
+        if len(project_items) == 1:
+            return project_items[0]
+
+        # There are multiple projects associated with this issue; since we
+        # don't have a configured project, we don't know which one to return,
+        # so return none.
         prj = (f"{x['project']['url']}: {x['project']['title']}" for x in project_items)
         log.debug(
             "Project number is not configured, and the issue %s#%s"
             " is associated with more than one project: %s",
             upstream, issue_number, ", ".join(prj))
         return None
+
     # Return the associated project which matches the configured project if we
     # can find it.
     for item in project_items:
