@@ -670,47 +670,26 @@ class TestUpstreamIssue(unittest.TestCase):
             headers='mock_headers'
         )
 
-    def test_get_current_project_node_no_projects(self):
-        """
-        This function tests '_get_current_project_node' where there are no project nodes
-        """
-        gh_issue = {'projectItems': {'nodes': []}}
-        result = u._get_current_project_node('org/repo', 1, 'mock_number', gh_issue)
-        self.assertIsNone(result)
+    def test_get_current_project_node(self):
+        """This function tests '_get_current_project_node' in a matrix of cases.
 
-    def test_get_current_project_node_single_project_no_project_number(self):
+        It tests issues with zero, one, and two associated projects when the
+        call is made with no configured project, with a project which matches
+        none of the associated projects, and with a project which matches one.
         """
-        This function tests '_get_current_project_node' where there is a single project
-        node and no project number
-        """
-        gh_issue = {'projectItems': {'nodes': [{'project': {'number': 1}}]}}
-        result = u._get_current_project_node('org/repo', None, 'mock_number', gh_issue)
-        self.assertEqual(result, {'project': {'number': 1}})
-
-    def test_get_current_project_node_multiple_projects_no_project_number(self):
-        """
-        This function tests '_get_current_project_node' where there are multiple project nodes
-        and no project number
-        """
-        gh_issue = {'projectItems': {'nodes': [
+        nodes = [
             {'project': {'number': 1, 'url': 'url1', 'title': 'title1'}},
-            {'project': {'number': 2, 'url': 'url2', 'title': 'title2'}}]}}
-        result = u._get_current_project_node('org/repo', None, 'mock_number', gh_issue)
-        self.assertIsNone(result)
+            {'project': {'number': 2, 'url': 'url2', 'title': 'title2'}}]
+        projects = [None, 2, 5]
 
-    def test_get_current_project_node_project_not_associated(self):
-        """
-        This function tests '_get_current_project_node' where the issue is not associated with
-        the configured project
-        """
-        gh_issue = {'projectItems': {'nodes': [{'project': {'number': 1}}]}}
-        result = u._get_current_project_node('org/repo', 2, 'mock_number', gh_issue)
-        self.assertIsNone(result)
-
-    def test_get_current_project_node_success(self):
-        """
-        This function tests '_get_current_project_node' where everything goes smoothly
-        """
-        gh_issue = {'projectItems': {'nodes': [{'project': {'number': 1}}, {'project': {'number': 2}}]}}
-        result = u._get_current_project_node('org/repo', 2, 'mock_number', gh_issue)
-        self.assertEqual(result, {'project': {'number': 2}})
+        for project in projects:
+            for node_count in range(len(nodes)+1):
+                gh_issue = {'projectItems': {'nodes': nodes[:node_count]}}
+                result = u._get_current_project_node(
+                    'org/repo', project, 'mock_number', gh_issue)
+                expected_result = (
+                    None if node_count == 0 else
+                    (nodes[0] if project is None else None) if node_count == 1 else
+                    nodes[1] if project == 2 else
+                    None)
+                self.assertEqual(result, expected_result)
