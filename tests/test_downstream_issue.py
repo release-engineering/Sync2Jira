@@ -1688,6 +1688,19 @@ class TestDownstreamIssue(unittest.TestCase):
                                   github_project_fields, self.mock_config)
         self.mock_downstream.update.assert_called_with({'customfield_12310243': 2})
 
+    @mock.patch('jira.client.JIRA')
+    def test_update_github_project_fields_storypoints_bad(self, mock_client):
+        """This function tests `_update_github_project_fields` with
+        a bad (non-numeric) story points value.
+        """
+        github_project_fields = {"storypoints": {"gh_field": "Estimate"}}
+        for bad_sp in [None, '', 'bad_value']:
+            self.mock_issue.storypoints = bad_sp
+            d._update_github_project_fields(
+                mock_client, self.mock_downstream, self.mock_issue,
+                github_project_fields, self.mock_config)
+            self.mock_downstream.update.assert_not_called()
+            mock_client.add_comment.assert_not_called()
 
     @mock.patch('jira.client.JIRA')
     def test_update_github_project_fields_priority(self, mock_client):
@@ -1709,3 +1722,27 @@ class TestDownstreamIssue(unittest.TestCase):
         d._update_github_project_fields(mock_client, self.mock_downstream, self.mock_issue,
                                   github_project_fields, self.mock_config)
         self.mock_downstream.update.assert_called_with({'priority': {'name': 'Critical'}})
+
+    @mock.patch('jira.client.JIRA')
+    def test_update_github_project_fields_priority_bad(self, mock_client):
+        """This function tests `_update_github_project_fields` with
+        a bad priority value.
+        """
+        github_project_fields = {
+            "priority": {
+                "gh_field": "Priority",
+                "options": {
+                    "P0": "Blocker",
+                    "P1": "Critical",
+                    "P2": "Major",
+                    "P3": "Minor",
+                    "P4": "Optional",
+                    "P5": "Trivial"
+                }}}
+        for bad_pv in [None, '', 'bad_value']:
+            self.mock_issue.priority = bad_pv
+            d._update_github_project_fields(
+                mock_client, self.mock_downstream, self.mock_issue,
+                github_project_fields, self.mock_config)
+            self.mock_downstream.update.assert_not_called()
+            mock_client.add_comment.assert_not_called()
