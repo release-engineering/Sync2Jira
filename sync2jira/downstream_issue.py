@@ -979,6 +979,14 @@ def _update_github_project_fields(client, existing, issue,
     for name, values in github_project_fields.items():
         fieldvalue = getattr(issue, name)
         if name == 'storypoints':
+            if not isinstance(fieldvalue, int):
+                # FIXME:  The intermediate issue _should_ have either a number
+                #  or None for this value, but the code isn't complete yet; so,
+                #  until that is addressed, cover for it here.
+                try:
+                    fieldvalue = int(fieldvalue)
+                except (TypeError, ValueError):
+                    continue
             try:
                 jirafieldname = default_jira_fields['storypoints']
             except KeyError:
@@ -987,20 +995,27 @@ def _update_github_project_fields(client, existing, issue,
             try:
                 existing.update({jirafieldname: fieldvalue})
             except JIRAError as err:
-                # Add a comment to indicate there was an issue
-                client.add_comment(existing, f"Error updating GitHub project storypoints field: {err}")
+                # Note the failure in a comment to the downstream issue
+                client.add_comment(
+                    existing,
+                    "Error updating GitHub project storypoints field ({}: {}): {}".format(
+                        jirafieldname, fieldvalue, err))
         elif name == 'priority':
+            jira_priority = values.get('options', {}).get(fieldvalue)
+            if not jira_priority:
+                continue
             try:
                 jirafieldname = default_jira_fields['priority']
             except KeyError:
                 jirafieldname = 'priority'
-            jira_priority = values.get('options', {}).get(fieldvalue)
-            if jira_priority:
-                try:
-                    existing.update({jirafieldname: {'name': jira_priority}})
-                except JIRAError as err:
-                    # Add a comment to indicate there was an issue
-                    client.add_comment(existing, f"Error updating GitHub project priority field: {err}")
+            try:
+                existing.update({jirafieldname: {'name': jira_priority}})
+            except JIRAError as err:
+                # Note the failure in a comment to the downstream issue
+                client.add_comment(
+                    existing,
+                    "Error updating GitHub project priority field ({}: {}): {}".format(
+                        jirafieldname, jira_priority, err))
 
 
 def _update_tags(updates, existing, issue):
