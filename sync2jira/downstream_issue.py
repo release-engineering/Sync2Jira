@@ -977,6 +977,7 @@ def _update_github_project_fields(client, existing, issue,
 
     default_jira_fields = config['sync2jira'].get('default_jira_fields', {})
     for name, values in github_project_fields.items():
+        log.info(f"Looking at GHP field {name} with value {values}")
         fieldvalue = getattr(issue, name)
         if name == 'storypoints':
             if not isinstance(fieldvalue, int):
@@ -985,7 +986,9 @@ def _update_github_project_fields(client, existing, issue,
                 #  until that is addressed, cover for it here.
                 try:
                     fieldvalue = int(fieldvalue)
-                except (TypeError, ValueError):
+                except (TypeError, ValueError) as exc:
+                    if fieldvalue:
+                        log.error(f"Error converting story point value ({fieldvalue}) to int: {exc}")
                     continue
             try:
                 jirafieldname = default_jira_fields['storypoints']
