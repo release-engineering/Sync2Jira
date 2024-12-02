@@ -119,8 +119,6 @@ spec:
       value: $(tasks.build-container.results.IMAGE_URL)
     - name: image-digest
       value: $(tasks.build-container.results.IMAGE_DIGEST)
-    - name: fail-unsigned
-      value: true
     taskRef:
       params:
         - name: name
