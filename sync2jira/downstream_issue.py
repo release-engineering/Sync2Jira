@@ -977,28 +977,35 @@ def _update_github_project_fields(client, existing, issue,
 
     default_jira_fields = config['sync2jira'].get('default_jira_fields', {})
     for name, values in github_project_fields.items():
-        log.info(f"Looking at GHP field {name} with value {values}")
+        log.info(f"Looking at GHP field '{name}' with configuration '{values}'")
         fieldvalue = getattr(issue, name)
+        log.info(f"Issue value for field '{name}' is '{fieldvalue}'")
         if name == 'storypoints':
             if not isinstance(fieldvalue, int):
+                log.info(f"Story point field value '{fieldvalue}' is a {type(fieldvalue)}, not an 'int'")
                 # FIXME:  The intermediate issue _should_ have either a number
                 #  or None for this value, but the code isn't complete yet; so,
                 #  until that is addressed, cover for it here.
                 try:
                     fieldvalue = int(fieldvalue)
+                    log.info(f"Story point field value successfully converted to an 'int':  {fieldvalue}")
                 except (TypeError, ValueError) as exc:
                     if fieldvalue:
                         log.error(f"Error converting story point value ({fieldvalue}) to int: {exc}")
+                    log.info(f"Skipping story point field with value:  '{fieldvalue}'")
                     continue
             try:
                 jirafieldname = default_jira_fields['storypoints']
+                log.info(f"Jira issue story point field name is:  '{jirafieldname}'")
             except KeyError:
                 log.error("Configuration error: Missing 'storypoints' in `default_jira_fields`")
                 continue
             try:
                 existing.update({jirafieldname: fieldvalue})
+                log.info("Jira issue story point update was successful")
             except JIRAError as err:
                 # Note the failure in a comment to the downstream issue
+                log.error(f"Error updating Jira issue story points field ({jirafieldname}: {fieldvalue}): {err}")
                 client.add_comment(
                     existing,
                     "Error updating GitHub project storypoints field ({}: {}): {}".format(
@@ -1006,15 +1013,20 @@ def _update_github_project_fields(client, existing, issue,
         elif name == 'priority':
             jira_priority = values.get('options', {}).get(fieldvalue)
             if not jira_priority:
+                log.info(f"Priority field value mapping for '{fieldvalue}' is '{jira_priority}'")
                 continue
             try:
                 jirafieldname = default_jira_fields['priority']
+                log.info(f"Configured Jira issue priority field name is:  '{jirafieldname}'")
             except KeyError:
                 jirafieldname = 'priority'
+                log.info(f"Default Jira issue priority field name is:  '{jirafieldname}'")
             try:
                 existing.update({jirafieldname: {'name': jira_priority}})
+                log.info("Jira issue priority update was successful")
             except JIRAError as err:
                 # Note the failure in a comment to the downstream issue
+                log.error(f"Error updating Jira issue priority field ({jirafieldname}: {jira_priority}): {err}")
                 client.add_comment(
                     existing,
                     "Error updating GitHub project priority field ({}: {}): {}".format(
