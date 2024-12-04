@@ -417,9 +417,9 @@ def get_all_github_data(url, headers):
     """ Pagination utility.  Obnoxious. """
     link = dict(next=url)
     while 'next' in link:
-        response = _fetch_github_data(link['next'], headers)
+        response = api_call_get(link['next'], headers=headers)
         for issue in response.json():
-            comments = _fetch_github_data(issue['comments_url'], headers)
+            comments = api_call_get(issue['comments_url'], headers=headers)
             issue['comments'] = comments.json()
             yield issue
         link = _github_link_field_to_dict(response.headers.get('link', None))
@@ -441,12 +441,11 @@ def _github_link_field_to_dict(field):
     ])
 
 
-def _fetch_github_data(url, headers):
-    """
-        Helper function to gather GitHub data
-    """
-    response = requests.get(url, headers=headers)
+def api_call_get(url, **kwargs):
+    """Helper function to encapsulate a REST API GET call"""
+    response = requests.get(url, **kwargs)
     if not bool(response):
+        # noinspection PyBroadException
         try:
             reason = response.json()
         except Exception:
