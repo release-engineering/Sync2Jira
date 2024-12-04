@@ -141,90 +141,37 @@ def handle_github_message(msg, config, pr_filter=True):
         .get('github', {})\
         .get(upstream, {})
 
+    issue = msg['msg']['issue']
     for key, expected in _filter.items():
         if key == 'labels':
             # special handling for label: we look for it in the list of msg labels
-            actual = {label['name'] for label in msg['msg']['issue']['labels']}
+            actual = {label['name'] for label in issue['labels']}
             if actual.isdisjoint(expected):
                 log.debug("Labels %s not found on issue: %s", expected, upstream)
                 return None
         elif key == 'milestone':
             # special handling for milestone: use the number
-            milestone = msg['msg']['issue'].get(key) or {}
+            milestone = issue.get(key) or {}
             actual = milestone.get('number')
             if expected != actual:
                 log.debug("Milestone %s not set on issue: %s", expected, upstream)
                 return None
         else:
             # direct comparison
-            actual = msg['msg']['issue'].get(key)
+            actual = issue.get(key)
             if actual != expected:
                 log.debug("Actual %r %r != expected %r on issue %s",
                           key, actual, expected, upstream)
                 return None
 
-    if pr_filter and 'pull_request' in msg['msg']['issue']:
-        if not msg['msg']['issue'].get('closed_at', None):
-            log.debug("%r is a pull request.  Ignoring.", msg['msg']['issue'].get('html_url'))
+    if pr_filter and 'pull_request' in issue:
+        if not issue.get('closed_at'):
+            log.debug("%r is a pull request.  Ignoring.", issue.get('html_url'))
             return None
 
-    # Initialize Github object so we can get their full name (instead of their username)
-    # And get comments if needed
     github_client = Github(config['sync2jira']['github_token'], retry=5)
-
-    # If there are no comments just make an empty array
-    if msg['msg']['issue']['comments'] == 0:
-        msg['msg']['issue']['comments'] = []
-    else:
-        # We have multiple comments and need to make api call to get them
-        repo = github_client.get_repo(upstream)
-        comments = []
-        github_issue = repo.get_issue(number=msg['msg']['issue']['number'])
-        for comment in github_issue.get_comments():
-            # First make API call to get the users name
-            comments.append({
-                'author': comment.user.name or comment.user.login,
-                'name': comment.user.login,
-                'body': comment.body,
-                'id': comment.id,
-                'date_created': comment.created_at,
-                'changed': None
-            })
-        # Assign the message with the newly formatted comments :)
-        msg['msg']['issue']['comments'] = comments
-
-    # Search for the user
-    reporter = github_client.get_user(msg['msg']['issue']['user']['login'])
-    # Update the reporter field in the message (to match Pagure format)
-    if reporter.name:
-        msg['msg']['issue']['user']['fullname'] = reporter.name
-    else:
-        msg['msg']['issue']['user']['fullname'] = \
-            msg['msg']['issue']['user']['login']
-
-    # Now do the same thing for the assignees
-    assignees = []
-    for person in msg['msg']['issue']['assignees']:
-        assignee = github_client.get_user(person['login'])
-        assignees.append({'fullname': assignee.name})
-
-    # Update the assignee field in the message (to match Pagure format)
-    msg['msg']['issue']['assignees'] = assignees
-
-    # Update the label field in the message (to match Pagure format)
-    if msg['msg']['issue']['labels']:
-        # loop through all the labels on Github and add them
-        # to the new label list and then reassign the message
-        new_label = []
-        for label in msg['msg']['issue']['labels']:
-            new_label.append(label['name'])
-        msg['msg']['issue']['labels'] = new_label
-
-    # Update the milestone field in the message (to match Pagure format)
-    if msg['msg']['issue']['milestone']:
-        msg['msg']['issue']['milestone'] = msg['msg']['issue']['milestone']['title']
-
-    return i.Issue.from_github(upstream, msg['msg']['issue'], config)
+    reformat_github_issue(issue, upstream, github_client)
+    return i.Issue.from_github(upstream, issue, config)
 
 
 def github_issues(upstream, config):
@@ -271,57 +218,7 @@ def github_issues(upstream, config):
     final_issues = []
     project_number = config['sync2jira']['map']['github'][upstream].get('github_project_number')
     for issue in issues:
-        # Update comments:
-        # If there are no comments just make an empty array
-        if issue['comments'] == 0:
-            issue['comments'] = []
-        else:
-            # We have multiple comments and need to make api call to get them
-            repo = github_client.get_repo(upstream)
-            comments = []
-            github_issue = repo.get_issue(number=issue['number'])
-            for comment in github_issue.get_comments():
-                # First make API call to get the users name
-                comments.append({
-                    'author': comment.user.name or comment.user.login,
-                    'name': comment.user.login,
-                    'body': comment.body,
-                    'id': comment.id,
-                    'date_created': comment.created_at,
-                    'changed': None
-                })
-            # Assign the message with the newly formatted comments :)
-            issue['comments'] = comments
-
-        # Update reporter:
-        # Search for the user
-        reporter = github_client.get_user(issue['user']['login'])
-        # Update the reporter field in the message (to match Pagure format)
-        if reporter.name:
-            issue['user']['fullname'] = reporter.name
-        else:
-            issue['user']['fullname'] = issue['user']['login']
-
-        # Update assignee(s):
-        assignees = []
-        for person in issue['assignees']:
-            assignee = github_client.get_user(person['login'])
-            assignees.append({'fullname': assignee.name})
-        # Update the assignee field in the message (to match Pagure format)
-        issue['assignees'] = assignees
-
-        # Update label(s):
-        if issue['labels']:
-            # loop through all the labels on Github and add them
-            # to the new label list and then reassign the message
-            new_label = []
-            for label in issue['labels']:
-                new_label.append(label['name'])
-            issue['labels'] = new_label
-
-        # Update milestone:
-        if issue.get('milestone', None):
-            issue['milestone'] = issue['milestone']['title']
+        reformat_github_issue(issue, upstream, github_client)
 
         issue_updates = config['sync2jira']['map']['github'][upstream].get('issue_updates', {})
 
@@ -374,6 +271,61 @@ def github_issues(upstream, config):
     ))
     for issue in final_issues:
         yield issue
+
+
+def reformat_github_issue(issue, upstream, github_client):
+    """Tweak Issue data format to better match Pagure"""
+
+    # Update comments:
+    # If there are no comments just make an empty array
+    if not issue['comments']:
+        issue['comments'] = []
+    else:
+        # We have multiple comments and need to make api call to get them
+        repo = github_client.get_repo(upstream)
+        comments = []
+        github_issue = repo.get_issue(number=issue['number'])
+        for comment in github_issue.get_comments():
+            # First make API call to get the users name
+            comments.append({
+                'author': comment.user.name or comment.user.login,
+                'name': comment.user.login,
+                'body': comment.body,
+                'id': comment.id,
+                'date_created': comment.created_at,
+                'changed': None
+            })
+        # Assign the message with the newly formatted comments :)
+        issue['comments'] = comments
+
+    # Search for the user
+    reporter = github_client.get_user(issue['user']['login'])
+    # Update the reporter field in the message (to match Pagure format)
+    if reporter.name:
+        issue['user']['fullname'] = reporter.name
+    else:
+        issue['user']['fullname'] = issue['user']['login']
+
+    # Update assignee(s):
+    assignees = []
+    for person in issue['assignees']:
+        assignee = github_client.get_user(person['login'])
+        assignees.append({'fullname': assignee.name})
+    # Update the assignee field in the message (to match Pagure format)
+    issue['assignees'] = assignees
+
+    # Update the label field in the message (to match Pagure format)
+    if issue['labels']:
+        # loop through all the labels on GitHub and add them
+        # to the new label list and then reassign the message
+        new_label = []
+        for label in issue['labels']:
+            new_label.append(label['name'])
+        issue['labels'] = new_label
+
+    # Update the milestone field in the message (to match Pagure format)
+    if issue.get('milestone'):
+        issue['milestone'] = issue['milestone']['title']
 
 
 def _get_current_project_node(upstream, project_number, issue_number, gh_issue):
