@@ -87,7 +87,7 @@ DATAGREPPER_URL = "http://apps.fedoraproject.org/datagrepper/raw"
 INITIALIZE = os.getenv('INITIALIZE', '0')
 
 
-def load_config(loader=fedmsg.config.load_config):
+def load_config(loader=lambda: fedmsg.config.conf):
     """
     Generates and validates the config file \
     that will be used by fedmsg and JIRA client.
@@ -103,8 +103,8 @@ def load_config(loader=fedmsg.config.load_config):
 
     # debug mode
     if config.get('sync2jira', {}).get('debug', False):
-        hdlr = logging.FileHandler('sync2jira_main.log')
-        log.addHandler(hdlr)
+        handler = logging.FileHandler('sync2jira_main.log')
+        log.addHandler(handler)
         log.setLevel(logging.DEBUG)
 
     # Validate it
@@ -119,8 +119,8 @@ def load_config(loader=fedmsg.config.load_config):
     if not specified.issubset(possible):
         message = "Specified handlers: %s, must be a subset of %s."
         raise ValueError(message % (
-            ", ".join(['"%s"' % item for item in specified]),
-            ", ".join(['"%s"' % item for item in possible]),
+            ", ".join(f'"{item}"' for item in specified),
+            ", ".join(f'"{item}"' for item in possible),
         ))
 
     if 'jira' not in config['sync2jira']:
@@ -193,8 +193,8 @@ def initialize_issues(config, testing=False, repo_name=None):
                     raise
         except Exception as e:
             if "API rate limit exceeded" in e.__str__():
-                # If we've hit out API limit:
-                # Sleep for 1 hour and call our function again
+                # If we've hit our API limit, sleep for 1 hour, and call our
+                # function again.
                 log.info("Hit Github API limit. Sleeping for 1 hour...")
                 sleep(3600)
                 if not testing:
@@ -239,8 +239,8 @@ def initialize_pr(config, testing=False, repo_name=None):
                     raise
         except Exception as e:
             if "API rate limit exceeded" in e.__str__():
-                # If we've hit out API limit:
-                # Sleep for 1 hour and call our function again
+                # If we've hit our API limit, sleep for 1 hour, and call our
+                # function again.
                 log.info("Hit Github API limit. Sleeping for 1 hour...")
                 sleep(3600)
                 if not testing:
@@ -282,14 +282,14 @@ def initialize_recent(config):
 
 def handle_msg(msg, suffix, config):
     """
-    Function to handle incomming message from datagrepper
+    Function to handle incoming message from datagrepper
     :param Dict msg: Incoming message
     :param String suffix: Incoming suffix
     :param Dict config: Config dict
     """
     issue = None
     pr = None
-    # Github '.issue.' is used for both PR and Issue
+    # GitHub '.issue.' is used for both PR and Issue
     # Check for that edge case
     if suffix == 'github.issue.comment':
         if 'pull_request' in msg['msg']['issue'] and msg['msg']['action'] != 'deleted':
@@ -327,27 +327,17 @@ def query(limit=None, **kwargs):
     # Pack up the kwargs into a parameter list for request
     params = deepcopy(kwargs)
 
-    # Set up for paging requests
-    all_results = []
-    page = params.get('page', 1)
-
     # Important to set ASC order when paging to avoid duplicates
     params['order'] = 'asc'
 
-    results = get(params=params)
-
-    # Collect the messages
-    all_results.extend(results['raw_messages'])
-
-    # Set up for loop
-    fetched = results['count']
-    total = limit or results['total']
-
-    # Fetch results until no more are left
-    while fetched < total:
-        page += 1
-        params['page'] = page
-
+    # Fetch results:
+    #  - once, if limit is 0 or None (the default)
+    #  - until we hit the limit
+    #  - until there are no more left to fetch
+    fetched = 0
+    total = limit or 1
+    count = 1
+    while fetched < total and count > 0:
         results = get(params=params)
         count = results['count']
         fetched += count
@@ -356,9 +346,10 @@ def query(limit=None, **kwargs):
         if count == 0:
             break
 
-        all_results.extend(results['raw_messages'])
+        for result in results['raw_messages']:
+            yield result
 
-    return all_results
+        params['page'] = params.get('page', 1) + 1
 
 
 def get(params):
@@ -373,17 +364,14 @@ def get(params):
 def main(runtime_test=False, runtime_config=None):
     """
     Main function to check for initial sync
-    and listen for fedmgs.
+    and listen for fedmsgs.
 
     :param Bool runtime_test: Flag to indicate if we are performing a runtime test. Default false
     :param Dict runtime_config: Config file to be used if it is a runtime test. runtime_test must be true
     :return: Nothing
     """
     # Load config and disable warnings
-    if not runtime_test or not runtime_config:
-        config = load_config()
-    else:
-        config = runtime_config
+    config = load_config() if not (runtime_test and runtime_config) else runtime_config
 
     logging.basicConfig(level=logging.INFO)
     warnings.simplefilter("ignore")
@@ -400,7 +388,7 @@ def main(runtime_test=False, runtime_config=None):
             if runtime_test:
                 return
         else:
-            # Pool datagrepper from the last 10 mins
+            # Pull from datagrepper for the last 10 minutes
             log.info("Initialization False. Pulling data from datagrepper...")
             initialize_recent(config)
         try:
@@ -418,14 +406,13 @@ def report_failure(config):
     """
     Helper function to alert admins in case of failure.
 
-
     :param Dict config: Config dict for JIRA
     """
     # Email our admins with the traceback
-    templateLoader = jinja2.FileSystemLoader(
+    template_loader = jinja2.FileSystemLoader(
         searchpath='usr/local/src/sync2jira/sync2jira/')
-    templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)
-    template = templateEnv.get_template('failure_template.jinja')
+    template_env = jinja2.Environment(loader=template_loader, autoescape=True)
+    template = template_env.get_template('failure_template.jinja')
     html_text = template.render(traceback=traceback.format_exc())
 
     # Send mail
