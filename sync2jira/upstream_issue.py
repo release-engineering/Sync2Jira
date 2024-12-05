@@ -151,7 +151,7 @@ def handle_github_message(msg, config, pr_filter=True):
                 return None
         elif key == 'milestone':
             # special handling for milestone: use the number
-            milestone = issue.get(key) or {}
+            milestone = issue.get(key, {})
             actual = milestone.get('number')
             if expected != actual:
                 log.debug("Milestone %s not set on issue: %s", expected, upstream)
@@ -164,10 +164,9 @@ def handle_github_message(msg, config, pr_filter=True):
                           key, actual, expected, upstream)
                 return None
 
-    if pr_filter and 'pull_request' in issue:
-        if not issue.get('closed_at'):
-            log.debug("%r is a pull request.  Ignoring.", issue.get('html_url'))
-            return None
+    if pr_filter and 'pull_request' in issue and 'closed_at' not in issue:
+        log.debug("%r is a pull request.  Ignoring.", issue.get('html_url', '<missing URL>'))
+        return None
 
     github_client = Github(config['sync2jira']['github_token'], retry=5)
     reformat_github_issue(issue, upstream, github_client)
@@ -379,31 +378,28 @@ def _get_current_project_node(upstream, project_number, issue_number, gh_issue):
 
 
 def get_all_github_data(url, headers):
-    """ Pagination utility.  Obnoxious. """
-    link = dict(next=url)
+    """A generator which returns each response from a paginated GitHub API call"""
+    link = {'next': url}
     while 'next' in link:
         response = api_call_get(link['next'], headers=headers)
         for issue in response.json():
             comments = api_call_get(issue['comments_url'], headers=headers)
             issue['comments'] = comments.json()
             yield issue
-        link = _github_link_field_to_dict(response.headers.get('link', None))
+        link = _github_link_field_to_dict(response.headers.get('link'))
 
 
 def _github_link_field_to_dict(field):
-    """
-        Utility for ripping apart github's Link header field.
-        It's kind of ugly.
-    """
+    """Utility for ripping apart GitHub's Link header field."""
 
     if not field:
-        return dict()
-    return dict([
+        return {}
+    return dict(
         (
             part.split('; ')[1][5:-1],
-            part.split('; ')[0][1:-1],
+            part.split('; ')[0][1:-1]
         ) for part in field.split(', ')
-    ])
+    )
 
 
 def api_call_get(url, **kwargs):
