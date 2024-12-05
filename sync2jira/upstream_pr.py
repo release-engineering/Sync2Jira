@@ -18,13 +18,10 @@
 # Authors:  Ralph Bean <rbean@redhat.com>
 
 import logging
-from copy import deepcopy
 
 try:
-    from urllib.parse import urlencode  # py3
     string_type = str
 except ImportError:
-    from urllib import urlencode  # py2
     import types
     string_type = types.StringTypes
 
@@ -67,61 +64,17 @@ def handle_github_message(msg, config, suffix):
 
 def github_prs(upstream, config):
     """
-    Creates a Generator for all GitHub PRs in upstream repo.
+    Returns a generator for all GitHub PRs in upstream repo.
 
     :param String upstream: Upstream Repo
     :param Dict config: Config Dict
-    :returns: GitHub Issue object generator
-    :rtype: sync2jira.intermediary.PR
+    :returns: a generator for GitHub PR objects
+    :rtype: Generator[sync2jira.intermediary.PR]
     """
-    # Get our GitHub token
-    token = config['sync2jira'].get('github_token')
-
-    # Throw warning if we don't have a token set up
-    if not token:
-        headers = {}
-        log.warning('No github_token found.  We will be rate-limited...')
-    else:
-        headers = {'Authorization': 'token ' + token}
-
-    # Get our filters
-    _filter = config['sync2jira'] \
-        .get('filters', {}) \
-        .get('github', {}) \
-        .get(upstream, {})
-
-    # Build our URL
-    url = 'https://api.github.com/repos/%s/pulls' % upstream
-    if _filter:
-        labels = _filter.get('labels')
-        if isinstance(labels, list):
-            # We have to flatten the labels list to a comma-separated string,
-            # so make a copy to avoid mutating the config object
-            url_filter = deepcopy(_filter)
-            url_filter['labels'] = ','.join(labels)
-        else:
-            url_filter = _filter  # Use the existing filter, unmodified
-        url += '?' + urlencode(url_filter)
-
-    # Get our issues using helper functions
-    prs = u_issue.get_all_github_data(url, headers)
-
-    # Initialize Github object so we can get their full name (instead of their username)
-    # And get comments if needed
     github_client = Github(config['sync2jira']['github_token'])
-
-    # Build our final list of prs
-    final_prs = []
-    for pr in prs:
+    for pr in u_issue.generate_github_items('pulls', upstream, config):
         reformat_github_pr(pr, upstream, github_client)
-
-        final_prs.append(pr)
-    # Build our final list of data and yield
-    final_prs = list((
-        i.PR.from_github(upstream, pr, 'open', config) for pr in final_prs
-    ))
-    for issue in final_prs:
-        yield issue
+        yield i.PR.from_github(upstream, pr, 'open', config)
 
 
 def reformat_github_pr(pr, upstream, github_client):
