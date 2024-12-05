@@ -1,3 +1,4 @@
+arrow
 jira
 requests
 requests_kerberos
