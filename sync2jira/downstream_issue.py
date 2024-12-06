@@ -261,7 +261,7 @@ def alert_user_of_duplicate_issues(issue, final_result, results_of_query,
     admins = []
     admin_template = []
     for admin in config['sync2jira']['admins']:
-        admin_username = [name for name in admin][0]
+        admin_username = next(name for name in admin).strip()
         ret = client.search_users(admin_username)
         if len(ret) > 1:
             log.warning('Found multiple users for admin %s', admin_username)
@@ -810,7 +810,7 @@ def _update_transition(client, existing, issue):
     # downstream JIRA ticket
 
     # First get the closed status from the config file
-    closed_status = list(filter(lambda d: "transition" in d, issue.downstream.get('issue_updates', {})))[0]['transition']
+    closed_status = next(filter(lambda d: "transition" in d, issue.downstream.get('issue_updates', {})))['transition']
     if closed_status is not True and issue.status == 'Closed' \
             and existing.fields.status.name.upper() != closed_status.upper():
         # Now we need to update the status of the JIRA issue
@@ -871,7 +871,7 @@ def _update_fixVersion(updates, existing, issue, client):
     """
     fix_version = []
     # If we are not supposed to overwrite JIRA content
-    if not bool(list(filter(lambda d: "fixVersion" in d, updates))[0]['fixVersion']['overwrite']):
+    if not bool(next(filter(lambda d: "fixVersion" in d, updates))['fixVersion']['overwrite']):
         # We need to make sure we're not deleting any fixVersions on JIRA
         # Get all fixVersions for the issue
         for version in existing.fields.fixVersions:
@@ -918,7 +918,7 @@ def _update_assignee(client, existing, issue, updates):
         :returns: Nothing
     """
     # First check if overwrite is set to True
-    overwrite = bool(list(filter(lambda d: "assignee" in d, updates))[0]['assignee']['overwrite'])
+    overwrite = bool(next(filter(lambda d: "assignee" in d, updates))['assignee']['overwrite'])
 
     # First check if the issue is already assigned to the same person
     update = False
@@ -1049,7 +1049,7 @@ def _update_tags(updates, existing, issue):
     updated_labels = issue.tags
 
     # Ensure no duplicates if overwrite is set to false
-    if not bool(list(filter(lambda d: "tags" in d, updates))[0]['tags']['overwrite']):
+    if not bool(next(filter(lambda d: "tags" in d, updates))['tags']['overwrite']):
         updated_labels = _label_matching(updated_labels, existing.fields.labels)
 
     # Ensure that the tags are all valid
