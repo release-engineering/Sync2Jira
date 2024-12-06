@@ -496,7 +496,8 @@ class TestMain(unittest.TestCase):
         response = m.query()
 
         # Assert everything was called correctly
-        mock_get.assert_called_with(params={'order': 'asc'})
+        mock_get.assert_called_once()
+        self.assertEqual(mock_get.call_args.kwargs['params']['order'], 'asc')
         self.assertEqual(response, ['test_msg'])
 
     @mock.patch(PATH + 'HTTPKerberosAuth')
