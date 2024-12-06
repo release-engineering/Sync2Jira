@@ -119,8 +119,8 @@ def load_config(loader=fedmsg.config.load_config):
     if not specified.issubset(possible):
         message = "Specified handlers: %s, must be a subset of %s."
         raise ValueError(message % (
-            ", ".join(['"%s"' % item for item in specified]),
-            ", ".join(['"%s"' % item for item in possible]),
+            ", ".join(f'"{item}"' for item in specified),
+            ", ".join(f'"{item}"' for item in possible),
         ))
 
     if 'jira' not in config['sync2jira']:
