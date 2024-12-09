@@ -174,7 +174,7 @@ class TestDownstreamIssue(unittest.TestCase):
         # Ensure that we get results back from the jira client.
         target1 = "target1"
         client.return_value.search_issues = mock.MagicMock(return_value=[target1])
-        result = d._get_existing_jira_issue_legacy(jira.client.JIRA(), issue, config)
+        result = d._get_existing_jira_issue_legacy(jira.client.JIRA(), issue)
         assert result == target1
 
         client.return_value.search_issues.assert_called_once_with(
