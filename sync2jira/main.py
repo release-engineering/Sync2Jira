@@ -87,7 +87,7 @@ DATAGREPPER_URL = "http://apps.fedoraproject.org/datagrepper/raw"
 INITIALIZE = os.getenv('INITIALIZE', '0')
 
 
-def load_config(loader=fedmsg.config.conf.load_config):
+def load_config(loader=lambda: fedmsg.config.conf):
     """
     Generates and validates the config file \
     that will be used by fedmsg and JIRA client.
