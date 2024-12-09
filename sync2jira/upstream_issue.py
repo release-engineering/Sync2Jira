@@ -168,8 +168,11 @@ def handle_github_message(msg, config, pr_filter=True):
         log.debug("%r is a pull request.  Ignoring.", issue.get('html_url', '<missing URL>'))
         return None
 
-    github_client = Github(config['sync2jira']['github_token'], retry=5)
+    token = config['sync2jira'].get('github_token')
+    headers = {'Authorization': 'token ' + token} if token else {}
+    github_client = Github(token, retry=5)
     reformat_github_issue(issue, upstream, github_client)
+    add_project_values(issue, upstream, headers, config)
     return i.Issue.from_github(upstream, issue, config)
 
 
@@ -184,57 +187,74 @@ def github_issues(upstream, config):
     """
     token = config['sync2jira'].get('github_token')
     headers = {'Authorization': 'token ' + token} if token else {}
-    project_number = config['sync2jira']['map']['github'][upstream].get('github_project_number')
     github_client = Github(token, retry=5)
-    orgname, reponame = upstream.rsplit('/', 1)
     for issue in generate_github_items('issues', upstream, config):
         if 'pull_request' in issue or '/pull/' in issue.get('html_url', ''):
             # We don't want to copy these around
+            orgname, reponame = upstream.rsplit('/', 1)
             log.debug(
                 "Issue %s/%s#%s is a pull request; skipping",
                 orgname, reponame, issue['number'])
             continue
         reformat_github_issue(issue, upstream, github_client)
-
-        issue_updates = config['sync2jira']['map']['github'][upstream].get('issue_updates', {})
-
-        if 'github_project_fields' in issue_updates:
-            issue['storypoints'] = None
-            issue['priority'] = ''
-            issuenumber = issue['number']
-            github_project_fields = config['sync2jira']['map']['github'][upstream]['github_project_fields']
-            variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
-            response = requests.post(graphqlurl, headers=headers, json={"query": ghquery, "variables": variables})
-            if response.status_code != 200:
-                log.debug("HTTP error while fetching issue %s/%s#%s: %s",
-                          orgname, reponame, issuenumber, response.text)
-                continue
-            data = response.json()
-            gh_issue = data['data']['repository']['issue']
-            if not gh_issue:
-                log.debug("GitHub error while fetching issue %s/%s#%s: %s",
-                          orgname, reponame, issuenumber, response.text)
-                continue
-            project_node = _get_current_project_node(
-                upstream, project_number, issuenumber, gh_issue)
-            if project_node:
-                item_nodes = project_node.get('fieldValues', {}).get('nodes', {})
-                for item in item_nodes:
-                    gh_field_name = item.get('fieldName', {}).get('name')
-                    if not gh_field_name:
-                        continue
-                    prio_field = github_project_fields.get('priority', {}).get('gh_field')
-                    if gh_field_name == prio_field:
-                        issue['priority'] = item.get('name')
-                    sp_field = github_project_fields.get('storypoints', {}).get('gh_field')
-                    if gh_field_name == sp_field:
-                        try:
-                            issue['storypoints'] = int(item['number'])
-                        except (ValueError, KeyError) as err:
-                            log.debug(
-                                "Error while processing storypoints for issue %s/%s#%s: %s",
-                                orgname, reponame, issuenumber, err)
+        add_project_values(issue, upstream, headers, config)
         yield i.Issue.from_github(upstream, issue, config)
+
+
+def add_project_values(issue, upstream, headers, config):
+    """Add values to an issue from its corresponding card in a GitHub Project
+
+    :param dict issue: Issue
+    :param str upstream: Upstream repo name
+    :param dict headers: HTTP Request headers, including access token, if any
+    :param dict config: Config
+    """
+    orgname, reponame = upstream.rsplit('/', 1)
+    upstream_config = config['sync2jira']['map']['github'][upstream]
+    project_number = upstream_config.get('github_project_number')
+    issue_updates = upstream_config.get('issue_updates', {})
+    if 'github_project_fields' in issue_updates:
+        issue['storypoints'] = None
+        issue['priority'] = None
+        issuenumber = issue['number']
+        github_project_fields = upstream_config['github_project_fields']
+        variables = {
+            "orgname": orgname,
+            "reponame": reponame,
+            "issuenumber": issuenumber}
+        response = requests.post(
+            graphqlurl,
+            headers=headers,
+            json={"query": ghquery, "variables": variables})
+        if response.status_code != 200:
+            log.debug("HTTP error while fetching issue %s/%s#%s: %s",
+                      orgname, reponame, issuenumber, response.text)
+            return
+        data = response.json()
+        gh_issue = data['data']['repository']['issue']
+        if not gh_issue:
+            log.debug("GitHub error while fetching issue %s/%s#%s: %s",
+                      orgname, reponame, issuenumber, response.text)
+            return
+        project_node = _get_current_project_node(
+            upstream, project_number, issuenumber, gh_issue)
+        if project_node:
+            item_nodes = project_node.get('fieldValues', {}).get('nodes', {})
+            for item in item_nodes:
+                gh_field_name = item.get('fieldName', {}).get('name')
+                if not gh_field_name:
+                    continue
+                prio_field = github_project_fields.get('priority', {}).get('gh_field')
+                if gh_field_name == prio_field:
+                    issue['priority'] = item.get('name')
+                sp_field = github_project_fields.get('storypoints', {}).get('gh_field')
+                if gh_field_name == sp_field:
+                    try:
+                        issue['storypoints'] = int(item['number'])
+                    except (ValueError, KeyError) as err:
+                        log.debug(
+                            "Error while processing storypoints for issue %s/%s#%s: %s",
+                            orgname, reponame, issuenumber, err)
 
 
 def reformat_github_issue(issue, upstream, github_client):
