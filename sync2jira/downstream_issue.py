@@ -989,18 +989,9 @@ def _update_github_project_fields(client, existing, issue,
         log.info(f"Issue value for field '{name}' is '{fieldvalue}'")
         if name == 'storypoints':
             if not isinstance(fieldvalue, int):
-                log.info(f"Story point field value '{fieldvalue}' is a {type(fieldvalue)}, not an 'int'")
-                # FIXME:  The intermediate issue _should_ have either a number
-                #  or None for this value, but the code isn't complete yet; so,
-                #  until that is addressed, cover for it here.
-                try:
-                    fieldvalue = int(fieldvalue)
-                    log.info(f"Story point field value successfully converted to an 'int':  {fieldvalue}")
-                except (TypeError, ValueError) as exc:
-                    if fieldvalue:
-                        log.error(f"Error converting story point value ({fieldvalue}) to int: {exc}")
-                    log.info(f"Skipping story point field with value:  '{fieldvalue}'")
-                    continue
+                if fieldvalue is not None:
+                    log.info(f"Story point field value '{fieldvalue}' is a {type(fieldvalue)}, not an 'int'")
+                continue
             try:
                 jirafieldname = default_jira_fields['storypoints']
                 log.info(f"Jira issue story point field name is:  '{jirafieldname}'")
