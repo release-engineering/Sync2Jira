@@ -235,7 +235,7 @@ class TestUpstreamIssue(unittest.TestCase):
                 'user': {'login': 'mock_login', 'fullname': 'mock_name'},
                 'milestone': 'mock_milestone',
                 'storypoints': 2,
-                 'priority': ''},
+                'priority': None},
             self.mock_config
         )
         self.mock_github_client.get_repo.assert_called_with('org/repo')
