@@ -231,7 +231,7 @@ def add_project_values(issue, upstream, headers, config):
                       orgname, reponame, issuenumber, response.text)
             return
         data = response.json()
-        gh_issue = data['data']['repository']['issue']
+        gh_issue = data.get('data', {}).get('repository', {}).get('issue')
         if not gh_issue:
             log.debug("GitHub error while fetching issue %s/%s#%s: %s",
                       orgname, reponame, issuenumber, response.text)
