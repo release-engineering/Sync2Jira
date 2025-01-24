@@ -1,6 +1,6 @@
+from copy import deepcopy
 import unittest
 import unittest.mock as mock
-from copy import deepcopy
 from unittest.mock import MagicMock
 
 import sync2jira.upstream_issue as u
