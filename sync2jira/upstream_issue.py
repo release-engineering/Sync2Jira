@@ -110,13 +110,13 @@ ghquery = """
 """
 
 
-def handle_github_message(body, config, pr_filter=True):
+def handle_github_message(body, config, is_pr=False):
     """
     Handle GitHub message from FedMsg.
 
     :param Dict body: FedMsg Message body
     :param Dict config: Config File
-    :param Bool pr_filter: Switch to ignore pull_requests
+    :param Bool is_pr: msg refers to a pull request
     :returns: Issue object
     :rtype: sync2jira.intermediary.Issue
     """
@@ -128,14 +128,13 @@ def handle_github_message(body, config, pr_filter=True):
     if upstream not in mapped_repos:
         log.debug("%r not in Github map: %r", upstream, mapped_repos.keys())
         return None
-    elif "issue" not in mapped_repos[upstream].get("sync", {}) and pr_filter is True:
-        log.debug("%r not in Github Issue map: %r", upstream, mapped_repos.keys())
-        return None
-    elif (
-        "pullrequest" not in mapped_repos[upstream].get("sync", {})
-        and pr_filter is False
-    ):
-        log.debug("%r not in Github PR map: %r", upstream, mapped_repos.keys())
+    key = "pullrequest" if is_pr else "issue"
+    if key not in mapped_repos[upstream].get("sync", {}):
+        log.debug(
+            "%r not in Github sync map: %r",
+            key,
+            mapped_repos[upstream].get("sync", {}).keys(),
+        )
         return None
 
     _filter = config["sync2jira"].get("filters", {}).get("github", {}).get(upstream, {})
@@ -168,7 +167,7 @@ def handle_github_message(body, config, pr_filter=True):
                 )
                 return None
 
-    if pr_filter and "pull_request" in issue and "closed_at" not in issue:
+    if is_pr and "closed_at" not in issue:
         log.debug(
             "%r is a pull request.  Ignoring.", issue.get("html_url", "<missing URL>")
         )

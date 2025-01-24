@@ -303,33 +303,29 @@ def handle_msg(body, suffix, config):
     :param String suffix: Incoming suffix
     :param Dict config: Config dict
     """
-    issue = None
-    pr = None
-    # GitHub '.issue*' is used for both PR and Issue
-    # Check for that edge case
-    if suffix.startswith("github.issue"):
-        if "pull_request" in body["issue"] and body["action"] != "deleted":
-            # pr_filter turns on/off the filtering of PRs
-            pr = issue_handlers[suffix](body, config, pr_filter=False)
-            if not pr:
+    if handler := issue_handlers.get(suffix):
+        # GitHub '.issue*' is used for both PR and Issue; check if this update
+        # is actually for a PR
+        if "pull_request" in body["issue"]:
+            if body["action"] == "deleted":
+                # FIXME:  What _should_ we be doing in this case?  Calling pr_handlers[]()??
                 return
-            # Issues do not have suffix and reporter needs to be reformatted
+            # Handle this PR update as though it were an Issue, if that's
+            # acceptable to the configuration.
+            if not (pr := handler(body, config, is_pr=True)):
+                return
+            # PRs require additional handling (Issues do not have suffix, and
+            # reporter needs to be reformatted).
             pr.suffix = suffix
             pr.reporter = pr.reporter.get("fullname")
             setattr(pr, "match", matcher(pr.content, pr.comments))
+            d_pr.sync_with_jira(pr, config)
         else:
-            issue = issue_handlers[suffix](body, config)
-    elif suffix in issue_handlers:
-        issue = issue_handlers[suffix](body, config)
-    elif suffix in pr_handlers:
-        pr = pr_handlers[suffix](body, config, suffix)
-
-    if not issue and not pr:
-        return
-    if issue:
-        d_issue.sync_with_jira(issue, config)
-    elif pr:
-        d_pr.sync_with_jira(pr, config)
+            if issue := handler(body, config):
+                d_issue.sync_with_jira(issue, config)
+    elif handler := pr_handlers.get(suffix):
+        if pr := handler(body, config, suffix):
+            d_pr.sync_with_jira(pr, config)
 
 
 def query(limit=None, **kwargs):
