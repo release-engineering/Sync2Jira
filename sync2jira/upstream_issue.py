@@ -26,10 +26,10 @@ from github import Github
 
 import sync2jira.intermediary as i
 
-log = logging.getLogger('sync2jira')
-graphqlurl = 'https://api.github.com/graphql'
+log = logging.getLogger("sync2jira")
+graphqlurl = "https://api.github.com/graphql"
 
-ghquery = '''
+ghquery = """
     query MyQuery(
         $orgname: String!, $reponame: String!, $issuenumber: Int!
     ) {
@@ -107,7 +107,7 @@ ghquery = '''
           }
         }
       }
-'''
+"""
 
 
 def handle_github_message(msg, config, pr_filter=True):
@@ -120,38 +120,38 @@ def handle_github_message(msg, config, pr_filter=True):
     :returns: Issue object
     :rtype: sync2jira.intermediary.Issue
     """
-    owner = msg['msg']['repository']['owner']['login']
-    repo = msg['msg']['repository']['name']
-    upstream = '{owner}/{repo}'.format(owner=owner, repo=repo)
+    owner = msg["msg"]["repository"]["owner"]["login"]
+    repo = msg["msg"]["repository"]["name"]
+    upstream = "{owner}/{repo}".format(owner=owner, repo=repo)
 
-    mapped_repos = config['sync2jira']['map']['github']
+    mapped_repos = config["sync2jira"]["map"]["github"]
     if upstream not in mapped_repos:
         log.debug("%r not in Github map: %r", upstream, mapped_repos.keys())
         return None
-    elif 'issue' not in mapped_repos[upstream].get('sync', {}) and pr_filter is True:
+    elif "issue" not in mapped_repos[upstream].get("sync", {}) and pr_filter is True:
         log.debug("%r not in Github Issue map: %r", upstream, mapped_repos.keys())
         return None
-    elif 'pullrequest' not in mapped_repos[upstream].get('sync', {}) and pr_filter is False:
+    elif (
+        "pullrequest" not in mapped_repos[upstream].get("sync", {})
+        and pr_filter is False
+    ):
         log.debug("%r not in Github PR map: %r", upstream, mapped_repos.keys())
         return None
 
-    _filter = config['sync2jira']\
-        .get('filters', {})\
-        .get('github', {})\
-        .get(upstream, {})
+    _filter = config["sync2jira"].get("filters", {}).get("github", {}).get(upstream, {})
 
-    issue = msg['msg']['issue']
+    issue = msg["msg"]["issue"]
     for key, expected in _filter.items():
-        if key == 'labels':
+        if key == "labels":
             # special handling for label: we look for it in the list of msg labels
-            actual = {label['name'] for label in issue['labels']}
+            actual = {label["name"] for label in issue["labels"]}
             if actual.isdisjoint(expected):
                 log.debug("Labels %s not found on issue: %s", expected, upstream)
                 return None
-        elif key == 'milestone':
+        elif key == "milestone":
             # special handling for milestone: use the number
             milestone = issue.get(key, {})
-            actual = milestone.get('number')
+            actual = milestone.get("number")
             if expected != actual:
                 log.debug("Milestone %s not set on issue: %s", expected, upstream)
                 return None
@@ -159,16 +159,23 @@ def handle_github_message(msg, config, pr_filter=True):
             # direct comparison
             actual = issue.get(key)
             if actual != expected:
-                log.debug("Actual %r %r != expected %r on issue %s",
-                          key, actual, expected, upstream)
+                log.debug(
+                    "Actual %r %r != expected %r on issue %s",
+                    key,
+                    actual,
+                    expected,
+                    upstream,
+                )
                 return None
 
-    if pr_filter and 'pull_request' in issue and 'closed_at' not in issue:
-        log.debug("%r is a pull request.  Ignoring.", issue.get('html_url', '<missing URL>'))
+    if pr_filter and "pull_request" in issue and "closed_at" not in issue:
+        log.debug(
+            "%r is a pull request.  Ignoring.", issue.get("html_url", "<missing URL>")
+        )
         return None
 
-    token = config['sync2jira'].get('github_token')
-    headers = {'Authorization': 'token ' + token} if token else {}
+    token = config["sync2jira"].get("github_token")
+    headers = {"Authorization": "token " + token} if token else {}
     github_client = Github(token, retry=5)
     reformat_github_issue(issue, upstream, github_client)
     add_project_values(issue, upstream, headers, config)
@@ -184,16 +191,19 @@ def github_issues(upstream, config):
     :returns: a generator for GitHub Issue objects
     :rtype: Generator[sync2jira.intermediary.Issue]
     """
-    token = config['sync2jira'].get('github_token')
-    headers = {'Authorization': 'token ' + token} if token else {}
+    token = config["sync2jira"].get("github_token")
+    headers = {"Authorization": "token " + token} if token else {}
     github_client = Github(token, retry=5)
-    for issue in generate_github_items('issues', upstream, config):
-        if 'pull_request' in issue or '/pull/' in issue.get('html_url', ''):
+    for issue in generate_github_items("issues", upstream, config):
+        if "pull_request" in issue or "/pull/" in issue.get("html_url", ""):
             # We don't want to copy these around
-            orgname, reponame = upstream.rsplit('/', 1)
+            orgname, reponame = upstream.rsplit("/", 1)
             log.debug(
                 "Issue %s/%s#%s is a pull request; skipping",
-                orgname, reponame, issue['number'])
+                orgname,
+                reponame,
+                issue["number"],
+            )
             continue
         reformat_github_issue(issue, upstream, github_client)
         add_project_values(issue, upstream, headers, config)
@@ -208,55 +218,66 @@ def add_project_values(issue, upstream, headers, config):
     :param dict headers: HTTP Request headers, including access token, if any
     :param dict config: Config
     """
-    upstream_config = config['sync2jira']['map']['github'][upstream]
-    project_number = upstream_config.get('github_project_number')
-    issue_updates = upstream_config.get('issue_updates', {})
-    if 'github_project_fields' not in issue_updates:
+    upstream_config = config["sync2jira"]["map"]["github"][upstream]
+    project_number = upstream_config.get("github_project_number")
+    issue_updates = upstream_config.get("issue_updates", {})
+    if "github_project_fields" not in issue_updates:
         return
-    issue['storypoints'] = None
-    issue['priority'] = None
-    issuenumber = issue['number']
-    github_project_fields = upstream_config['github_project_fields']
-    orgname, reponame = upstream.rsplit('/', 1)
-    variables = {
-        "orgname": orgname,
-        "reponame": reponame,
-        "issuenumber": issuenumber}
+    issue["storypoints"] = None
+    issue["priority"] = None
+    issuenumber = issue["number"]
+    github_project_fields = upstream_config["github_project_fields"]
+    orgname, reponame = upstream.rsplit("/", 1)
+    variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
     response = requests.post(
-        graphqlurl,
-        headers=headers,
-        json={"query": ghquery, "variables": variables})
+        graphqlurl, headers=headers, json={"query": ghquery, "variables": variables}
+    )
     if response.status_code != 200:
-        log.info("HTTP error while fetching issue %s/%s#%s: %s",
-                 orgname, reponame, issuenumber, response.text)
+        log.info(
+            "HTTP error while fetching issue %s/%s#%s: %s",
+            orgname,
+            reponame,
+            issuenumber,
+            response.text,
+        )
         return
     data = response.json()
-    gh_issue = data.get('data', {}).get('repository', {}).get('issue')
+    gh_issue = data.get("data", {}).get("repository", {}).get("issue")
     if not gh_issue:
-        log.info("GitHub error while fetching issue %s/%s#%s: %s",
-                 orgname, reponame, issuenumber, response.text)
+        log.info(
+            "GitHub error while fetching issue %s/%s#%s: %s",
+            orgname,
+            reponame,
+            issuenumber,
+            response.text,
+        )
         return
     project_node = _get_current_project_node(
-        upstream, project_number, issuenumber, gh_issue)
+        upstream, project_number, issuenumber, gh_issue
+    )
     if not project_node:
         return
-    item_nodes = project_node.get('fieldValues', {}).get('nodes', {})
+    item_nodes = project_node.get("fieldValues", {}).get("nodes", {})
     for item in item_nodes:
-        gh_field_name = item.get('fieldName', {}).get('name')
+        gh_field_name = item.get("fieldName", {}).get("name")
         if not gh_field_name:
             continue
-        prio_field = github_project_fields.get('priority', {}).get('gh_field')
+        prio_field = github_project_fields.get("priority", {}).get("gh_field")
         if gh_field_name == prio_field:
-            issue['priority'] = item.get('name')
+            issue["priority"] = item.get("name")
             continue
-        sp_field = github_project_fields.get('storypoints', {}).get('gh_field')
+        sp_field = github_project_fields.get("storypoints", {}).get("gh_field")
         if gh_field_name == sp_field:
             try:
-                issue['storypoints'] = int(item['number'])
+                issue["storypoints"] = int(item["number"])
             except (ValueError, KeyError) as err:
                 log.info(
                     "Error while processing storypoints for issue %s/%s#%s: %s",
-                    orgname, reponame, issuenumber, err)
+                    orgname,
+                    reponame,
+                    issuenumber,
+                    err,
+                )
             continue
 
 
@@ -265,13 +286,13 @@ def reformat_github_issue(issue, upstream, github_client):
 
     # Update comments:
     # If there are no comments just make an empty array
-    if not issue['comments']:
-        issue['comments'] = []
+    if not issue["comments"]:
+        issue["comments"] = []
     else:
         # We have multiple comments and need to make api call to get them
         repo = github_client.get_repo(upstream)
-        github_issue = repo.get_issue(number=issue['number'])
-        issue['comments'] = reformat_github_comments(github_issue.get_comments())
+        github_issue = repo.get_issue(number=issue["number"])
+        issue["comments"] = reformat_github_comments(github_issue.get_comments())
 
     # Update the rest of the parts
     reformat_github_common(issue, github_client)
@@ -281,49 +302,50 @@ def reformat_github_comments(comments):
     """Helper function which encapsulates reformatting comments"""
     return [
         {
-            'author': comment.user.name or comment.user.login,
-            'name': comment.user.login,
-            'body': comment.body,
-            'id': comment.id,
-            'date_created': comment.created_at,
-            'changed': None
-        } for comment in comments
+            "author": comment.user.name or comment.user.login,
+            "name": comment.user.login,
+            "body": comment.body,
+            "id": comment.id,
+            "date_created": comment.created_at,
+            "changed": None,
+        }
+        for comment in comments
     ]
 
 
 def reformat_github_common(item, github_client):
     """Helper function which tweaks the data format of the parts of Issues and
-     PRs which are common so that they better match Pagure
+    PRs which are common so that they better match Pagure
     """
     # Update reporter:
     # Search for the user
-    reporter = github_client.get_user(item['user']['login'])
+    reporter = github_client.get_user(item["user"]["login"])
     # Update the reporter field in the message (to match Pagure format)
     if reporter.name:
-        item['user']['fullname'] = reporter.name
+        item["user"]["fullname"] = reporter.name
     else:
-        item['user']['fullname'] = item['user']['login']
+        item["user"]["fullname"] = item["user"]["login"]
 
     # Update assignee(s):
     assignees = []
-    for person in item.get('assignees', []):
-        assignee = github_client.get_user(person['login'])
-        assignees.append({'fullname': assignee.name})
+    for person in item.get("assignees", []):
+        assignee = github_client.get_user(person["login"])
+        assignees.append({"fullname": assignee.name})
     # Update the assignee field in the message (to match Pagure format)
-    item['assignees'] = assignees
+    item["assignees"] = assignees
 
     # Update the label field in the message (to match Pagure format)
-    if item['labels']:
+    if item["labels"]:
         # Loop through all the labels on GitHub and add them
         # to the new label list and then reassign the message
         new_label = []
-        for label in item['labels']:
-            new_label.append(label['name'])
-        item['labels'] = new_label
+        for label in item["labels"]:
+            new_label.append(label["name"])
+        item["labels"] = new_label
 
     # Update the milestone field in the message (to match Pagure format)
-    if item.get('milestone'):
-        item['milestone'] = item['milestone']['title']
+    if item.get("milestone"):
+        item["milestone"] = item["milestone"]["title"]
 
 
 def generate_github_items(api_method, upstream, config):
@@ -336,39 +358,37 @@ def generate_github_items(api_method, upstream, config):
     :returns: a generator for GitHub Issue/PR objects
     :rtype: Generator[Any, Any, None]
     """
-    token = config['sync2jira'].get('github_token')
+    token = config["sync2jira"].get("github_token")
     if not token:
         headers = {}
-        log.warning('No github_token found.  We will be rate-limited...')
+        log.warning("No github_token found.  We will be rate-limited...")
     else:
-        headers = {'Authorization': 'token ' + token}
+        headers = {"Authorization": "token " + token}
 
-    params = config['sync2jira']\
-        .get('filters', {})\
-        .get('github', {})\
-        .get(upstream, {})
+    params = config["sync2jira"].get("filters", {}).get("github", {}).get(upstream, {})
 
-    url = 'https://api.github.com/repos/' + upstream + '/' + api_method
+    url = "https://api.github.com/repos/" + upstream + "/" + api_method
     if params:
-        labels = params.get('labels')
+        labels = params.get("labels")
         if isinstance(labels, list):
             # We have to flatten the labels list to a comma-separated string,
             # so make a copy to avoid mutating the config object
             url_filter = deepcopy(params)
-            url_filter['labels'] = ','.join(labels)
+            url_filter["labels"] = ",".join(labels)
         else:
             url_filter = params  # Use the existing filter, unmodified
-        url += '?' + urlencode(url_filter)
+        url += "?" + urlencode(url_filter)
 
     return get_all_github_data(url, headers)
 
 
 def _get_current_project_node(upstream, project_number, issue_number, gh_issue):
-    project_items = gh_issue['projectItems']['nodes']
+    project_items = gh_issue["projectItems"]["nodes"]
     # If there are no project items, there is nothing to return.
     if len(project_items) == 0:
-        log.debug("Issue %s#%s is not associated with any project",
-                  upstream, issue_number)
+        log.debug(
+            "Issue %s#%s is not associated with any project", upstream, issue_number
+        )
         return None
 
     if not project_number:
@@ -384,32 +404,37 @@ def _get_current_project_node(upstream, project_number, issue_number, gh_issue):
         log.debug(
             "Project number is not configured, and the issue %s#%s"
             " is associated with more than one project: %s",
-            upstream, issue_number, ", ".join(prj))
+            upstream,
+            issue_number,
+            ", ".join(prj),
+        )
         return None
 
     # Return the associated project which matches the configured project if we
     # can find it.
     for item in project_items:
-        if item['project']['number'] == project_number:
+        if item["project"]["number"] == project_number:
             return item
 
     log.debug(
         "Issue %s#%s is associated with multiple projects, "
         "but none match the configured project.",
-        upstream, issue_number)
+        upstream,
+        issue_number,
+    )
     return None
 
 
 def get_all_github_data(url, headers):
     """A generator which returns each response from a paginated GitHub API call"""
-    link = {'next': url}
-    while 'next' in link:
-        response = api_call_get(link['next'], headers=headers)
+    link = {"next": url}
+    while "next" in link:
+        response = api_call_get(link["next"], headers=headers)
         for issue in response.json():
-            comments = api_call_get(issue['comments_url'], headers=headers)
-            issue['comments'] = comments.json()
+            comments = api_call_get(issue["comments_url"], headers=headers)
+            issue["comments"] = comments.json()
             yield issue
-        link = _github_link_field_to_dict(response.headers.get('link'))
+        link = _github_link_field_to_dict(response.headers.get("link"))
 
 
 def _github_link_field_to_dict(field):
@@ -418,10 +443,8 @@ def _github_link_field_to_dict(field):
     if not field:
         return {}
     return dict(
-        (
-            part.split('; ')[1][5:-1],
-            part.split('; ')[0][1:-1]
-        ) for part in field.split(', ')
+        (part.split("; ")[1][5:-1], part.split("; ")[0][1:-1])
+        for part in field.split(", ")
     )
 
 

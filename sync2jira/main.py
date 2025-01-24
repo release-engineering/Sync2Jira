@@ -49,10 +49,10 @@ FORMAT = "[%(asctime)s] %(levelname)s: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 logging.basicConfig(format=FORMAT, level=logging.WARNING)
-log = logging.getLogger('sync2jira')
+log = logging.getLogger("sync2jira")
 
 # Only allow fedmsg logs that are critical
-fedmsg_log = logging.getLogger('fedmsg.crypto.utils')
+fedmsg_log = logging.getLogger("fedmsg.crypto.utils")
 fedmsg_log.setLevel(50)
 
 remote_link_title = "Upstream issue"
@@ -62,37 +62,37 @@ failure_email_subject = "Sync2Jira Has Failed!"
 issue_handlers = {
     # GitHub
     # New webhook-2fm topics
-    'github.issues': u_issue.handle_github_message,
-    'github.issue_comment': u_issue.handle_github_message,
+    "github.issues": u_issue.handle_github_message,
+    "github.issue_comment": u_issue.handle_github_message,
     # Old github2fedmsg topics
-    'github.issue.opened': u_issue.handle_github_message,
-    'github.issue.reopened': u_issue.handle_github_message,
-    'github.issue.labeled': u_issue.handle_github_message,
-    'github.issue.assigned': u_issue.handle_github_message,
-    'github.issue.unassigned': u_issue.handle_github_message,
-    'github.issue.closed': u_issue.handle_github_message,
-    'github.issue.comment': u_issue.handle_github_message,
-    'github.issue.unlabeled': u_issue.handle_github_message,
-    'github.issue.milestoned': u_issue.handle_github_message,
-    'github.issue.demilestoned': u_issue.handle_github_message,
-    'github.issue.edited': u_issue.handle_github_message,
+    "github.issue.opened": u_issue.handle_github_message,
+    "github.issue.reopened": u_issue.handle_github_message,
+    "github.issue.labeled": u_issue.handle_github_message,
+    "github.issue.assigned": u_issue.handle_github_message,
+    "github.issue.unassigned": u_issue.handle_github_message,
+    "github.issue.closed": u_issue.handle_github_message,
+    "github.issue.comment": u_issue.handle_github_message,
+    "github.issue.unlabeled": u_issue.handle_github_message,
+    "github.issue.milestoned": u_issue.handle_github_message,
+    "github.issue.demilestoned": u_issue.handle_github_message,
+    "github.issue.edited": u_issue.handle_github_message,
 }
 
 # PR related handlers
 pr_handlers = {
     # GitHub
     # New webhook-2fm topics
-    'github.pull_request': u_pr.handle_github_message,
-    'github.issue_comment': u_pr.handle_github_message,
+    "github.pull_request": u_pr.handle_github_message,
+    "github.issue_comment": u_pr.handle_github_message,
     # Old github2fedmsg topics
-    'github.pull_request.opened': u_pr.handle_github_message,
-    'github.pull_request.edited': u_pr.handle_github_message,
-    'github.issue.comment': u_pr.handle_github_message,
-    'github.pull_request.reopened': u_pr.handle_github_message,
-    'github.pull_request.closed': u_pr.handle_github_message,
+    "github.pull_request.opened": u_pr.handle_github_message,
+    "github.pull_request.edited": u_pr.handle_github_message,
+    "github.issue.comment": u_pr.handle_github_message,
+    "github.pull_request.reopened": u_pr.handle_github_message,
+    "github.pull_request.closed": u_pr.handle_github_message,
 }
 DATAGREPPER_URL = "http://apps.fedoraproject.org/datagrepper/raw"
-INITIALIZE = os.getenv('INITIALIZE', '0')
+INITIALIZE = os.getenv("INITIALIZE", "0")
 
 
 def load_config(loader=fedmsg.config.load_config):
@@ -107,39 +107,42 @@ def load_config(loader=fedmsg.config.load_config):
     config = loader()
 
     # Force some vars that we like
-    config['mute'] = True
+    config["mute"] = True
 
     # debug mode
-    if config.get('sync2jira', {}).get('debug', False):
-        handler = logging.FileHandler('sync2jira_main.log')
+    if config.get("sync2jira", {}).get("debug", False):
+        handler = logging.FileHandler("sync2jira_main.log")
         log.addHandler(handler)
         log.setLevel(logging.DEBUG)
 
     # Validate it
-    if 'sync2jira' not in config:
+    if "sync2jira" not in config:
         raise ValueError("No sync2jira section found in fedmsg.d/ config")
 
-    if 'map' not in config['sync2jira']:
+    if "map" not in config["sync2jira"]:
         raise ValueError("No sync2jira.map section found in fedmsg.d/ config")
 
-    possible = {'github'}
-    specified = set(config['sync2jira']['map'].keys())
+    possible = {"github"}
+    specified = set(config["sync2jira"]["map"].keys())
     if not specified.issubset(possible):
         message = "Specified handlers: %s, must be a subset of %s."
-        raise ValueError(message % (
-            ", ".join(f'"{item}"' for item in specified),
-            ", ".join(f'"{item}"' for item in possible),
-        ))
+        raise ValueError(
+            message
+            % (
+                ", ".join(f'"{item}"' for item in specified),
+                ", ".join(f'"{item}"' for item in possible),
+            )
+        )
 
-    if 'jira' not in config['sync2jira']:
+    if "jira" not in config["sync2jira"]:
         raise ValueError("No sync2jira.jira section found in fedmsg.d/ config")
 
     # Provide some default values
     defaults = {
-        'listen': True,
+        "listen": True,
     }
     for key, value in defaults.items():
-        config['sync2jira'][key] = config['sync2jira'].get(key, value)
+        config["sync2jira"][key] = config["sync2jira"].get(key, value)
 
     return config
 
@@ -153,14 +156,14 @@ def listen(config):
     :param Dict config: Config dict
     :returns: Nothing
     """
-    if not config['sync2jira'].get('listen'):
+    if not config["sync2jira"].get("listen"):
         log.info("`listen` is disabled.  Exiting.")
         return
 
     log.info("Waiting for a relevant fedmsg message to arrive...")
     for _, _, topic, msg in fedmsg.tail_messages(**config):
-        idx = msg['msg_id']
-        suffix = ".".join(topic.split('.')[3:])
+        idx = msg["msg_id"]
+        suffix = ".".join(topic.split(".")[3:])
         log.debug("Encountered %r %r %r", suffix, topic, idx)
 
         if suffix not in issue_handlers and suffix not in pr_handlers:
@@ -184,10 +187,10 @@ def initialize_issues(config, testing=False, repo_name=None):
     :returns: Nothing
     """
     log.info("Running initialization to sync all issues from upstream to jira")
-    log.info("Testing flag is %r", config['sync2jira']['testing'])
-    mapping = config['sync2jira']['map']
-    for upstream in mapping.get('github', {}).keys():
-        if 'issue' not in mapping.get('github', {}).get(upstream, {}).get('sync', []):
+    log.info("Testing flag is %r", config["sync2jira"]["testing"])
+    mapping = config["sync2jira"]["map"]
+    for upstream in mapping.get("github", {}).keys():
+        if "issue" not in mapping.get("github", {}).get(upstream, {}).get("sync", []):
             continue
         if repo_name is not None and upstream != repo_name:
             continue
@@ -209,7 +212,7 @@ def initialize_issues(config, testing=False, repo_name=None):
                     initialize_issues(config)
                 return
             else:
-                if not config['sync2jira']['develop']:
+                if not config["sync2jira"]["develop"]:
                     # Only send the failure email if we are not developing
                     report_failure(config)
                     raise
@@ -229,10 +232,12 @@ def initialize_pr(config, testing=False, repo_name=None):
     :returns: Nothing
     """
     log.info("Running initialization to sync all PRs from upstream to jira")
-    log.info("Testing flag is %r", config['sync2jira']['testing'])
-    mapping = config['sync2jira']['map']
-    for upstream in mapping.get('github', {}).keys():
-        if 'pullrequest' not in mapping.get('github', {}).get(upstream, {}).get('sync', []):
+    log.info("Testing flag is %r", config["sync2jira"]["testing"])
+    mapping = config["sync2jira"]["map"]
+    for upstream in mapping.get("github", {}).keys():
+        if "pullrequest" not in mapping.get("github", {}).get(upstream, {}).get(
+            "sync", []
+        ):
             continue
         if repo_name is not None and upstream != repo_name:
             continue
@@ -255,7 +260,7 @@ def initialize_pr(config, testing=False, repo_name=None):
                     initialize_pr(config)
                 return
             else:
-                if not config['sync2jira']['develop']:
+                if not config["sync2jira"]["develop"]:
                     # Only send the failure email if we are not developing
                     report_failure(config)
                     raise
@@ -270,22 +275,22 @@ def initialize_recent(config):
     :return: Nothing
     """
     # Query datagrepper
-    ret = query(category=['github'], delta=int(600), rows_per_page=100)
+    ret = query(category=["github"], delta=int(600), rows_per_page=100)
 
     # Loop and sync
     for entry in ret:
         # Extract our topic
-        suffix = ".".join(entry['topic'].split('.')[3:])
-        log.debug("Encountered %r %r", suffix, entry['topic'])
+        suffix = ".".join(entry["topic"].split(".")[3:])
+        log.debug("Encountered %r %r", suffix, entry["topic"])
 
         # Disregard if it's invalid
         if suffix not in issue_handlers and suffix not in pr_handlers:
             continue
 
         # Deal with the message
-        log.debug("Handling %r %r", suffix, entry['topic'])
-        msg = entry['msg']
-        handle_msg({'msg': msg}, suffix, config)
+        log.debug("Handling %r %r", suffix, entry["topic"])
+        msg = entry["msg"]
+        handle_msg({"msg": msg}, suffix, config)
 
 
 def handle_msg(msg, suffix, config):
@@ -299,16 +304,16 @@ def handle_msg(msg, suffix, config):
     pr = None
     # GitHub '.issue.' is used for both PR and Issue
     # Check for that edge case
-    if suffix == 'github.issue.comment':
-        if 'pull_request' in msg['msg']['issue'] and msg['msg']['action'] != 'deleted':
+    if suffix == "github.issue.comment":
+        if "pull_request" in msg["msg"]["issue"] and msg["msg"]["action"] != "deleted":
             # pr_filter turns on/off the filtering of PRs
             pr = issue_handlers[suffix](msg, config, pr_filter=False)
             if not pr:
                 return
             # Issues do not have suffix and reporter needs to be reformatted
             pr.suffix = suffix
-            pr.reporter = pr.reporter.get('fullname')
-            setattr(pr, 'match', matcher(pr.content, pr.comments))
+            pr.reporter = pr.reporter.get("fullname")
+            setattr(pr, "match", matcher(pr.content, pr.comments))
         else:
             issue = issue_handlers[suffix](msg, config)
     elif suffix in issue_handlers:
@@ -336,7 +341,7 @@ def query(limit=None, **kwargs):
     params = deepcopy(kwargs)
 
     # Important to set ASC order when paging to avoid duplicates
-    params['order'] = 'asc'
+    params["order"] = "asc"
 
     # Fetch results:
     #  - once, if limit is 0 or None (the default)
@@ -346,25 +351,31 @@ def query(limit=None, **kwargs):
     total = limit or 1
     while fetched < total:
         results = get(params=params)
-        count = results['count']
+        count = results["count"]
 
         # Exit the loop if there was nothing to fetch
         if count <= 0:
             break
 
         fetched += count
-        for result in results['raw_messages']:
+        for result in results["raw_messages"]:
             yield result
 
-        params['page'] = params.get('page', 1) + 1
+        params["page"] = params.get("page", 1) + 1
 
 
 def get(params):
     url = DATAGREPPER_URL
-    headers = {'Accept': 'application/json', }
+    headers = {
+        "Accept": "application/json",
+    }
 
-    response = requests.get(url=url, params=params, headers=headers,
-                            auth=HTTPKerberosAuth(mutual_authentication=OPTIONAL))
+    response = requests.get(
+        url=url,
+        params=params,
+        headers=headers,
+        auth=HTTPKerberosAuth(mutual_authentication=OPTIONAL),
+    )
     return response.json()
 
 
@@ -382,10 +393,10 @@ def main(runtime_test=False, runtime_config=None):
 
     logging.basicConfig(level=logging.INFO)
     warnings.simplefilter("ignore")
-    config['validate_signatures'] = False
+    config["validate_signatures"] = False
 
     try:
-        if str(INITIALIZE) == '1':
+        if str(INITIALIZE) == "1":
             log.info("Initialization True")
             # Initialize issues
             log.info("Initializing Issues...")
@@ -403,7 +414,7 @@ def main(runtime_test=False, runtime_config=None):
         except KeyboardInterrupt:
             pass
     except:  # noqa: E722
-        if not config['sync2jira']['develop']:
+        if not config["sync2jira"]["develop"]:
             # Only send the failure email if we are not developing
             report_failure(config)
             raise
@@ -417,16 +428,19 @@ def report_failure(config):
     """
     # Email our admins with the traceback
     template_loader = jinja2.FileSystemLoader(
-        searchpath='usr/local/src/sync2jira/sync2jira/')
+        searchpath="usr/local/src/sync2jira/sync2jira/"
+    )
     template_env = jinja2.Environment(loader=template_loader, autoescape=True)
-    template = template_env.get_template('failure_template.jinja')
+    template = template_env.get_template("failure_template.jinja")
     html_text = template.render(traceback=traceback.format_exc())
 
     # Send mail
-    send_mail(recipients=[config['sync2jira']['mailing-list']],
-              cc=None,
-              subject=failure_email_subject,
-              text=html_text)
+    send_mail(
+        recipients=[config["sync2jira"]["mailing-list"]],
+        cc=None,
+        subject=failure_email_subject,
+        text=html_text,
+    )
 
 
 def list_managed():
@@ -436,10 +450,10 @@ def list_managed():
     :return: Nothing
     """
     config = load_config()
-    mapping = config['sync2jira']['map']
+    mapping = config["sync2jira"]["map"]
     warnings.simplefilter("ignore")
 
-    for upstream in mapping.get('github', {}).keys():
+    for upstream in mapping.get("github", {}).keys():
         for issue in u_issue.github_issues(upstream, config):
             print(issue.url)
 
@@ -452,11 +466,11 @@ def close_duplicates():
     """
     config = load_config()
     logging.basicConfig(level=logging.INFO)
-    log.info("Testing flag is %r", config['sync2jira']['testing'])
-    mapping = config['sync2jira']['map']
+    log.info("Testing flag is %r", config["sync2jira"]["testing"])
+    mapping = config["sync2jira"]["map"]
     warnings.simplefilter("ignore")
 
-    for upstream in mapping.get('github', {}).keys():
+    for upstream in mapping.get("github", {}).keys():
         for issue in u_issue.github_issues(upstream, config):
             try:
                 d_issue.close_duplicates(issue, config)
@@ -466,5 +480,5 @@ def close_duplicates():
     log.info("Done with GitHub duplicates.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
