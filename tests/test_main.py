@@ -405,16 +405,15 @@ class TestMain(unittest.TestCase):
         mock_d.sync_with_jira.assert_not_called()
         mock_u.handle_github_message.assert_not_called()
 
-    @mock.patch(PATH + "issue_handlers")
+    @mock.patch.dict(
+        PATH + "issue_handlers", {"github.issue.comment": lambda msg, c: None}
+    )
     @mock.patch(PATH + "u_issue")
     @mock.patch(PATH + "d_issue")
-    def test_handle_msg_no_issue(self, mock_d, mock_u, mock_handlers_issue):
+    def test_handle_msg_no_issue(self, mock_d, mock_u):
         """
         Tests 'handle_msg' function where there is no issue
         """
-        # Set up return values
-        mock_handlers_issue["github.issue.comment"].return_value = None
-
         # Call the function
         m.handle_msg(
             body=self.mock_message_body,
@@ -426,15 +425,16 @@ class TestMain(unittest.TestCase):
         mock_d.sync_with_jira.assert_not_called()
         mock_u.handle_github_message.assert_not_called()
 
-    @mock.patch(PATH + "issue_handlers")
+    @mock.patch.dict(
+        PATH + "issue_handlers", {"github.issue.comment": lambda msg, c: "dummy_issue"}
+    )
     @mock.patch(PATH + "u_issue")
     @mock.patch(PATH + "d_issue")
-    def test_handle_msg(self, mock_d, mock_u, mock_handlers_issue):
+    def test_handle_msg(self, mock_d, mock_u):
         """
         Tests 'handle_msg' function
         """
         # Set up return values
-        mock_handlers_issue["github.issue.comment"].return_value = "dummy_issue"
         mock_u.handle_github_message.return_value = "dummy_issue"
 
         # Call the function
