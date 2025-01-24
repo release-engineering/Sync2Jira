@@ -18,22 +18,22 @@
 # Authors:  Ralph Bean <rbean@redhat.com>
 
 # Python Standard Library Modules
-from datetime import datetime, timezone
 import difflib
 import logging
 import operator
 import re
+from datetime import datetime, timezone
 from typing import Optional
 
 # 3rd Party Modules
 import arrow
-from jira import JIRAError
-import jira.client
 import jinja2
+import jira.client
 import pypandoc
+from jira import JIRAError
 
 # Local Modules
-from sync2jira.intermediary import Issue, PR
+from sync2jira.intermediary import PR, Issue
 from sync2jira.mailer import send_mail
 
 # The date the service was upgraded

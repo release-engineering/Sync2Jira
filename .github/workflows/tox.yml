@@ -22,7 +22,7 @@ jobs:
         id: test
         uses: fedora-python/tox-github-action@main
         with:
-          tox_env: py39,py312,lint
+          tox_env: py39,py312,lint,isort
           dnf_install: >-
             --repo fedora --repo updates
               krb5-devel

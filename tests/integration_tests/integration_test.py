@@ -2,16 +2,17 @@
 This is a helper program to listen for UMB trigger. Test and then deploy Sync2Jira
 """
 # Built-In Modules
-import os
 import logging
-
-# Local Modules
-from sync2jira.main import main as m
-from jira_values import GITHUB
-from runtime_config import runtime_config
+import os
 
 # 3rd Party Modules
 import jira.client
+
+# Local Modules
+from jira_values import GITHUB
+from runtime_config import runtime_config
+
+from sync2jira.main import main as m
 
 # Global Variables
 URL = os.environ['JIRA_STAGE_URL']

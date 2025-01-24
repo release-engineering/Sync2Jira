@@ -1,13 +1,13 @@
 import unittest
 import unittest.mock as mock
-from unittest.mock import MagicMock
 from datetime import datetime, timezone
-
-import sync2jira.downstream_issue as d
-from sync2jira.intermediary import Issue
+from unittest.mock import MagicMock
 
 import jira.client
 from jira import JIRAError
+
+import sync2jira.downstream_issue as d
+from sync2jira.intermediary import Issue
 
 PATH = 'sync2jira.downstream_issue.'
 
