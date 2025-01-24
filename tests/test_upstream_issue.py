@@ -39,8 +39,22 @@ class TestUpstreamIssue(unittest.TestCase):
         self.mock_github_comment.created_at = "mock_created_at"
 
         # Mock GitHub Message
-        self.mock_github_message = {
+        self.old_style_mock_github_message = {
             "msg": {
+                "repository": {"owner": {"login": "org"}, "name": "repo"},
+                "issue": {
+                    "filter1": "filter1",
+                    "labels": [{"name": "custom_tag"}],
+                    "comments": ["some_comments!"],
+                    "number": "mock_number",
+                    "user": {"login": "mock_login"},
+                    "assignees": [{"login": "mock_login"}],
+                    "milestone": {"title": "mock_milestone"},
+                },
+            }
+        }
+        self.new_style_mock_github_message = {
+            "body": {
                 "repository": {"owner": {"login": "org"}, "name": "repo"},
                 "issue": {
                     "filter1": "filter1",
@@ -482,11 +496,13 @@ class TestUpstreamIssue(unittest.TestCase):
         This function tests 'handle_github_message' where upstream is not in mapped repos
         """
         # Set up return values
-        self.mock_github_message["msg"]["repository"]["owner"]["login"] = "bad_owner"
+        self.old_style_mock_github_message["msg"]["repository"]["owner"][
+            "login"
+        ] = "bad_owner"
 
         # Call the function
         response = u.handle_github_message(
-            msg=self.mock_github_message, config=self.mock_config
+            msg=self.old_style_mock_github_message, config=self.mock_config
         )
 
         # Assert that all calls were made correctly
@@ -503,11 +519,11 @@ class TestUpstreamIssue(unittest.TestCase):
         This function tests 'handle_github_message' the issue is a pull request comment
         """
         # Set up return values
-        self.mock_github_message["msg"]["issue"] = {"pull_request": "test"}
+        self.old_style_mock_github_message["msg"]["issue"] = {"pull_request": "test"}
 
         # Call the function
         response = u.handle_github_message(
-            msg=self.mock_github_message, config=self.mock_config
+            msg=self.old_style_mock_github_message, config=self.mock_config
         )
 
         # Assert that all calls were made correctly
@@ -521,11 +537,11 @@ class TestUpstreamIssue(unittest.TestCase):
         This function tests 'handle_github_message' where comparing the actual vs. filter does not equate
         """
         # Set up return values
-        self.mock_github_message["msg"]["issue"]["filter1"] = "filter2"
+        self.old_style_mock_github_message["msg"]["issue"]["filter1"] = "filter2"
 
         # Call function
         response = u.handle_github_message(
-            msg=self.mock_github_message, config=self.mock_config
+            msg=self.old_style_mock_github_message, config=self.mock_config
         )
         # Assert that calls were made correctly
         mock_issue_from_github.assert_not_called()
@@ -537,11 +553,13 @@ class TestUpstreamIssue(unittest.TestCase):
         This function tests 'handle_github_message' where comparing the actual vs. filter does not equate
         """
         # Set up return values
-        self.mock_github_message["msg"]["issue"]["labels"] = [{"name": "bad_label"}]
+        self.old_style_mock_github_message["msg"]["issue"]["labels"] = [
+            {"name": "bad_label"}
+        ]
 
         # Call function
         response = u.handle_github_message(
-            msg=self.mock_github_message, config=self.mock_config
+            msg=self.old_style_mock_github_message, config=self.mock_config
         )
         # Assert that calls were made correctly
         mock_issue_from_github.assert_not_called()
@@ -558,11 +576,11 @@ class TestUpstreamIssue(unittest.TestCase):
         # Set up return values
         mock_issue_from_github.return_value = "Successful Call!"
         mock_github.return_value = self.mock_github_client
-        self.mock_github_message["msg"]["issue"]["comments"] = 0
+        self.old_style_mock_github_message["msg"]["issue"]["comments"] = 0
 
         # Call function
         response = u.handle_github_message(
-            msg=self.mock_github_message, config=self.mock_config
+            msg=self.old_style_mock_github_message, config=self.mock_config
         )
         # Assert that calls were made correctly
         mock_issue_from_github.assert_called_with(
@@ -587,7 +605,7 @@ class TestUpstreamIssue(unittest.TestCase):
 
     @mock.patch(PATH + "Github")
     @mock.patch("sync2jira.intermediary.Issue.from_github")
-    def test_handle_github_message_successful(
+    def test_handle_old_style_github_message_successful(
         self, mock_issue_from_github, mock_github
     ):
         """
@@ -599,7 +617,54 @@ class TestUpstreamIssue(unittest.TestCase):
 
         # Call function
         response = u.handle_github_message(
-            msg=self.mock_github_message, config=self.mock_config
+            msg=self.old_style_mock_github_message, config=self.mock_config
+        )
+
+        # Assert that calls were made correctly
+        mock_issue_from_github.assert_called_with(
+            "org/repo",
+            {
+                "labels": ["custom_tag"],
+                "number": "mock_number",
+                "comments": [
+                    {
+                        "body": "mock_body",
+                        "name": unittest.mock.ANY,
+                        "author": "mock_username",
+                        "changed": None,
+                        "date_created": "mock_created_at",
+                        "id": "mock_id",
+                    }
+                ],
+                "assignees": [{"fullname": "mock_name"}],
+                "filter1": "filter1",
+                "user": {"login": "mock_login", "fullname": "mock_name"},
+                "milestone": "mock_milestone",
+            },
+            self.mock_config,
+        )
+        mock_github.assert_called_with("mock_token", retry=5)
+        self.assertEqual("Successful Call!", response)
+        self.mock_github_client.get_repo.assert_called_with("org/repo")
+        self.mock_github_repo.get_issue.assert_called_with(number="mock_number")
+        self.mock_github_issue.get_comments.assert_any_call()
+        self.mock_github_client.get_user.assert_called_with("mock_login")
+
+    @mock.patch(PATH + "Github")
+    @mock.patch("sync2jira.intermediary.Issue.from_github")
+    def test_handle_new_style_github_message_successful(
+        self, mock_issue_from_github, mock_github
+    ):
+        """
+        This function tests 'handle_github_message' where everything goes smoothly!
+        """
+        # Set up return values
+        mock_issue_from_github.return_value = "Successful Call!"
+        mock_github.return_value = self.mock_github_client
+
+        # Call function
+        response = u.handle_github_message(
+            msg=self.new_style_mock_github_message, config=self.mock_config
         )
 
         # Assert that calls were made correctly

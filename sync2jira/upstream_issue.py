@@ -24,6 +24,7 @@ from urllib.parse import urlencode
 from github import Github
 import requests
 
+import sync2jira.compat as c
 import sync2jira.intermediary as i
 
 log = logging.getLogger("sync2jira")
@@ -120,8 +121,9 @@ def handle_github_message(msg, config, pr_filter=True):
     :returns: Issue object
     :rtype: sync2jira.intermediary.Issue
     """
-    owner = msg["msg"]["repository"]["owner"]["login"]
-    repo = msg["msg"]["repository"]["name"]
+    body = c.extract_message_body(msg)
+    owner = body["repository"]["owner"]["login"]
+    repo = body["repository"]["name"]
     upstream = "{owner}/{repo}".format(owner=owner, repo=repo)
 
     mapped_repos = config["sync2jira"]["map"]["github"]
@@ -140,7 +142,7 @@ def handle_github_message(msg, config, pr_filter=True):
 
     _filter = config["sync2jira"].get("filters", {}).get("github", {}).get(upstream, {})
 
-    issue = msg["msg"]["issue"]
+    issue = body["issue"]
     for key, expected in _filter.items():
         if key == "labels":
             # special handling for label: we look for it in the list of msg labels
