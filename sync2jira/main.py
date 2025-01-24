@@ -289,9 +289,9 @@ def handle_msg(msg, suffix, config):
     """
     issue = None
     pr = None
-    # GitHub '.issue.' is used for both PR and Issue
+    # GitHub '.issue*' is used for both PR and Issue
     # Check for that edge case
-    if suffix == 'github.issue.comment':
+    if suffix.startswith('github.issue'):
         if 'pull_request' in msg['msg']['issue'] and msg['msg']['action'] != 'deleted':
             # pr_filter turns on/off the filtering of PRs
             pr = issue_handlers[suffix](msg, config, pr_filter=False)
