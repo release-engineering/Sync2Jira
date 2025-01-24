@@ -426,7 +426,7 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_handle_msg.assert_called_with(
-            {"msg": "mock_msg"}, "github.issue.comment", self.mock_config
+            {"body": "mock_msg"}, "github.issue.comment", self.mock_config
         )
 
     @mock.patch(PATH + "handle_msg")

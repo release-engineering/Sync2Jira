@@ -21,6 +21,7 @@ import logging
 
 from github import Github
 
+import sync2jira.compat as c
 import sync2jira.intermediary as i
 import sync2jira.upstream_issue as u_issue
 
@@ -37,8 +38,9 @@ def handle_github_message(msg, config, suffix):
     :returns: Issue object
     :rtype: sync2jira.intermediary.PR
     """
-    owner = msg["msg"]["repository"]["owner"]["login"]
-    repo = msg["msg"]["repository"]["name"]
+    body = c.extract_message_body(msg)
+    owner = body["repository"]["owner"]["login"]
+    repo = body["repository"]["name"]
     upstream = "{owner}/{repo}".format(owner=owner, repo=repo)
 
     mapped_repos = config["sync2jira"]["map"]["github"]
@@ -49,7 +51,7 @@ def handle_github_message(msg, config, suffix):
         log.debug("%r not in Github PR map: %r", upstream, mapped_repos.keys())
         return None
 
-    pr = msg["msg"]["pull_request"]
+    pr = body["pull_request"]
     github_client = Github(config["sync2jira"]["github_token"])
     reformat_github_pr(pr, upstream, github_client)
     return i.PR.from_github(upstream, pr, suffix, config)
