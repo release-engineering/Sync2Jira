@@ -1,10 +1,9 @@
 import unittest
 import unittest.mock as mock
-from unittest.mock import MagicMock
 from copy import deepcopy
+from unittest.mock import MagicMock
 
 import sync2jira.upstream_pr as u
-
 
 PATH = 'sync2jira.upstream_pr.'
 

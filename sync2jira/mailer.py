@@ -3,10 +3,10 @@
 This script is used to send emails
 """
 
-import smtplib
 import os
-from email.mime.text import MIMEText
+import smtplib
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 DEFAULT_FROM = os.environ.get('DEFAULT_FROM')
 DEFAULT_SERVER = os.environ.get('DEFAULT_SERVER')

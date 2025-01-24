@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 
 import sync2jira.main as m
 
-
 PATH = 'sync2jira.main.'
 
 
