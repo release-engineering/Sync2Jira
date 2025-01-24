@@ -18,14 +18,13 @@
 # Authors:  Ralph Bean <rbean@redhat.com>
 
 import logging
-from urllib.parse import urlencode
 from copy import deepcopy
+from urllib.parse import urlencode
 
 import requests
 from github import Github
 
 import sync2jira.intermediary as i
-
 
 log = logging.getLogger('sync2jira')
 graphqlurl = 'https://api.github.com/graphql'

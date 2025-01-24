@@ -24,7 +24,6 @@ from github import Github
 import sync2jira.intermediary as i
 import sync2jira.upstream_issue as u_issue
 
-
 log = logging.getLogger('sync2jira')
 
 

@@ -3,10 +3,10 @@ import logging
 import os
 
 # 3rd Party Modules
-from flask import Flask, render_template, request, redirect
+from flask import Flask, redirect, render_template, request
 
 # Local Modules
-from sync2jira.main import load_config, initialize_pr, initialize_issues
+from sync2jira.main import initialize_issues, initialize_pr, load_config
 
 # Global Variables
 app = Flask(__name__, static_url_path="/assets", static_folder="assets")
