@@ -3,13 +3,13 @@
 This script is used to send emails
 """
 
-import smtplib
-import os
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import os
+import smtplib
 
-DEFAULT_FROM = os.environ.get('DEFAULT_FROM')
-DEFAULT_SERVER = os.environ.get('DEFAULT_SERVER')
+DEFAULT_FROM = os.environ.get("DEFAULT_FROM")
+DEFAULT_SERVER = os.environ.get("DEFAULT_SERVER")
 
 
 def send_mail(recipients, subject, text, cc):
@@ -27,14 +27,14 @@ def send_mail(recipients, subject, text, cc):
     _cfg.setdefault("server", DEFAULT_SERVER)
     _cfg.setdefault("from", DEFAULT_FROM)
     sender = _cfg["from"]
-    msg = MIMEMultipart('related')
+    msg = MIMEMultipart("related")
     msg["Subject"] = subject
     msg["From"] = sender
     msg["To"] = ", ".join(recipients)
     if cc:
-        msg['Cc'] = ", ".join(cc)
+        msg["Cc"] = ", ".join(cc)
     server = smtplib.SMTP(_cfg["server"])
-    part = MIMEText(text, 'html', 'utf-8')
+    part = MIMEText(text, "html", "utf-8")
     msg.attach(part)
     server.sendmail(sender, recipients, msg.as_string())
     server.quit()

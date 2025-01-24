@@ -26,8 +26,7 @@ from jira import JIRAError
 import sync2jira.downstream_issue as d_issue
 from sync2jira.intermediary import Issue, matcher
 
-
-log = logging.getLogger('sync2jira')
+log = logging.getLogger("sync2jira")
 
 
 def format_comment(pr, pr_suffix, client):
@@ -50,15 +49,17 @@ def format_comment(pr, pr_suffix, client):
     else:
         reporter = pr.reporter
 
-    if 'closed' in pr_suffix:
+    if "closed" in pr_suffix:
         comment = f"Merge request [{pr.title}| {pr.url}] was closed."
-    elif 'reopened' in pr_suffix:
+    elif "reopened" in pr_suffix:
         comment = f"Merge request [{pr.title}| {pr.url}] was reopened."
-    elif 'merged' in pr_suffix:
+    elif "merged" in pr_suffix:
         comment = f"Merge request [{pr.title}| {pr.url}] was merged!"
     else:
-        comment = f"{reporter} mentioned this issue in " \
+        comment = (
+            f"{reporter} mentioned this issue in "
             f"merge request [{pr.title}| {pr.url}]."
+        )
     return comment
 
 
@@ -106,7 +107,7 @@ def update_jira_issue(existing, pr, client):
     :returns: Nothing
     """
     # Get our updates array
-    updates = pr.downstream.get('pr_updates', {})
+    updates = pr.downstream.get("pr_updates", {})
 
     # Format and add comment to indicate PR has been linked
     new_comment = format_comment(pr, pr.suffix, client)
@@ -123,16 +124,19 @@ def update_jira_issue(existing, pr, client):
         d_issue.attach_link(client, existing, remote_link)
 
     # Only synchronize link_transition for listings that op-in
-    if any('merge_transition' in item for item in updates) and 'merged' in pr.suffix:
+    if any("merge_transition" in item for item in updates) and "merged" in pr.suffix:
         log.info("Looking for new merged_transition")
-        update_transition(client, existing, pr, 'merge_transition')
+        update_transition(client, existing, pr, "merge_transition")
 
     # Only synchronize merge_transition for listings that op-in
     # and a link comment has been created
-    if any('link_transition' in item for item in updates) and \
-            'mentioned' in new_comment and not exists:
+    if (
+        any("link_transition" in item for item in updates)
+        and "mentioned" in new_comment
+        and not exists
+    ):
         log.info("Looking for new link_transition")
-        update_transition(client, existing, pr, 'link_transition')
+        update_transition(client, existing, pr, "link_transition")
 
 
 def update_transition(client, existing, pr, transition_type):
@@ -146,7 +150,9 @@ def update_transition(client, existing, pr, transition_type):
     :returns: Nothing
     """
     # Get our closed status
-    closed_status = next(filter(lambda d: transition_type in d, pr.downstream.get('pr_updates', {})))[transition_type]
+    closed_status = next(
+        filter(lambda d: transition_type in d, pr.downstream.get("pr_updates", {}))
+    )[transition_type]
 
     # Update the state
     d_issue.change_status(client, existing, closed_status, pr)
@@ -166,7 +172,7 @@ def sync_with_jira(pr, config):
     log.info("[PR] Considering upstream %s, %s", pr.url, pr.title)
 
     # Return if testing
-    if config['sync2jira']['testing']:
+    if config["sync2jira"]["testing"]:
         log.info("Testing flag is true.  Skipping actual update.")
         return None
 
@@ -178,8 +184,8 @@ def sync_with_jira(pr, config):
     client = d_issue.get_jira_client(pr, config)
 
     # Check the status of the JIRA client
-    if not config['sync2jira']['develop'] and not d_issue.check_jira_status(client):
-        log.warning('The JIRA server looks like its down. Shutting down...')
+    if not config["sync2jira"]["develop"] and not d_issue.check_jira_status(client):
+        log.warning("The JIRA server looks like its down. Shutting down...")
         raise JIRAError
 
     # Find our JIRA issue if one exists
@@ -191,11 +197,11 @@ def sync_with_jira(pr, config):
         response = client.search_issues(query)
         # Throw error and return if nothing could be found
         if len(response) == 0 or len(response) > 1:
-            log.warning(f'No JIRA issue could be found for {pr.title}')
+            log.warning(f"No JIRA issue could be found for {pr.title}")
             return
     except JIRAError:
         # If no issue exists, it will throw a JIRA error
-        log.warning(f'No JIRA issue exists for PR: {pr.title}. Query: {query}')
+        log.warning(f"No JIRA issue exists for PR: {pr.title}. Query: {query}")
         return
 
     # Existing JIRA issue is the only one in the query
