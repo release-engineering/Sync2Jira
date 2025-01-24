@@ -16,4 +16,4 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110.15.0 USA
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
-__version__ = '1.7'
+__version__ = "1.7"
