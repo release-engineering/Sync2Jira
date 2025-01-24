@@ -38,6 +38,7 @@ import requests
 from requests_kerberos import HTTPKerberosAuth, OPTIONAL
 
 # Local Modules
+import sync2jira.compat as c
 import sync2jira.downstream_issue as d_issue
 import sync2jira.downstream_pr as d_pr
 from sync2jira.intermediary import matcher
@@ -62,6 +63,10 @@ failure_email_subject = "Sync2Jira Has Failed!"
 # Issue related handlers
 issue_handlers = {
     # GitHub
+    # New webhook-2fm topics
+    "github.issues": u_issue.handle_github_message,
+    "github.issue_comment": u_issue.handle_github_message,
+    # Old github2fedmsg topics
     "github.issue.opened": u_issue.handle_github_message,
     "github.issue.reopened": u_issue.handle_github_message,
     "github.issue.labeled": u_issue.handle_github_message,
@@ -78,6 +83,10 @@ issue_handlers = {
 # PR related handlers
 pr_handlers = {
     # GitHub
+    # New webhook-2fm topics
+    "github.pull_request": u_pr.handle_github_message,
+    "github.issue_comment": u_pr.handle_github_message,
+    # Old github2fedmsg topics
     "github.pull_request.opened": u_pr.handle_github_message,
     "github.pull_request.edited": u_pr.handle_github_message,
     "github.issue.comment": u_pr.handle_github_message,
@@ -282,8 +291,8 @@ def initialize_recent(config):
 
         # Deal with the message
         log.debug("Handling %r %r", suffix, entry["topic"])
-        msg = entry["msg"]
-        handle_msg({"msg": msg}, suffix, config)
+        body = c.extract_message_body(entry)
+        handle_msg({"body": body}, suffix, config)
 
 
 def handle_msg(msg, suffix, config):
@@ -298,7 +307,8 @@ def handle_msg(msg, suffix, config):
     # GitHub '.issue*' is used for both PR and Issue
     # Check for that edge case
     if suffix.startswith("github.issue"):
-        if "pull_request" in msg["msg"]["issue"] and msg["msg"]["action"] != "deleted":
+        body = c.extract_message_body(msg)
+        if "pull_request" in body["issue"] and body["action"] != "deleted":
             # pr_filter turns on/off the filtering of PRs
             pr = issue_handlers[suffix](msg, config, pr_filter=False)
             if not pr:
