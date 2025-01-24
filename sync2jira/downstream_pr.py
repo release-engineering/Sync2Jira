@@ -26,7 +26,6 @@ from jira import JIRAError
 import sync2jira.downstream_issue as d_issue
 from sync2jira.intermediary import Issue, matcher
 
-
 log = logging.getLogger('sync2jira')
 
 
