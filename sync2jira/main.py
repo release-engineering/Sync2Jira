@@ -61,6 +61,10 @@ failure_email_subject = "Sync2Jira Has Failed!"
 # Issue related handlers
 issue_handlers = {
     # GitHub
+    # New webhook-2fm topics
+    'github.issues': u_issue.handle_github_message,
+    'github.issue_comment': u_issue.handle_github_message,
+    # Old github2fedmsg topics
     'github.issue.opened': u_issue.handle_github_message,
     'github.issue.reopened': u_issue.handle_github_message,
     'github.issue.labeled': u_issue.handle_github_message,
@@ -77,6 +81,10 @@ issue_handlers = {
 # PR related handlers
 pr_handlers = {
     # GitHub
+    # New webhook-2fm topics
+    'github.pull_request': u_pr.handle_github_message,
+    'github.issue_comment': u_pr.handle_github_message,
+    # Old github2fedmsg topics
     'github.pull_request.opened': u_pr.handle_github_message,
     'github.pull_request.edited': u_pr.handle_github_message,
     'github.issue.comment': u_pr.handle_github_message,
