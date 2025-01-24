@@ -21,28 +21,29 @@
 
 Run with systemd, please.
 """
+from copy import deepcopy
+
 # Build-In Modules
 import logging
 import os
+from time import sleep
 import traceback
 import warnings
-from copy import deepcopy
-from time import sleep
 
 # 3rd Party Modules
 import fedmsg
 import fedmsg.config
 import jinja2
 import requests
-from requests_kerberos import OPTIONAL, HTTPKerberosAuth
+from requests_kerberos import HTTPKerberosAuth, OPTIONAL
 
 # Local Modules
 import sync2jira.downstream_issue as d_issue
 import sync2jira.downstream_pr as d_pr
-import sync2jira.upstream_issue as u_issue
-import sync2jira.upstream_pr as u_pr
 from sync2jira.intermediary import matcher
 from sync2jira.mailer import send_mail
+import sync2jira.upstream_issue as u_issue
+import sync2jira.upstream_pr as u_pr
 
 # Set up our logging
 FORMAT = "[%(asctime)s] %(levelname)s: %(message)s"

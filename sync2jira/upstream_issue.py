@@ -17,12 +17,12 @@
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
 
-import logging
 from copy import deepcopy
+import logging
 from urllib.parse import urlencode
 
-import requests
 from github import Github
+import requests
 
 import sync2jira.intermediary as i
 
