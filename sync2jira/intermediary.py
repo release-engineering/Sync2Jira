@@ -22,9 +22,26 @@ import re
 class Issue(object):
     """Issue Intermediary object"""
 
-    def __init__(self, source, title, url, upstream, comments,
-                 config, tags, fixVersion, priority, content,
-                 reporter, assignee, status, id, storypoints, upstream_id, downstream=None):
+    def __init__(
+        self,
+        source,
+        title,
+        url,
+        upstream,
+        comments,
+        config,
+        tags,
+        fixVersion,
+        priority,
+        content,
+        reporter,
+        assignee,
+        status,
+        id,
+        storypoints,
+        upstream_id,
+        downstream=None,
+    ):
         self.source = source
         self._title = title[:254]
         self.url = url
@@ -40,10 +57,10 @@ class Issue(object):
 
         # JIRA treats utf-8 characters in ways we don't totally understand, so scrub content down to
         # simple ascii characters right from the start.
-        self.content = self.content.encode('ascii', errors='replace').decode('ascii')
+        self.content = self.content.encode("ascii", errors="replace").decode("ascii")
 
         # We also apply this content in regexs to pattern match, so remove any escape characters
-        self.content = self.content.replace('\\', '')
+        self.content = self.content.replace("\\", "")
 
         self.reporter = reporter
         self.assignee = assignee
@@ -51,13 +68,13 @@ class Issue(object):
         self.id = str(id)
         self.upstream_id = upstream_id
         if not downstream:
-            self.downstream = config['sync2jira']['map'][self.source][upstream]
+            self.downstream = config["sync2jira"]["map"][self.source][upstream]
         else:
             self.downstream = downstream
 
     @property
     def title(self):
-        _title = u'[%s] %s' % (self.upstream, self._title)
+        _title = "[%s] %s" % (self.upstream, self._title)
         return _title[:254].strip()
 
     @property
@@ -67,49 +84,53 @@ class Issue(object):
     @classmethod
     def from_github(cls, upstream, issue, config):
         """Helper function to create intermediary object."""
-        upstream_source = 'github'
+        upstream_source = "github"
         comments = []
-        for comment in issue['comments']:
-            comments.append({
-                'author': comment['author'],
-                'name': comment['name'],
-                'body': trim_string(comment['body']),
-                'id': comment['id'],
-                'date_created': comment['date_created'],
-                'changed': None
-            })
+        for comment in issue["comments"]:
+            comments.append(
+                {
+                    "author": comment["author"],
+                    "name": comment["name"],
+                    "body": trim_string(comment["body"]),
+                    "id": comment["id"],
+                    "date_created": comment["date_created"],
+                    "changed": None,
+                }
+            )
 
         # Reformat the state field
-        if issue['state']:
-            if issue['state'] == 'open':
-                issue['state'] = 'Open'
-            elif issue['state'] == 'closed':
-                issue['state'] = 'Closed'
+        if issue["state"]:
+            if issue["state"] == "open":
+                issue["state"] = "Open"
+            elif issue["state"] == "closed":
+                issue["state"] = "Closed"
 
         # Perform any mapping
-        mapping = config['sync2jira']['map'][upstream_source][upstream].get('mapping', [])
+        mapping = config["sync2jira"]["map"][upstream_source][upstream].get(
+            "mapping", []
+        )
 
         # Check for fixVersion
-        if any('fixVersion' in item for item in mapping):
+        if any("fixVersion" in item for item in mapping):
             map_fixVersion(mapping, issue)
 
         return cls(
             source=upstream_source,
-            title=issue['title'],
-            url=issue['html_url'],
+            title=issue["title"],
+            url=issue["html_url"],
             upstream=upstream,
             config=config,
             comments=comments,
-            tags=issue['labels'],
-            fixVersion=[issue['milestone']],
-            priority=issue.get('priority'),
-            content=issue['body'] or '',
-            reporter=issue['user'],
-            assignee=issue['assignees'],
-            status=issue['state'],
-            id=issue['id'],
-            storypoints=issue.get('storypoints'),
-            upstream_id=issue['number']
+            tags=issue["labels"],
+            fixVersion=[issue["milestone"]],
+            priority=issue.get("priority"),
+            content=issue["body"] or "",
+            reporter=issue["user"],
+            assignee=issue["assignees"],
+            status=issue["state"],
+            id=issue["id"],
+            storypoints=issue.get("storypoints"),
+            upstream_id=issue["number"],
         )
 
     def __repr__(self):
@@ -119,9 +140,25 @@ class Issue(object):
 class PR(object):
     """PR intermediary object"""
 
-    def __init__(self, source, jira_key, title, url, upstream, config,
-                 comments, priority, content, reporter,
-                 assignee, status, id, suffix, match, downstream=None):
+    def __init__(
+        self,
+        source,
+        jira_key,
+        title,
+        url,
+        upstream,
+        config,
+        comments,
+        priority,
+        content,
+        reporter,
+        assignee,
+        status,
+        id,
+        suffix,
+        match,
+        downstream=None,
+    ):
         self.source = source
         self.jira_key = jira_key
         self._title = title[:254]
@@ -138,10 +175,12 @@ class PR(object):
             # First trim the size of the content
             self.content = trim_string(content)
 
-            self.content = self.content.encode('ascii', errors='replace').decode('ascii')
+            self.content = self.content.encode("ascii", errors="replace").decode(
+                "ascii"
+            )
 
             # We also apply this content in regexs to pattern match, so remove any escape characters
-            self.content = self.content.replace('\\', '')
+            self.content = self.content.replace("\\", "")
         else:
             self.content = None
 
@@ -154,54 +193,56 @@ class PR(object):
         # self.upstream_id = upstream_id
 
         if not downstream:
-            self.downstream = config['sync2jira']['map'][self.source][upstream]
+            self.downstream = config["sync2jira"]["map"][self.source][upstream]
         else:
             self.downstream = downstream
         return
 
     @property
     def title(self):
-        return u'[%s] %s' % (self.upstream, self._title)
+        return "[%s] %s" % (self.upstream, self._title)
 
     @classmethod
     def from_github(cls, upstream, pr, suffix, config):
         """Helper function to create intermediary object."""
         # Set our upstream source
-        upstream_source = 'github'
+        upstream_source = "github"
 
         # Format our comments
         comments = []
-        for comment in pr['comments']:
-            comments.append({
-                'author': comment['author'],
-                'name': comment['name'],
-                'body': trim_string(comment['body']),
-                'id': comment['id'],
-                'date_created': comment['date_created'],
-                'changed': None
-            })
+        for comment in pr["comments"]:
+            comments.append(
+                {
+                    "author": comment["author"],
+                    "name": comment["name"],
+                    "body": trim_string(comment["body"]),
+                    "id": comment["id"],
+                    "date_created": comment["date_created"],
+                    "changed": None,
+                }
+            )
 
         # Build our URL
-        url = pr['html_url']
+        url = pr["html_url"]
 
         # Match to a JIRA
         match = matcher(pr.get("body"), comments)
 
         # Figure out what state we're transitioning too
-        if 'reopened' in suffix:
-            suffix = 'reopened'
-        elif 'closed' in suffix:
+        if "reopened" in suffix:
+            suffix = "reopened"
+        elif "closed" in suffix:
             # Check if we're merging or closing
-            if pr['merged']:
-                suffix = 'merged'
+            if pr["merged"]:
+                suffix = "merged"
             else:
-                suffix = 'closed'
+                suffix = "closed"
 
         # Return our PR object
         return cls(
             source=upstream_source,
             jira_key=match,
-            title=pr['title'],
+            title=pr["title"],
             url=url,
             upstream=upstream,
             config=config,
@@ -209,12 +250,12 @@ class PR(object):
             # tags=issue['labels'],
             # fixVersion=[issue['milestone']],
             priority=None,
-            content=pr.get('body'),
-            reporter=pr['user']['fullname'],
-            assignee=pr['assignee'],
+            content=pr.get("body"),
+            reporter=pr["user"]["fullname"],
+            assignee=pr["assignee"],
             # GitHub PRs do not have status
             status=None,
-            id=pr['number'],
+            id=pr["number"],
             # upstream_id=issue['number'],
             suffix=suffix,
             match=match,
@@ -229,11 +270,11 @@ def map_fixVersion(mapping, issue):
     :param Dict issue: Upstream issue object
     """
     # Get our fixVersion mapping
-    fixVersion_map = next(filter(lambda d: "fixVersion" in d, mapping))['fixVersion']
+    fixVersion_map = next(filter(lambda d: "fixVersion" in d, mapping))["fixVersion"]
 
     # Now update the fixVersion
-    if issue['milestone']:
-        issue['milestone'] = fixVersion_map.replace('XXX', issue['milestone'])
+    if issue["milestone"]:
+        issue["milestone"] = fixVersion_map.replace("XXX", issue["milestone"])
 
 
 def matcher(content, comments):
@@ -255,8 +296,7 @@ def matcher(content, comments):
         # Parse to extract the JIRA information. 2 types of matches:
         # 1 - To match to JIRA issue (i.e. Relates to JIRA: FACTORY-1234)
         # 2 - To match to upstream issue (i.e. Relates to Issue: !5)
-        match_jira = re.findall(r"Relates to JIRA: ([\w]*-[\d]*)",
-                                all_data)
+        match_jira = re.findall(r"Relates to JIRA: ([\w]*-[\d]*)", all_data)
         if match_jira:
             for match in match_jira:
                 # Assert that the match was correct
