@@ -339,15 +339,29 @@ class TestMain(unittest.TestCase):
                 "dummy",
                 "d.d.d.github.issue.comment",
                 self.old_style_mock_message,
-            )
+            ),
+            (
+                "dummy",
+                "dummy",
+                "d.d.d.github.issue.comment",
+                self.new_style_mock_message,
+            ),
         ]
 
         # Call the function
         m.listen(self.mock_config)
 
         # Assert everything was called correctly
-        mock_handle_msg.assert_called_with(
-            self.mock_message_body, "github.issue.comment", self.mock_config
+        # It should be called twice, once for the old style message and once for the new.
+        mock_handle_msg.assert_has_calls(
+            [
+                mock.call(
+                    self.mock_message_body, "github.issue.comment", self.mock_config
+                ),
+                mock.call(
+                    self.mock_message_body, "github.issue.comment", self.mock_config
+                ),
+            ]
         )
 
     @mock.patch(PATH + "send_mail")
