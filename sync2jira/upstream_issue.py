@@ -24,7 +24,6 @@ from urllib.parse import urlencode
 from github import Github
 import requests
 
-import sync2jira.compat as c
 import sync2jira.intermediary as i
 
 log = logging.getLogger("sync2jira")
@@ -111,17 +110,16 @@ ghquery = """
 """
 
 
-def handle_github_message(msg, config, pr_filter=True):
+def handle_github_message(body, config, pr_filter=True):
     """
     Handle GitHub message from FedMsg.
 
-    :param Dict msg: FedMsg Message
+    :param Dict body: FedMsg Message body
     :param Dict config: Config File
     :param Bool pr_filter: Switch to ignore pull_requests
     :returns: Issue object
     :rtype: sync2jira.intermediary.Issue
     """
-    body = c.extract_message_body(msg)
     owner = body["repository"]["owner"]["login"]
     repo = body["repository"]["name"]
     upstream = "{owner}/{repo}".format(owner=owner, repo=repo)

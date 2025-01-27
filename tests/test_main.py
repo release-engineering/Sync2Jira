@@ -30,7 +30,15 @@ class TestMain(unittest.TestCase):
         }
 
         # Mock Fedmsg Message
-        self.mock_message = {"msg_id": "mock_id", "msg": {"issue": "mock_issue"}}
+        self.mock_message_body = {"issue": "mock_issue"}
+        self.old_style_mock_message = {
+            "msg_id": "mock_id",
+            "msg": self.mock_message_body,
+        }
+        self.new_style_mock_message = {
+            "msg_id": "mock_id",
+            "body": self.mock_message_body,
+        }
 
     def _check_for_exception(self, loader, target, exc=ValueError):
         try:
@@ -288,7 +296,7 @@ class TestMain(unittest.TestCase):
         """
         # Set up return values
         mock_fedmsg.tail_messages.return_value = [
-            ("dummy", "dummy", "mock_topic", self.mock_message)
+            ("dummy", "dummy", "mock_topic", self.old_style_mock_message)
         ]
 
         # Call the function
@@ -307,7 +315,7 @@ class TestMain(unittest.TestCase):
         # Set up return values
         mock_handlers_issue["github.issue.comment"].return_value = None
         mock_fedmsg.tail_messages.return_value = [
-            ("dummy", "dummy", "d.d.d.github.issue.drop", self.mock_message)
+            ("dummy", "dummy", "d.d.d.github.issue.drop", self.old_style_mock_message)
         ]
 
         # Call the function
@@ -326,7 +334,12 @@ class TestMain(unittest.TestCase):
         # Set up return values
         mock_handlers_issue["github.issue.comment"].return_value = "dummy_issue"
         mock_fedmsg.tail_messages.return_value = [
-            ("dummy", "dummy", "d.d.d.github.issue.comment", self.mock_message)
+            (
+                "dummy",
+                "dummy",
+                "d.d.d.github.issue.comment",
+                self.old_style_mock_message,
+            )
         ]
 
         # Call the function
@@ -334,7 +347,7 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_handle_msg.assert_called_with(
-            self.mock_message, "github.issue.comment", self.mock_config
+            self.mock_message_body, "github.issue.comment", self.mock_config
         )
 
     @mock.patch(PATH + "send_mail")
@@ -370,7 +383,9 @@ class TestMain(unittest.TestCase):
         Tests 'handle_msg' function where there are no handlers
         """
         # Call the function
-        m.handle_msg(self.mock_message, "no_handler", self.mock_config)
+        m.handle_msg(
+            body=self.mock_message_body, suffix="no_handler", config=self.mock_config
+        )
 
         # Assert everything was called correctly
         mock_d.sync_with_jira.assert_not_called()
@@ -387,7 +402,11 @@ class TestMain(unittest.TestCase):
         mock_handlers_issue["github.issue.comment"].return_value = None
 
         # Call the function
-        m.handle_msg(self.mock_message, "github.issue.comment", self.mock_config)
+        m.handle_msg(
+            body=self.mock_message_body,
+            suffix="github.issue.comment",
+            config=self.mock_config,
+        )
 
         # Assert everything was called correctly
         mock_d.sync_with_jira.assert_not_called()
@@ -405,7 +424,11 @@ class TestMain(unittest.TestCase):
         mock_u.handle_github_message.return_value = "dummy_issue"
 
         # Call the function
-        m.handle_msg(self.mock_message, "github.issue.comment", self.mock_config)
+        m.handle_msg(
+            body=self.mock_message_body,
+            suffix="github.issue.comment",
+            config=self.mock_config,
+        )
 
         # Assert everything was called correctly
         mock_d.sync_with_jira.assert_called_with("dummy_issue", self.mock_config)
@@ -426,7 +449,7 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_handle_msg.assert_called_with(
-            {"body": "mock_msg"}, "github.issue.comment", self.mock_config
+            "mock_msg", "github.issue.comment", self.mock_config
         )
 
     @mock.patch(PATH + "handle_msg")
