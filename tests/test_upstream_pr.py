@@ -41,19 +41,17 @@ class TestUpstreamPR(unittest.TestCase):
         self.mock_github_comment.created_at = "mock_created_at"
 
         # Mock GitHub Message
-        self.mock_github_message = {
-            "msg": {
-                "repository": {"owner": {"login": "org"}, "name": "repo"},
-                "pull_request": {
-                    "filter1": "filter1",
-                    "labels": [{"name": "custom_tag"}],
-                    "comments": ["some_comments!"],
-                    "number": "mock_number",
-                    "user": {"login": "mock_login"},
-                    "assignees": [{"login": "mock_login"}],
-                    "milestone": {"title": "mock_milestone"},
-                },
-            }
+        self.mock_github_message_body = {
+            "repository": {"owner": {"login": "org"}, "name": "repo"},
+            "pull_request": {
+                "filter1": "filter1",
+                "labels": [{"name": "custom_tag"}],
+                "comments": ["some_comments!"],
+                "number": "mock_number",
+                "user": {"login": "mock_login"},
+                "assignees": [{"login": "mock_login"}],
+                "milestone": {"title": "mock_milestone"},
+            },
         }
 
         # Mock GitHub issue
@@ -96,7 +94,9 @@ class TestUpstreamPR(unittest.TestCase):
 
         # Call function
         response = u.handle_github_message(
-            msg=self.mock_github_message, config=self.mock_config, suffix="mock_suffix"
+            body=self.mock_github_message_body,
+            config=self.mock_config,
+            suffix="mock_suffix",
         )
 
         # Assert that calls were made correctly
@@ -139,11 +139,13 @@ class TestUpstreamPR(unittest.TestCase):
         This function tests 'handle_github_message' where upstream is not in mapped repos
         """
         # Set up return values
-        self.mock_github_message["msg"]["repository"]["owner"]["login"] = "bad_owner"
+        self.mock_github_message_body["repository"]["owner"]["login"] = "bad_owner"
 
         # Call the function
         response = u.handle_github_message(
-            msg=self.mock_github_message, config=self.mock_config, suffix="mock_suffix"
+            body=self.mock_github_message_body,
+            config=self.mock_config,
+            suffix="mock_suffix",
         )
 
         # Assert that all calls were made correctly

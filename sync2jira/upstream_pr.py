@@ -21,24 +21,22 @@ import logging
 
 from github import Github
 
-import sync2jira.compat as c
 import sync2jira.intermediary as i
 import sync2jira.upstream_issue as u_issue
 
 log = logging.getLogger("sync2jira")
 
 
-def handle_github_message(msg, config, suffix):
+def handle_github_message(body, config, suffix):
     """
     Handle GitHub message from FedMsg.
 
-    :param Dict msg: FedMsg Message
+    :param Dict body: FedMsg Message body
     :param Dict config: Config File
     :param String suffix: FedMsg suffix
     :returns: Issue object
     :rtype: sync2jira.intermediary.PR
     """
-    body = c.extract_message_body(msg)
     owner = body["repository"]["owner"]["login"]
     repo = body["repository"]["name"]
     upstream = "{owner}/{repo}".format(owner=owner, repo=repo)

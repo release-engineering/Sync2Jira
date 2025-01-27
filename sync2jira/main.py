@@ -173,7 +173,8 @@ def listen(config):
 
         log.debug("Handling %r %r %r", suffix, topic, idx)
 
-        handle_msg(msg, suffix, config)
+        body = c.extract_message_body(msg)
+        handle_msg(body, suffix, config)
 
 
 def initialize_issues(config, testing=False, repo_name=None):
@@ -292,13 +293,13 @@ def initialize_recent(config):
         # Deal with the message
         log.debug("Handling %r %r", suffix, entry["topic"])
         body = c.extract_message_body(entry)
-        handle_msg({"body": body}, suffix, config)
+        handle_msg(body, suffix, config)
 
 
-def handle_msg(msg, suffix, config):
+def handle_msg(body, suffix, config):
     """
     Function to handle incoming message from datagrepper
-    :param Dict msg: Incoming message
+    :param Dict body: Incoming message body
     :param String suffix: Incoming suffix
     :param Dict config: Config dict
     """
@@ -307,10 +308,9 @@ def handle_msg(msg, suffix, config):
     # GitHub '.issue*' is used for both PR and Issue
     # Check for that edge case
     if suffix.startswith("github.issue"):
-        body = c.extract_message_body(msg)
         if "pull_request" in body["issue"] and body["action"] != "deleted":
             # pr_filter turns on/off the filtering of PRs
-            pr = issue_handlers[suffix](msg, config, pr_filter=False)
+            pr = issue_handlers[suffix](body, config, pr_filter=False)
             if not pr:
                 return
             # Issues do not have suffix and reporter needs to be reformatted
@@ -318,11 +318,11 @@ def handle_msg(msg, suffix, config):
             pr.reporter = pr.reporter.get("fullname")
             setattr(pr, "match", matcher(pr.content, pr.comments))
         else:
-            issue = issue_handlers[suffix](msg, config)
+            issue = issue_handlers[suffix](body, config)
     elif suffix in issue_handlers:
-        issue = issue_handlers[suffix](msg, config)
+        issue = issue_handlers[suffix](body, config)
     elif suffix in pr_handlers:
-        pr = pr_handlers[suffix](msg, config, suffix)
+        pr = pr_handlers[suffix](body, config, suffix)
 
     if not issue and not pr:
         return
