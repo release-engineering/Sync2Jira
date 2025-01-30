@@ -150,7 +150,7 @@ def handle_github_message(msg, config, pr_filter=True):
                 return None
         elif key == "milestone":
             # special handling for milestone: use the number
-            milestone = issue.get(key, {})
+            milestone = issue.get(key) or {}  # Key might exist with value `None`
             actual = milestone.get("number")
             if expected != actual:
                 log.debug("Milestone %s not set on issue: %s", expected, upstream)
