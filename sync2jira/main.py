@@ -17,7 +17,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110.15.0 USA
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
-""" Sync GitHub issues to a jira instance, via fedmsg.
+"""Sync GitHub issues to a jira instance, via fedmsg.
 
 Run with systemd, please.
 """
