@@ -37,7 +37,7 @@ class TestMain(unittest.TestCase):
         }
         self.new_style_mock_message = {
             "msg_id": "mock_id",
-            "body": self.mock_message_body,
+            "body": {"body": self.mock_message_body},
         }
 
     def _check_for_exception(self, loader, target, exc=ValueError):
