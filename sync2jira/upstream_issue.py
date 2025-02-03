@@ -129,11 +129,11 @@ def handle_github_message(body, config, is_pr=False):
         log.debug("%r not in Github map: %r", upstream, mapped_repos.keys())
         return None
     key = "pullrequest" if is_pr else "issue"
-    if key not in mapped_repos[upstream].get("sync", {}):
+    if key not in mapped_repos[upstream].get("sync", []):
         log.debug(
             "%r not in Github sync map: %r",
             key,
-            mapped_repos[upstream].get("sync", {}).keys(),
+            mapped_repos[upstream].get("sync", []),
         )
         return None
 
