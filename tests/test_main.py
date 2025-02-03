@@ -37,7 +37,7 @@ class TestMain(unittest.TestCase):
         }
         self.new_style_mock_message = {
             "msg_id": "mock_id",
-            "body": {"body": self.mock_message_body},
+            "msg": {"body": self.mock_message_body},
         }
 
     def _check_for_exception(self, loader, target, exc=ValueError):
@@ -455,7 +455,7 @@ class TestMain(unittest.TestCase):
         """
         # Set up return values
         mock_query.return_value = [
-            {"topic": "m.m.m.github.issue.comment", "msg": "mock_msg"}
+            {"topic": "m.m.m.github.issue.comment", "msg": {"content": "mock_msg"}}
         ]
 
         # Call the function
@@ -463,7 +463,7 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_handle_msg.assert_called_with(
-            "mock_msg", "github.issue.comment", self.mock_config
+            {"content": "mock_msg"}, "github.issue.comment", self.mock_config
         )
 
     @mock.patch(PATH + "handle_msg")
@@ -473,7 +473,9 @@ class TestMain(unittest.TestCase):
         Tests 'initialize_recent' function where the topic is not for a valid handler
         """
         # Set up return values
-        mock_query.return_value = [{"topic": "m.m.m.bad.topic", "msg": "mock_msg"}]
+        mock_query.return_value = [
+            {"topic": "m.m.m.bad.topic", "msg": {"content": "mock_msg"}}
+        ]
 
         # Call the function
         m.initialize_recent(self.mock_config)

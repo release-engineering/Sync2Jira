@@ -4,7 +4,8 @@ def extract_message_body(msg):
     Handle both fedmsg and fedora-messaging style message bodies.
     """
 
-    body = msg.get("body", msg).get("body", msg.get("msg"))
+    body = msg.get("msg", {})
+    body = body.get("body", body)
     if body:
         return body
     raise KeyError(
