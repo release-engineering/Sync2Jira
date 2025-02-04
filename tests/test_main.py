@@ -301,27 +301,7 @@ class TestMain(unittest.TestCase):
         mock_load_config.return_value = self.mock_config
 
         # Call the function
-        self.old_style_mock_message.topic = "mock_topic"
-        m.callback(self.old_style_mock_message)
-
-        # Assert everything was called correctly
-        mock_handle_msg.assert_not_called()
-
-    @mock.patch(PATH + "handle_msg")
-    @mock.patch(PATH + "issue_handlers")
-    @mock.patch(PATH + "load_config")
-    def test_listen_no_issue(
-        self, mock_load_config, mock_handlers_issue, mock_handle_msg
-    ):
-        """
-        Test 'listen' function where the handler returns none
-        """
-        # Set up return values
-        mock_handlers_issue["github.issue.comment"].return_value = None
-        mock_load_config.return_value = self.mock_config
-
-        # Call the function
-        self.old_style_mock_message.topic = "d.d.d.github.issue.drop"
+        self.old_style_mock_message.topic = "d.d.d.github.issue.no_handlers_match_this"
         m.callback(self.old_style_mock_message)
 
         # Assert everything was called correctly
