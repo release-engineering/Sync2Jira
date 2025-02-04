@@ -3,6 +3,7 @@ jira
 requests
 requests_kerberos
 fedmsg
+fedora-messaging
 PyGithub
 pypandoc_binary
 urllib3

@@ -7,6 +7,13 @@ import sync2jira.main as m
 PATH = "sync2jira.main."
 
 
+class MockMessage(object):
+    def __init__(self, msg_id, body, topic):
+        self.id = msg_id
+        self.body = body
+        self.topic = topic
+
+
 class TestMain(unittest.TestCase):
     """
     This class tests the main.py file under sync2jira
@@ -31,14 +38,16 @@ class TestMain(unittest.TestCase):
 
         # Mock Fedmsg Message
         self.mock_message_body = {"issue": "mock_issue"}
-        self.old_style_mock_message = {
-            "msg_id": "mock_id",
-            "msg": self.mock_message_body,
-        }
-        self.new_style_mock_message = {
-            "msg_id": "mock_id",
-            "msg": {"body": self.mock_message_body},
-        }
+        self.old_style_mock_message = MockMessage(
+            msg_id="mock_id",
+            body=self.mock_message_body,
+            topic=None,
+        )
+        self.new_style_mock_message = MockMessage(
+            msg_id="mock_id",
+            body={"body": self.mock_message_body},
+            topic=None,
+        )
 
     def _check_for_exception(self, loader, target, exc=ValueError):
         try:
@@ -283,67 +292,57 @@ class TestMain(unittest.TestCase):
         mock_report_failure.assert_called_with(self.mock_config)
 
     @mock.patch(PATH + "handle_msg")
-    @mock.patch(PATH + "fedmsg")
-    def test_listen_no_handlers(self, mock_fedmsg, mock_handle_msg):
+    @mock.patch(PATH + "load_config")
+    def test_listen_no_handlers(self, mock_load_config, mock_handle_msg):
         """
         Test 'listen' function where suffix is not in handlers
         """
         # Set up return values
-        mock_fedmsg.tail_messages.return_value = [
-            ("dummy", "dummy", "mock_topic", self.old_style_mock_message)
-        ]
+        mock_load_config.return_value = self.mock_config
 
         # Call the function
-        m.listen(self.mock_config)
+        self.old_style_mock_message.topic = "mock_topic"
+        m.callback(self.old_style_mock_message)
 
         # Assert everything was called correctly
         mock_handle_msg.assert_not_called()
 
     @mock.patch(PATH + "handle_msg")
     @mock.patch(PATH + "issue_handlers")
-    @mock.patch(PATH + "fedmsg")
-    def test_listen_no_issue(self, mock_fedmsg, mock_handlers_issue, mock_handle_msg):
+    @mock.patch(PATH + "load_config")
+    def test_listen_no_issue(
+        self, mock_load_config, mock_handlers_issue, mock_handle_msg
+    ):
         """
         Test 'listen' function where the handler returns none
         """
         # Set up return values
         mock_handlers_issue["github.issue.comment"].return_value = None
-        mock_fedmsg.tail_messages.return_value = [
-            ("dummy", "dummy", "d.d.d.github.issue.drop", self.old_style_mock_message)
-        ]
+        mock_load_config.return_value = self.mock_config
 
         # Call the function
-        m.listen(self.mock_config)
+        self.old_style_mock_message.topic = "d.d.d.github.issue.drop"
+        m.callback(self.old_style_mock_message)
 
         # Assert everything was called correctly
         mock_handle_msg.assert_not_called()
 
     @mock.patch(PATH + "handle_msg")
     @mock.patch(PATH + "issue_handlers")
-    @mock.patch(PATH + "fedmsg")
-    def test_listen(self, mock_fedmsg, mock_handlers_issue, mock_handle_msg):
+    @mock.patch(PATH + "load_config")
+    def test_listen(self, mock_load_config, mock_handlers_issue, mock_handle_msg):
         """
         Test 'listen' function where everything goes smoothly
         """
         # Set up return values
         mock_handlers_issue["github.issue.comment"].return_value = "dummy_issue"
-        mock_fedmsg.tail_messages.return_value = [
-            (
-                "dummy",
-                "dummy",
-                "d.d.d.github.issue.comment",
-                self.old_style_mock_message,
-            ),
-            (
-                "dummy",
-                "dummy",
-                "d.d.d.github.issue.comment",
-                self.new_style_mock_message,
-            ),
-        ]
+        mock_load_config.return_value = self.mock_config
 
         # Call the function
-        m.listen(self.mock_config)
+        self.old_style_mock_message.topic = "d.d.d.github.issue.comment"
+        self.new_style_mock_message.topic = "d.d.d.github.issue.comment"
+        m.callback(self.old_style_mock_message)
+        m.callback(self.new_style_mock_message)
 
         # Assert everything was called correctly
         # It should be called twice, once for the old style message and once for the new.

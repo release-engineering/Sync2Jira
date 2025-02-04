@@ -4,10 +4,8 @@ def extract_message_body(msg):
     Handle both fedmsg and fedora-messaging style message bodies.
     """
 
-    body = msg.get("msg", {})
-    body = body.get("body", body)
+    body = msg.get("body", {})
     if body:
         return body
-    raise KeyError(
-        f"Unrecognized message format with keys {msg.keys()}. Expected either 'msg' or 'body'"
-    )
+    else:
+        return msg
