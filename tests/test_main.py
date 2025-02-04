@@ -307,15 +307,16 @@ class TestMain(unittest.TestCase):
         # Assert everything was called correctly
         mock_handle_msg.assert_not_called()
 
+    @mock.patch.dict(
+        PATH + "issue_handlers", {"github.issue.comment": lambda msg, c: "dummy_issue"}
+    )
     @mock.patch(PATH + "handle_msg")
-    @mock.patch(PATH + "issue_handlers")
     @mock.patch(PATH + "load_config")
-    def test_listen(self, mock_load_config, mock_handlers_issue, mock_handle_msg):
+    def test_listen(self, mock_load_config, mock_handle_msg):
         """
         Test 'listen' function where everything goes smoothly
         """
         # Set up return values
-        mock_handlers_issue["github.issue.comment"].return_value = "dummy_issue"
         mock_load_config.return_value = self.mock_config
 
         # Call the function once with the old style
