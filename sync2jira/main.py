@@ -32,7 +32,6 @@ import fedora_messaging.api
 import jinja2
 
 # Local Modules
-import sync2jira.compat as c
 import sync2jira.downstream_issue as d_issue
 import sync2jira.downstream_pr as d_pr
 from sync2jira.intermediary import matcher
@@ -154,7 +153,7 @@ def callback(msg):
 
     log.debug("Handling %r %r %r", suffix, topic, idx)
 
-    body = c.extract_message_body(msg.body)
+    body = msg.body.get("body") or msg.body
     handle_msg(body, suffix, config)
 
 
