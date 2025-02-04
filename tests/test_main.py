@@ -318,10 +318,12 @@ class TestMain(unittest.TestCase):
         mock_handlers_issue["github.issue.comment"].return_value = "dummy_issue"
         mock_load_config.return_value = self.mock_config
 
-        # Call the function
+        # Call the function once with the old style
         self.old_style_mock_message.topic = "d.d.d.github.issue.comment"
-        self.new_style_mock_message.topic = "d.d.d.github.issue.comment"
         m.callback(self.old_style_mock_message)
+
+        # ... and again with the new style
+        self.new_style_mock_message.topic = "d.d.d.github.issue.comment"
         m.callback(self.new_style_mock_message)
 
         # Assert everything was called correctly
