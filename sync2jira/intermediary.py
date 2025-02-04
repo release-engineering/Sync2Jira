@@ -17,6 +17,7 @@
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
 import re
+from typing import Optional
 
 
 class Issue(object):
@@ -277,33 +278,37 @@ def map_fixVersion(mapping, issue):
         issue["milestone"] = fixVersion_map.replace("XXX", issue["milestone"])
 
 
-def matcher(content, comments):
+JIRA_REFERENCE = re.compile(r"Relates +to +JIRA:\s*(\w+-\d+)")
+
+
+def matcher(content: Optional[str], comments: list[dict[str, str]]) -> str:
     """
     Helper function to match to a JIRA
+
+    Extract the Jira ticket reference from the first instance of the magic
+    cookie (e.g., "Relates to JIRA: FACTORY-1234") found when searching
+    through the comments in reverse order.  If no reference is found in the
+    comments, then look in the PR description.  This ordering allows later
+    comments to override earlier ones as well as any reference in the
+    description.
 
     :param String content: PR description
     :param List comments: Comments
     :return: JIRA match or None
     :rtype: Bool
     """
-    # Build out a string with all comments and initial_comment
-    all_data = " "
+
+    def find_it(input_str: str) -> str:
+        match = JIRA_REFERENCE.search(input_str)
+        return match.group(1) if match else None
+
     for comment in reversed(comments):
-        all_data += f" {comment['body']}"
-    if content:
-        all_data += content
-    if all_data:
-        # Parse to extract the JIRA information. 2 types of matches:
-        # 1 - To match to JIRA issue (i.e. Relates to JIRA: FACTORY-1234)
-        # 2 - To match to upstream issue (i.e. Relates to Issue: !5)
-        match_jira = re.findall(r"Relates to JIRA: ([\w]*-[\d]*)", all_data)
-        if match_jira:
-            for match in match_jira:
-                # Assert that the match was correct
-                if re.match(r"[\w]*-[\d]*", match):
-                    return match
-        else:
-            return None
+        match_str = find_it(comment["body"])
+        if match_str:
+            break
+    else:
+        match_str = find_it(content)
+    return match_str
 
 
 def trim_string(content):

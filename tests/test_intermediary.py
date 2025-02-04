@@ -229,18 +229,84 @@ class TestIntermediary(unittest.TestCase):
 
     def test_matcher(self):
         """This tests the matcher function"""
-        # Positive case
-        content = "Relates to JIRA: XYZ-5678"
-        comments = [{"body": "Relates to JIRA: ABC-1234"}]
-        expected = True
-        actual = bool(i.matcher(content, comments))
-        assert expected == actual
+        # Found in content, no comments
+        expected = "XYZ-5678"
+        content = f"Relates to JIRA: {expected}"
+        comments = []
+        actual = i.matcher(content, comments)
+        self.assertEqual(expected, actual)
+
+        # Found in comment, no content
+        expected = "XYZ-5678"
+        content = None
+        comments = [{"body": f"Relates to JIRA: {expected}"}]
+        actual = i.matcher(content, comments)
+        self.assertEqual(expected, actual)
+
+        # Found in content, not spanning comments
+        expected = "XYZ-5678"
+        content = f"Relates to JIRA: {expected}"
+        comments = [
+            {"body": "ABC-1234"},
+            {"body": "JIRA:"},
+            {"body": "to"},
+            {"body": "Relates"},
+        ]
+        actual = i.matcher(content, comments)
+        self.assertEqual(expected, actual)
+
+        # Found in comment, not contents
+        expected = "XYZ-5678"
+        content = "Nothing here"
+        comments = [
+            {"body": "Relates"},
+            {"body": f"Relates to JIRA: {expected}"},
+            {"body": "stuff"},
+        ]
+        actual = i.matcher(content, comments)
+        self.assertEqual(expected, actual)
+
+        # Overridden in comment
+        expected = "XYZ-5678"
+        content = "Relates to JIRA: ABC-1234"
+        comments = [
+            {"body": "Relates"},
+            {"body": f"Relates to JIRA: {expected}"},
+            {"body": "stuff"},
+        ]
+        actual = i.matcher(content, comments)
+        self.assertEqual(expected, actual)
+
+        # Overridden twice in comments
+        expected = "XYZ-5678"
+        content = "Relates to JIRA: ABC-1234"
+        comments = [
+            {"body": "Relates to JIRA: ABC-1235"},
+            {"body": f"Relates to JIRA: {expected}"},
+            {"body": "stuff"},
+        ]
+        actual = i.matcher(content, comments)
+        self.assertEqual(expected, actual)
+
+        # Funky spacing
+        expected = "XYZ-5678"
+        content = f"Relates  to  JIRA:   {expected}"
+        comments = []
+        actual = i.matcher(content, comments)
+        self.assertEqual(expected, actual)
+
+        # Funkier spacing
+        expected = "XYZ-5678"
+        content = f"Relates to JIRA:{expected}"
+        comments = []
+        actual = i.matcher(content, comments)
+        self.assertEqual(expected, actual)
 
         # Negative case
         content = "No JIRAs here..."
         comments = [{"body": "... nor here"}]
-        expected = False
-        actual = bool(i.matcher(content, comments))
-        assert expected == actual
+        expected = None
+        actual = i.matcher(content, comments)
+        self.assertEqual(expected, actual)
 
     # TODO: Add new tests from PR
