@@ -17,11 +17,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110.15.0 USA
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
-"""Sync GitHub issues to a jira instance, via fedmsg.
-
-Run with systemd, please.
-"""
-from copy import deepcopy
+"""Sync GitHub issues to a jira instance, via fedora-messaging."""
 
 # Build-In Modules
 import logging
@@ -31,8 +27,8 @@ import traceback
 import warnings
 
 # 3rd Party Modules
-import fedmsg
 import fedmsg.config
+import fedora_messaging.api
 import jinja2
 
 # Local Modules
@@ -146,6 +142,22 @@ def load_config(loader=fedmsg.config.load_config):
     return config
 
 
+def callback(msg):
+    config = load_config()
+    topic = msg.topic
+    idx = msg.id
+    suffix = ".".join(topic.split(".")[3:])
+    log.debug("Encountered %r %r %r", suffix, topic, idx)
+
+    if suffix not in issue_handlers and suffix not in pr_handlers:
+        return
+
+    log.debug("Handling %r %r %r", suffix, topic, idx)
+
+    body = c.extract_message_body(msg.body)
+    handle_msg(body, suffix, config)
+
+
 def listen(config):
     """
     Listens to activity on upstream repos on GitHub
@@ -159,19 +171,33 @@ def listen(config):
         log.info("`listen` is disabled.  Exiting.")
         return
 
+    # Next, we need a queue to consume messages from. We can define
+    # the queue and binding configurations in these dictionaries:
+    queue = os.getenv("FEDORA_MESSAGING_QUEUE", "8b16c196-7ee3-4e33-92b9-e69d80fce333")
+    queues = {
+        queue: {
+            "durable": True,  # Persist the queue on broker restart
+            "auto_delete": False,  # Delete the queue when the client terminates
+            "exclusive": True,  # Disallow multiple simultaneous consumers
+            "arguments": {},
+        },
+    }
+    bindings = {
+        "exchange": "amq.topic",  # The AMQP exchange to bind our queue to
+        "queue": queue,
+        "routing_keys": [  # The topics that should be delivered to the queue
+            # New style
+            "org.fedoraproject.prod.github.issues",
+            "org.fedoraproject.prod.github.issue_comment",
+            "org.fedoraproject.prod.github.pull_request",
+            # Old style
+            "org.fedoraproject.prod.github.issue.#",
+            "org.fedoraproject.prod.github.pull_request.#",
+        ],
+    }
+
     log.info("Waiting for a relevant fedmsg message to arrive...")
-    for _, _, topic, msg in fedmsg.tail_messages(**config):
-        idx = msg["msg_id"]
-        suffix = ".".join(topic.split(".")[3:])
-        log.debug("Encountered %r %r %r", suffix, topic, idx)
-
-        if suffix not in issue_handlers and suffix not in pr_handlers:
-            continue
-
-        log.debug("Handling %r %r %r", suffix, topic, idx)
-
-        body = c.extract_message_body(msg)
-        handle_msg(body, suffix, config)
+    fedora_messaging.api.consume(callback, bindings=bindings, queues=queues)
 
 
 def initialize_issues(config, testing=False, repo_name=None):
