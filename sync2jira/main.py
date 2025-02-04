@@ -34,8 +34,6 @@ import warnings
 import fedmsg
 import fedmsg.config
 import jinja2
-import requests
-from requests_kerberos import HTTPKerberosAuth, OPTIONAL
 
 # Local Modules
 import sync2jira.compat as c
@@ -93,7 +91,6 @@ pr_handlers = {
     "github.pull_request.reopened": u_pr.handle_github_message,
     "github.pull_request.closed": u_pr.handle_github_message,
 }
-DATAGREPPER_URL = "http://apps.fedoraproject.org/datagrepper/raw"
 INITIALIZE = os.getenv("INITIALIZE", "0")
 
 
@@ -270,35 +267,9 @@ def initialize_pr(config, testing=False, repo_name=None):
     log.info("Done with GitHub PR initialization.")
 
 
-def initialize_recent(config):
-    """
-    Initializes based on the recent history of datagrepper
-
-    :param Dict config: Config dict
-    :return: Nothing
-    """
-    # Query datagrepper
-    ret = query(category=["github"], delta=int(600), rows_per_page=100)
-
-    # Loop and sync
-    for entry in ret:
-        # Extract our topic
-        suffix = ".".join(entry["topic"].split(".")[3:])
-        log.debug("Encountered %r %r", suffix, entry["topic"])
-
-        # Disregard if it's invalid
-        if suffix not in issue_handlers and suffix not in pr_handlers:
-            continue
-
-        # Deal with the message
-        log.debug("Handling %r %r", suffix, entry["topic"])
-        body = c.extract_message_body(entry)
-        handle_msg(body, suffix, config)
-
-
 def handle_msg(body, suffix, config):
     """
-    Function to handle incoming message from datagrepper
+    Function to handle incoming message
     :param Dict body: Incoming message body
     :param String suffix: Incoming suffix
     :param Dict config: Config dict
@@ -328,54 +299,6 @@ def handle_msg(body, suffix, config):
             d_pr.sync_with_jira(pr, config)
 
 
-def query(limit=None, **kwargs):
-    """
-    Run query on Datagrepper
-
-    Args:
-        limit: the max number of messages to fetch at a time
-        kwargs: keyword arguments to build request parameters
-    """
-    # Pack up the kwargs into a parameter list for request
-    params = deepcopy(kwargs)
-
-    # Important to set ASC order when paging to avoid duplicates
-    params["order"] = "asc"
-
-    # Fetch results:
-    #  - once, if limit is 0 or None (the default)
-    #  - until we hit the limit
-    #  - until there are no more left to fetch
-    fetched = 0
-    total = limit or 1
-    while fetched < total:
-        results = get(params=params)
-        count = results["count"]
-
-        # Exit the loop if there was nothing to fetch
-        if count <= 0:
-            break
-
-        fetched += count
-        for result in results["raw_messages"]:
-            yield result
-
-        params["page"] = params.get("page", 1) + 1
-
-
-def get(params):
-    url = DATAGREPPER_URL
-    headers = {"Accept": "application/json"}
-
-    response = requests.get(
-        url=url,
-        params=params,
-        headers=headers,
-        auth=HTTPKerberosAuth(mutual_authentication=OPTIONAL),
-    )
-    return response.json()
-
-
 def main(runtime_test=False, runtime_config=None):
     """
     Main function to check for initial sync
@@ -402,10 +325,6 @@ def main(runtime_test=False, runtime_config=None):
             initialize_pr(config)
             if runtime_test:
                 return
-        else:
-            # Pull from datagrepper for the last 10 minutes
-            log.info("Initialization False. Pulling data from datagrepper...")
-            initialize_recent(config)
         try:
             listen(config)
         except KeyboardInterrupt:
