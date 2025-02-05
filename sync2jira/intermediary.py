@@ -278,7 +278,7 @@ def map_fixVersion(mapping, issue):
         issue["milestone"] = fixVersion_map.replace("XXX", issue["milestone"])
 
 
-JIRA_REFERENCE = re.compile(r"Relates +to +JIRA:\s*(\w+-\d+)")
+JIRA_REFERENCE = re.compile(r"\bJIRA:\s*([A-Z]+-\d+)\b")
 
 
 def matcher(content: Optional[str], comments: list[dict[str, str]]) -> str:
@@ -286,7 +286,7 @@ def matcher(content: Optional[str], comments: list[dict[str, str]]) -> str:
     Helper function to match to a JIRA
 
     Extract the Jira ticket reference from the first instance of the magic
-    cookie (e.g., "Relates to JIRA: FACTORY-1234") found when searching
+    cookie (e.g., "JIRA: FACTORY-1234") found when searching
     through the comments in reverse order.  If no reference is found in the
     comments, then look in the PR description.  This ordering allows later
     comments to override earlier ones as well as any reference in the
