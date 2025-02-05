@@ -112,7 +112,7 @@ The config file is made up of multiple parts
 
      .. note::
 
-            :pullrequest: After enabling PR syncing, just type "Relates to JIRA: XXXX-1234" in the comment or description of the PR to sync with a JIRA issue. After this, updates such as when it has been merged will automatically be added to the JIRA ticket.
+            :pullrequest: After enabling PR syncing, just type "JIRA: XXXX-1234" in the comment or description of the PR to sync with a JIRA issue. After this, updates such as when it has been merged will automatically be added to the JIRA ticket.
 
 * You can add your projects here. The :code:`'project'` field is associated
   with downstream JIRA projects, and :code:`'component'` with downstream
