@@ -17,11 +17,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110.15.0 USA
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
-"""Sync GitHub issues to a jira instance, via fedmsg.
-
-Run with systemd, please.
-"""
-from copy import deepcopy
+"""Sync GitHub issues to a jira instance, via fedora-messaging."""
 
 # Build-In Modules
 import logging
@@ -31,14 +27,11 @@ import traceback
 import warnings
 
 # 3rd Party Modules
-import fedmsg
 import fedmsg.config
+import fedora_messaging.api
 import jinja2
-import requests
-from requests_kerberos import HTTPKerberosAuth, OPTIONAL
 
 # Local Modules
-import sync2jira.compat as c
 import sync2jira.downstream_issue as d_issue
 import sync2jira.downstream_pr as d_pr
 from sync2jira.intermediary import matcher
@@ -93,7 +86,6 @@ pr_handlers = {
     "github.pull_request.reopened": u_pr.handle_github_message,
     "github.pull_request.closed": u_pr.handle_github_message,
 }
-DATAGREPPER_URL = "http://apps.fedoraproject.org/datagrepper/raw"
 INITIALIZE = os.getenv("INITIALIZE", "0")
 
 
@@ -149,6 +141,22 @@ def load_config(loader=fedmsg.config.load_config):
     return config
 
 
+def callback(msg):
+    config = load_config()
+    topic = msg.topic
+    idx = msg.id
+    suffix = ".".join(topic.split(".")[3:])
+    log.debug("Encountered %r %r %r", suffix, topic, idx)
+
+    if suffix not in issue_handlers and suffix not in pr_handlers:
+        return
+
+    log.debug("Handling %r %r %r", suffix, topic, idx)
+
+    body = msg.body.get("body") or msg.body
+    handle_msg(body, suffix, config)
+
+
 def listen(config):
     """
     Listens to activity on upstream repos on GitHub
@@ -162,19 +170,33 @@ def listen(config):
         log.info("`listen` is disabled.  Exiting.")
         return
 
+    # Next, we need a queue to consume messages from. We can define
+    # the queue and binding configurations in these dictionaries:
+    queue = os.getenv("FEDORA_MESSAGING_QUEUE", "8b16c196-7ee3-4e33-92b9-e69d80fce333")
+    queues = {
+        queue: {
+            "durable": True,  # Persist the queue on broker restart
+            "auto_delete": False,  # Delete the queue when the client terminates
+            "exclusive": True,  # Disallow multiple simultaneous consumers
+            "arguments": {},
+        },
+    }
+    bindings = {
+        "exchange": "amq.topic",  # The AMQP exchange to bind our queue to
+        "queue": queue,
+        "routing_keys": [  # The topics that should be delivered to the queue
+            # New style
+            "org.fedoraproject.prod.github.issues",
+            "org.fedoraproject.prod.github.issue_comment",
+            "org.fedoraproject.prod.github.pull_request",
+            # Old style
+            "org.fedoraproject.prod.github.issue.#",
+            "org.fedoraproject.prod.github.pull_request.#",
+        ],
+    }
+
     log.info("Waiting for a relevant fedmsg message to arrive...")
-    for _, _, topic, msg in fedmsg.tail_messages(**config):
-        idx = msg["msg_id"]
-        suffix = ".".join(topic.split(".")[3:])
-        log.debug("Encountered %r %r %r", suffix, topic, idx)
-
-        if suffix not in issue_handlers and suffix not in pr_handlers:
-            continue
-
-        log.debug("Handling %r %r %r", suffix, topic, idx)
-
-        body = c.extract_message_body(msg)
-        handle_msg(body, suffix, config)
+    fedora_messaging.api.consume(callback, bindings=bindings, queues=queues)
 
 
 def initialize_issues(config, testing=False, repo_name=None):
@@ -270,35 +292,9 @@ def initialize_pr(config, testing=False, repo_name=None):
     log.info("Done with GitHub PR initialization.")
 
 
-def initialize_recent(config):
-    """
-    Initializes based on the recent history of datagrepper
-
-    :param Dict config: Config dict
-    :return: Nothing
-    """
-    # Query datagrepper
-    ret = query(category=["github"], delta=int(600), rows_per_page=100)
-
-    # Loop and sync
-    for entry in ret:
-        # Extract our topic
-        suffix = ".".join(entry["topic"].split(".")[3:])
-        log.debug("Encountered %r %r", suffix, entry["topic"])
-
-        # Disregard if it's invalid
-        if suffix not in issue_handlers and suffix not in pr_handlers:
-            continue
-
-        # Deal with the message
-        log.debug("Handling %r %r", suffix, entry["topic"])
-        body = c.extract_message_body(entry)
-        handle_msg(body, suffix, config)
-
-
 def handle_msg(body, suffix, config):
     """
-    Function to handle incoming message from datagrepper
+    Function to handle incoming message
     :param Dict body: Incoming message body
     :param String suffix: Incoming suffix
     :param Dict config: Config dict
@@ -328,54 +324,6 @@ def handle_msg(body, suffix, config):
             d_pr.sync_with_jira(pr, config)
 
 
-def query(limit=None, **kwargs):
-    """
-    Run query on Datagrepper
-
-    Args:
-        limit: the max number of messages to fetch at a time
-        kwargs: keyword arguments to build request parameters
-    """
-    # Pack up the kwargs into a parameter list for request
-    params = deepcopy(kwargs)
-
-    # Important to set ASC order when paging to avoid duplicates
-    params["order"] = "asc"
-
-    # Fetch results:
-    #  - once, if limit is 0 or None (the default)
-    #  - until we hit the limit
-    #  - until there are no more left to fetch
-    fetched = 0
-    total = limit or 1
-    while fetched < total:
-        results = get(params=params)
-        count = results["count"]
-
-        # Exit the loop if there was nothing to fetch
-        if count <= 0:
-            break
-
-        fetched += count
-        for result in results["raw_messages"]:
-            yield result
-
-        params["page"] = params.get("page", 1) + 1
-
-
-def get(params):
-    url = DATAGREPPER_URL
-    headers = {"Accept": "application/json"}
-
-    response = requests.get(
-        url=url,
-        params=params,
-        headers=headers,
-        auth=HTTPKerberosAuth(mutual_authentication=OPTIONAL),
-    )
-    return response.json()
-
-
 def main(runtime_test=False, runtime_config=None):
     """
     Main function to check for initial sync
@@ -402,10 +350,6 @@ def main(runtime_test=False, runtime_config=None):
             initialize_pr(config)
             if runtime_test:
                 return
-        else:
-            # Pull from datagrepper for the last 10 minutes
-            log.info("Initialization False. Pulling data from datagrepper...")
-            initialize_recent(config)
         try:
             listen(config)
         except KeyboardInterrupt:
