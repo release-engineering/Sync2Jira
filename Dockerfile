@@ -27,6 +27,7 @@ RUN dnf -y install \
     python3-pip \
     krb5-devel \
     python-devel \
+    fedora-messaging \
     gcc \
   && dnf -y clean all
 
