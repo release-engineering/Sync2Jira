@@ -22,6 +22,7 @@ LABEL \
     distribution-scope="public"
 
 # Installing sync2jira dependencies
+RUN rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
 RUN dnf -y install \
     git \
     python3-pip \
