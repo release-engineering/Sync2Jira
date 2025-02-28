@@ -299,6 +299,8 @@ def matcher(content: Optional[str], comments: list[dict[str, str]]) -> str:
     """
 
     def find_it(input_str: str) -> str:
+        if input_str is None:
+            return None
         match = JIRA_REFERENCE.search(input_str)
         return match.group(1) if match else None
 
