@@ -399,27 +399,5 @@ def list_managed():
             print(issue.url)
 
 
-def close_duplicates():
-    """
-    Function to close duplicate functions. Uses downstream:close_duplicates.
-
-    :return: Nothing
-    """
-    config = load_config()
-    logging.basicConfig(level=logging.INFO)
-    log.info("Testing flag is %r", config["sync2jira"]["testing"])
-    mapping = config["sync2jira"]["map"]
-    warnings.simplefilter("ignore")
-
-    for upstream in mapping.get("github", {}).keys():
-        for issue in u_issue.github_issues(upstream, config):
-            try:
-                d_issue.close_duplicates(issue, config)
-            except Exception:
-                log.error("Failed on %r", issue)
-                raise
-    log.info("Done with GitHub duplicates.")
-
-
 if __name__ == "__main__":
     main()
