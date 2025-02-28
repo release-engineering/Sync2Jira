@@ -54,7 +54,6 @@ setup(
     entry_points={
         "console_scripts": [
             "sync2jira=sync2jira.main:main",
-            "sync2jira-list-managed-urls=sync2jira.main:list_managed",
         ],
     },
 )

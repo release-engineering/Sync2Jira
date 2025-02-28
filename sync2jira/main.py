@@ -384,20 +384,5 @@ def report_failure(config):
     )
 
 
-def list_managed():
-    """
-    Function to list URL for issues under map in config.
-
-    :return: Nothing
-    """
-    config = load_config()
-    mapping = config["sync2jira"]["map"]
-    warnings.simplefilter("ignore")
-
-    for upstream in mapping.get("github", {}).keys():
-        for issue in u_issue.github_issues(upstream, config):
-            print(issue.url)
-
-
 if __name__ == "__main__":
     main()

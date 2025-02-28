@@ -76,22 +76,6 @@ class TestMain(unittest.TestCase):
         loader = lambda: {"sync2jira": {"map": {"github": {}}, "jira": {}}}
         m.load_config(loader)  # Should succeed without an exception.
 
-    @mock.patch(PATH + "load_config")
-    @mock.patch(PATH + "u_issue")
-    def test_list_managed(self, mock_u, mock_load_config):
-        """
-        This tests the 'list_managed' function
-        """
-        # Set up return values
-        mock_load_config.return_value = self.mock_config
-
-        # Call the function
-        m.list_managed()
-
-        # Assert everything was called correctly
-        mock_load_config.assert_called_once()
-        mock_u.github_issues.assert_called_with("key_github", self.mock_config)
-
     @mock.patch(PATH + "report_failure")
     @mock.patch(PATH + "INITIALIZE", 1)
     @mock.patch(PATH + "initialize_issues")
