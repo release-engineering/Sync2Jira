@@ -27,7 +27,6 @@ import re
 from typing import Optional
 
 # 3rd Party Modules
-import arrow
 import jinja2
 from jira import JIRAError
 import jira.client
@@ -1312,92 +1311,3 @@ def sync_with_jira(issue, config):
         _create_jira_issue(client, issue, config)
     else:
         _upgrade_jira_issue(client, match, issue, config)
-
-
-def _close_as_duplicate(client: jira.client, duplicate, keeper, config):
-    """
-    Helper function to close an issue as a duplicate.
-
-    :param jira.client client: JIRA Client
-    :param jira.resources.Issue duplicate: Duplicate JIRA Issue
-    :param jira.resources.Issue keeper: the JIRA issue to keep
-    :param Dict config: Config dict
-    :returns: Nothing
-    """
-    log.info("Closing %s as duplicate of %s", duplicate.permalink(), keeper.permalink())
-    if config["sync2jira"]["testing"]:
-        log.info("Testing flag is true.  Skipping actual delete.")
-        return
-
-    # Find the id of some dropped or done state.
-    transitions = {t["name"]: t["id"] for t in client.transitions(duplicate)}
-    closed = None
-    preferences = ["Dropped", "Reject", "Done", "Closed", "Closed (2)"]
-    for preference in preferences:
-        if preference in transitions:
-            closed = transitions[preference]
-            break
-
-    text = "Marking as duplicate of %s" % keeper.key
-    if any(text in comment.body for comment in client.comments(duplicate)):
-        log.info("Skipping comment in duplicate.  Already present.")
-    else:
-        client.add_comment(duplicate, text)
-
-    text = "%s is a duplicate." % duplicate.key
-    if any(text in comment.body for comment in client.comments(keeper)):
-        log.info("Skipping comment original.  Already present.")
-    else:
-        client.add_comment(keeper, text)
-
-    if closed:
-        try:
-            client.transition_issue(duplicate, closed, resolution={"name": "Duplicate"})
-        except Exception as e:
-            if (
-                "response" in dir(e)
-                and "text" in dir(e.response)
-                and "Field 'resolution' cannot be set" in e.response.text
-            ):
-                # Try closing without a specific resolution.
-                try:
-                    client.transition_issue(duplicate, closed)
-                except Exception:
-                    log.exception(
-                        "Failed to close %r without a resolution", duplicate.permalink()
-                    )
-            else:
-                log.exception(
-                    "Failed to close %r with a resolution of 'Duplicate'",
-                    duplicate.permalink(),
-                )
-    else:
-        log.warning("Unable to find close transition for %r", duplicate.key)
-
-
-def close_duplicates(issue, config):
-    """
-    Function to close duplicate JIRA issues.
-
-    :param sync2jira.intermediary.Issue issue: Upstream Issue
-    :param Dict config: Config dict
-    :returns: Nothing
-    """
-    # Create a client connection for this issue
-    client = get_jira_client(issue, config)
-
-    # Check the status of the JIRA client
-    if not config["sync2jira"]["develop"] and not check_jira_status(client):
-        log.warning("The JIRA server looks like its down. Shutting down...")
-        raise JIRAError
-
-    log.info("Looking for dupes of upstream %s, %s", issue.url, issue.title)
-    results = _matching_jira_issue_query(client, issue, config, free=True)
-    if len(results) <= 1:
-        log.info("No duplicates found.")
-        return
-
-    results = sorted(results, key=lambda x: arrow.get(x.fields.created))
-    keeper, duplicates = results[0], results[1:]
-    for duplicate in duplicates:
-        _close_as_duplicate(client, duplicate, keeper, config)

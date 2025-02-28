@@ -76,46 +76,6 @@ class TestMain(unittest.TestCase):
         loader = lambda: {"sync2jira": {"map": {"github": {}}, "jira": {}}}
         m.load_config(loader)  # Should succeed without an exception.
 
-    @mock.patch(PATH + "u_issue")
-    @mock.patch(PATH + "d_issue")
-    @mock.patch(PATH + "load_config")
-    def test_close_duplicates(self, mock_load_config, mock_d, mock_u):
-        """
-        This tests the 'close_duplicates' function where everything goes smoothly
-        """
-        # Set up return values
-        mock_load_config.return_value = self.mock_config
-        mock_u.github_issues.return_value = ["mock_issue_github"]
-
-        # Call the function
-        m.close_duplicates()
-
-        # Assert everything was called correctly
-        mock_load_config.assert_called_once()
-        mock_u.github_issues.assert_called_with("key_github", self.mock_config)
-        mock_d.close_duplicates.assert_any_call("mock_issue_github", self.mock_config)
-
-    @mock.patch(PATH + "u_issue")
-    @mock.patch(PATH + "d_issue")
-    @mock.patch(PATH + "load_config")
-    def test_close_duplicates_errors(self, mock_load_config, mock_d, mock_u):
-        """
-        This tests the 'close_duplicates' function where closing duplicates raises an exception
-        """
-        # Set up return values
-        mock_load_config.return_value = self.mock_config
-        mock_u.github_issues.return_value = ["mock_issue"]
-        mock_d.close_duplicates.side_effect = Exception()
-
-        # Call the function
-        with self.assertRaises(Exception):
-            m.close_duplicates()
-
-        # Assert everything was called correctly
-        mock_load_config.assert_called_once()
-        mock_u.github_issues.assert_called_once()
-        mock_d.close_duplicates.assert_called_with("mock_issue", self.mock_config)
-
     @mock.patch(PATH + "load_config")
     @mock.patch(PATH + "u_issue")
     def test_list_managed(self, mock_u, mock_load_config):
