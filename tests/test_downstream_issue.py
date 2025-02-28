@@ -1205,7 +1205,6 @@ class TestDownstreamIssue(unittest.TestCase):
             mock_duplicate, "1234", resolution={"name": "Duplicate"}
         )
 
-    @mock.patch(PATH + "alert_user_of_duplicate_issues")
     @mock.patch(PATH + "find_username")
     @mock.patch(PATH + "check_comments_for_duplicate")
     @mock.patch("jira.client.JIRA")
@@ -1214,7 +1213,6 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client,
         mock_check_comments_for_duplicates,
         mock_find_username,
-        mock_alert_user_of_duplicate_issues,
     ):
         """
         This tests '_matching_jira_query' function
@@ -1232,7 +1230,6 @@ class TestDownstreamIssue(unittest.TestCase):
         ]
         mock_check_comments_for_duplicates.return_value = True
         mock_find_username.return_value = "mock_username"
-        mock_alert_user_of_duplicate_issues.return_value = True
 
         # Call the function
         response = d._matching_jira_issue_query(
@@ -1241,13 +1238,6 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert everything was called correctly
         self.assertEqual(response, [mock_downstream_issue])
-        mock_alert_user_of_duplicate_issues.assert_called_with(
-            self.mock_issue,
-            [mock_downstream_issue],
-            mock_client.search_issues.return_value,
-            self.mock_config,
-            mock_client,
-        )
         mock_client.search_issues.assert_called_with(
             'issueFunction in linkedIssuesOfRemote("Upstream issue")'
             ' and issueFunction in linkedIssuesOfRemote("mock_url")'
@@ -1256,119 +1246,6 @@ class TestDownstreamIssue(unittest.TestCase):
             mock_client, mock_downstream_issue, "mock_username"
         )
         mock_find_username.assert_called_with(self.mock_issue, self.mock_config)
-
-    @mock.patch(PATH + "jinja2")
-    @mock.patch(PATH + "send_mail")
-    @mock.patch("jira.client.JIRA")
-    def test_alert_user(
-        self,
-        mock_client,
-        mock_mailer,
-        mock_jinja,
-    ):
-        """
-        This tests 'alert_user_of_duplicate_issues' function
-        """
-        # Set up return values
-        mock_downstream_issue = MagicMock()
-        mock_downstream_issue.key = "mock_key"
-        bad_downstream_issue = MagicMock()
-        bad_downstream_issue.key = "mock_key"
-        bad_downstream_issue.fields.status.name = "To Do"
-        mock_results_of_query = [mock_downstream_issue, bad_downstream_issue]
-        mock_search_user_result = MagicMock()
-        mock_search_user_result.displayName = "mock_name"
-        mock_search_user_result.emailAddress = "mock_email"
-        mock_client.search_users.return_value = [mock_search_user_result]
-        mock_template = MagicMock(name="template")
-        mock_template.render.return_value = "mock_html_text"
-        mock_template_env = MagicMock(name="templateEnv")
-        mock_template_env.get_template.return_value = mock_template
-        mock_jinja.Environment.return_value = mock_template_env
-
-        # Call the function
-        d.alert_user_of_duplicate_issues(
-            issue=self.mock_issue,
-            final_result=[mock_downstream_issue],
-            results_of_query=mock_results_of_query,
-            config=self.mock_config,
-            client=mock_client,
-        )
-
-        # Assert everything was called correctly
-        mock_client.search_users.assert_any_call("mock_owner")
-        mock_client.search_users.assert_any_call("mock_admin")
-        mock_template.render.assert_called_with(
-            admins=[{"name": "mock_name", "email": "mock_email"}],
-            duplicate_issues=[
-                {"url": "mock_server/browse/mock_key", "title": "mock_key"}
-            ],
-            issue=self.mock_issue,
-            selected_issue={"url": "mock_server/browse/mock_key", "title": "mock_key"},
-            user={"name": "mock_name", "email": "mock_email"},
-        )
-        mock_mailer().send.asset_called_with("test")
-
-    @mock.patch(PATH + "jinja2")
-    @mock.patch(PATH + "send_mail")
-    @mock.patch("jira.client.JIRA")
-    def test_alert_user_multiple_users(
-        self,
-        mock_client,
-        mock_mailer,
-        mock_jinja,
-    ):
-        """
-        This tests 'alert_user_of_duplicate_issues' function
-        where searching returns multiple users
-        """
-        # Set up return values
-        mock_downstream_issue = MagicMock()
-        mock_downstream_issue.key = "mock_key"
-        bad_downstream_issue = MagicMock()
-        bad_downstream_issue.key = "mock_key"
-        bad_downstream_issue.fields.status.name = "To Do"
-        mock_results_of_query = [mock_downstream_issue, bad_downstream_issue]
-        mock_search_user_result1 = MagicMock()
-        mock_search_user_result1.displayName = "bad_name"
-        mock_search_user_result1.emailAddress = "bad_email"
-        mock_search_user_result1.key = "bad_owner"
-        mock_search_user_result2 = MagicMock()
-        mock_search_user_result2.displayName = "mock_name"
-        mock_search_user_result2.emailAddress = "mock_email"
-        mock_search_user_result2.key = "mock_owner"
-        mock_client.search_users.return_value = [
-            mock_search_user_result1,
-            mock_search_user_result2,
-        ]
-        mock_template = MagicMock(name="template")
-        mock_template.render.return_value = "mock_html_text"
-        mock_template_env = MagicMock(name="templateEnv")
-        mock_template_env.get_template.return_value = mock_template
-        mock_jinja.Environment.return_value = mock_template_env
-
-        # Call the function
-        d.alert_user_of_duplicate_issues(
-            issue=self.mock_issue,
-            final_result=[mock_downstream_issue],
-            results_of_query=mock_results_of_query,
-            config=self.mock_config,
-            client=mock_client,
-        )
-
-        # Assert everything was called correctly
-        mock_client.search_users.assert_any_call("mock_owner")
-        mock_client.search_users.assert_any_call("mock_admin")
-        mock_template.render.assert_called_with(
-            admins=[{"name": "mock_name", "email": "mock_email"}],
-            duplicate_issues=[
-                {"url": "mock_server/browse/mock_key", "title": "mock_key"}
-            ],
-            issue=self.mock_issue,
-            selected_issue={"url": "mock_server/browse/mock_key", "title": "mock_key"},
-            user={"name": "mock_name", "email": "mock_email"},
-        )
-        mock_mailer().send.asset_called_with("test")
 
     def test_find_username(self):
         """
