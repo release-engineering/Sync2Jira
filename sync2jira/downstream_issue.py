@@ -28,14 +28,12 @@ from typing import Optional
 
 # 3rd Party Modules
 import arrow
-import jinja2
 from jira import JIRAError
 import jira.client
 import pypandoc
 
 # Local Modules
 from sync2jira.intermediary import Issue, PR
-from sync2jira.mailer import send_mail
 
 # The date the service was upgraded
 # This is used to ensure legacy comments are not touched
@@ -199,135 +197,9 @@ def _matching_jira_issue_query(client, issue, config, free=False):
 
         # Return the final_results
         log.debug("Found %i results for query %r", len(final_results), query)
-
-        # Alert the owner
-        if issue.downstream.get("owner"):
-            alert_user_of_duplicate_issues(
-                issue, final_results, results_of_query, config, client
-            )
         return final_results
     else:
         return results_of_query
-
-
-def alert_user_of_duplicate_issues(
-    issue, final_result, results_of_query, config, client
-):
-    """
-    Alerts owner of duplicate downstream issues.
-
-    :param sync2jira.intermediate.Issue issue: Upstream Issue object
-    :param List final_result: Issue selected by matching algorithm
-    :param List results_of_query: Result of JQL query
-    :param Dict config: Config dict
-    :param jira.client.JIRA client: JIRA client
-    :returns: Nothing
-    """
-    # First remove final_result from results_of_query
-    results_of_query.remove(final_result[0])
-
-    # Check that all duplicate issues are closed
-    updated_results = []
-    for result in results_of_query:
-        if result.fields.status.name != "Closed":
-            updated_results.append(result)
-    if not updated_results:
-        # Nothing to alert the owner of
-        return
-
-    # Get base URL
-    jira_instance = issue.downstream.get("jira_instance", False)
-    if not jira_instance:
-        jira_instance = config["sync2jira"].get("default_jira_instance", False)
-    if not jira_instance:
-        log.error("No jira_instance for issue and there is no default in the config")
-        raise Exception
-    base_url = (
-        config["sync2jira"]["jira"][jira_instance]["options"]["server"] + "/browse/"
-    )
-
-    # Format the updated results
-    template_ready = []
-    for update in updated_results:
-        url = base_url + update.key
-        new_entry = {"url": url, "title": update.key}
-        template_ready.append(new_entry)
-
-    # Get owner name and email from Jira
-    ds_owner = issue.downstream.get("owner")
-    ds_owner = ds_owner.strip() if ds_owner else ds_owner
-    ret = client.search_users(ds_owner)
-    if len(ret) > 1:
-        log.warning("Found multiple users for username %s", ds_owner)
-        found = False
-        for person in ret:
-            if person.key == ds_owner:
-                ret = [person]
-                found = True
-                break
-        if not found:
-            log.warning("Could not find JIRA user for username %s", ds_owner)
-    if not ret:
-        log.warning("No owner could be found for username %s", ds_owner)
-        return
-
-    user = {"name": ret[0].displayName, "email": ret[0].emailAddress}
-
-    # Format selected issue
-    selected_issue = {
-        "url": base_url + final_result[0].key,
-        "title": final_result[0].key,
-    }
-
-    # Get admin information
-    admins = []
-    admin_template = []
-    for admin in config["sync2jira"]["admins"]:
-        admin_username = next(name for name in admin).strip()
-        ret = client.search_users(admin_username)
-        if len(ret) > 1:
-            log.warning("Found multiple users for admin %s", admin_username)
-            found = False
-            for person in ret:
-                if person.key == ds_owner:
-                    ret = [person]
-                    found = True
-                    break
-            if not found:
-                log.warning("Could not find JIRA user for admin %s", admin_username)
-        if not ret:
-            message = f"No admin could be found for username {admin_username}"
-            log.warning(message)
-            raise ValueError(message)
-        admins.append(ret[0].emailAddress)
-        admin_template.append(
-            {"name": ret[0].displayName, "email": ret[0].emailAddress}
-        )
-
-    # Create and send email
-    template_loader = jinja2.FileSystemLoader(
-        searchpath="usr/local/src/sync2jira/sync2jira/"
-    )
-    template_env = jinja2.Environment(loader=template_loader, autoescape=True)
-    template = template_env.get_template("email_template.jinja")
-    html_text = template.render(
-        user=user,
-        admins=admin_template,
-        issue=issue,
-        selected_issue=selected_issue,
-        duplicate_issues=template_ready,
-    )
-
-    # Send mail
-    send_mail(
-        recipients=[user["email"]],
-        cc=admins,
-        subject=duplicate_issues_subject,
-        text=html_text,
-    )
-    log.info(
-        "Alerted %s about %s duplicate issue(s)" % (user["email"], len(template_ready))
-    )
 
 
 def find_username(issue, config):
