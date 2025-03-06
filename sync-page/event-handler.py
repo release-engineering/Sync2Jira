@@ -66,16 +66,19 @@ def github():
         url=f"https://{REDIRECT_URL}",
     )
 
-@app.route('/pagure', methods=['GET'])
+
+@app.route("/pagure", methods=["GET"])
 def pagure():
     """
     Pagure Sync Page
     """
     # Build and return our updated HTML page
-    return render_template('sync-page-pagure.jinja',
-                           pagure=config['sync2jira']['map']['pagure'],
-                           url=f"https://{REDIRECT_URL}")
+    return render_template(
+        "sync-page-pagure.jinja",
+        pagure=config["sync2jira"]["map"]["pagure"],
+        url=f"https://{REDIRECT_URL}",
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(host=BASE_URL)

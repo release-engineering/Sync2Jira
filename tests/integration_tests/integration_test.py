@@ -47,7 +47,9 @@ def main():
         compare_data(client, PAGURE)
     except Exception as e:
         failed = True
-        log.info(f"[OS-BUILD] When comparing Pagure something went wrong.\nException {e}")
+        log.info(
+            f"[OS-BUILD] When comparing Pagure something went wrong.\nException {e}"
+        )
 
     log.info("[OS-BUILD] Comparing values with GitHub...")
     try:

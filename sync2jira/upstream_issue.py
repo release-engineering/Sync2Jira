@@ -190,52 +190,57 @@ def handle_pagure_message(msg, config):
     :returns: Issue object
     :rtype: sync2jira.intermediary.Issue
     """
-    upstream = msg['msg']['project']['name']
-    ns = msg['msg']['project'].get('namespace') or None
+    upstream = msg["msg"]["project"]["name"]
+    ns = msg["msg"]["project"].get("namespace") or None
     if ns:
-        upstream = '{ns}/{upstream}'.format(ns=ns, upstream=upstream)
-    mapped_repos = config['sync2jira']['map']['pagure']
+        upstream = "{ns}/{upstream}".format(ns=ns, upstream=upstream)
+    mapped_repos = config["sync2jira"]["map"]["pagure"]
 
     if upstream not in mapped_repos:
         log.debug("%r not in Pagure map: %r", upstream, mapped_repos.keys())
         return None
-    elif 'issue' not in mapped_repos[upstream]['sync']:
+    elif "issue" not in mapped_repos[upstream]["sync"]:
         log.debug("%r not in Pagure issue map: %r", upstream, mapped_repos.keys())
         return None
 
-    _filter = config['sync2jira']\
-        .get('filters', {})\
-        .get('pagure', {}) \
-        .get(upstream, {})
+    _filter = config["sync2jira"].get("filters", {}).get("pagure", {}).get(upstream, {})
 
     if _filter:
         for key, expected in _filter.items():
             # special handling for tag: we look for it in the list of msg tags
-            if key == 'tags':
-                actual = msg['msg']['issue'].get('tags', []) + msg['msg'].get('tags', [])
+            if key == "tags":
+                actual = msg["msg"]["issue"].get("tags", []) + msg["msg"].get(
+                    "tags", []
+                )
 
                 # Some messages send tags as strings, others as dicts.  Handle both.
-                actual = \
-                    [tag['name'] for tag in actual if isinstance(tag, dict)] + \
-                    [tag for tag in actual if isinstance(tag, string_type)]
+                actual = [tag["name"] for tag in actual if isinstance(tag, dict)] + [
+                    tag for tag in actual if isinstance(tag, string_type)
+                ]
 
                 intersection = set(actual) & set(expected)
                 if not intersection:
-                    log.debug("None of %r in %r on issue: %s",
-                              expected, actual, upstream)
+                    log.debug(
+                        "None of %r in %r on issue: %s", expected, actual, upstream
+                    )
                     return None
             else:
                 # direct comparison
-                actual = msg['msg']['issue'].get(key)
+                actual = msg["msg"]["issue"].get(key)
                 if actual != expected:
-                    log.debug("Actual %r %r != expected %r on issue: %s",
-                              key, actual, expected, upstream)
+                    log.debug(
+                        "Actual %r %r != expected %r on issue: %s",
+                        key,
+                        actual,
+                        expected,
+                        upstream,
+                    )
                     return None
 
     # If this is a dropped issue upstream
     try:
-        if msg['topic'] == 'io.pagure.prod.pagure.issue.drop':
-            msg['msg']['issue']['status'] = 'Dropped'
+        if msg["topic"] == "io.pagure.prod.pagure.issue.drop":
+            msg["msg"]["issue"]["status"] = "Dropped"
     except KeyError:
         # Otherwise do nothing
         pass
@@ -243,8 +248,8 @@ def handle_pagure_message(msg, config):
     # If this is a tag edit upstream
     try:
         # Add all updated tags to the tags on the issue
-        for tag in msg['msg']['tags']:
-            msg['msg']['issue']['tags'].append(tag)
+        for tag in msg["msg"]["tags"]:
+            msg["msg"]["issue"]["tags"].append(tag)
     except KeyError:
         # Otherwise do nothing
         pass
@@ -252,15 +257,15 @@ def handle_pagure_message(msg, config):
     # If this is a comment edit
     try:
         # Add it to the comments on the issue
-        msg['msg']['issue']['comments'].append(msg['msg']['comment'])
+        msg["msg"]["issue"]["comments"].append(msg["msg"]["comment"])
     except KeyError:
         # Otherwise do nothing
         pass
 
     # Format the assignee field to match github (i.e. in a list)
-    msg['msg']['issue']['assignee'] = [msg['msg']['issue']['assignee']]
+    msg["msg"]["issue"]["assignee"] = [msg["msg"]["issue"]["assignee"]]
 
-    return i.Issue.from_pagure(upstream, msg['msg']['issue'], config)
+    return i.Issue.from_pagure(upstream, msg["msg"]["issue"], config)
 
 
 def pagure_issues(upstream, config):
@@ -272,13 +277,10 @@ def pagure_issues(upstream, config):
     :returns: Pagure Issue object generator
     :rtype: sync2jira.intermediary.Issue
     """
-    base = config['sync2jira'].get('pagure_url', 'https://pagure.io')
-    url = base + '/api/0/' + upstream + '/issues'
+    base = config["sync2jira"].get("pagure_url", "https://pagure.io")
+    url = base + "/api/0/" + upstream + "/issues"
 
-    params = config['sync2jira']\
-        .get('filters', {})\
-        .get('pagure', {}) \
-        .get(upstream, {})
+    params = config["sync2jira"].get("filters", {}).get("pagure", {}).get(upstream, {})
 
     response = requests.get(url, params=params)
     if not bool(response):
@@ -287,14 +289,14 @@ def pagure_issues(upstream, config):
         except Exception:
             reason = response.text
         raise IOError("response: %r %r %r" % (response, reason, response.request.url))
-    data = response.json()['issues']
+    data = response.json()["issues"]
 
     # Reformat  the assignee value so that it is enclosed within an array
     # We do this because Github supports multiple assignees, but JIRA doesn't :(
     # Hopefully in the future it will support multiple assignees, thus enclosing
     # the assignees in a list prepares for that support
     for issue in data:
-        issue['assignee'] = [issue['assignee']]
+        issue["assignee"] = [issue["assignee"]]
 
     issues = (i.Issue.from_pagure(upstream, issue, config) for issue in data)
     for issue in issues:

@@ -20,38 +20,44 @@ runtime_config = {
         # remove it soon.
         "legacy_matching": False,
         # Set the default jira to be pnt-jira
-        'default_jira_instance': 'pnt-jira',
-
-        'filters': {
-            'pagure': {
+        "default_jira_instance": "pnt-jira",
+        "filters": {
+            "pagure": {},
+            "github": {},
+        },
+        "map": {
+            "pagure": {
+                "Demo_project": {
+                    "project": "FACTORY",
+                    "component": "gitbz",
+                    "issue_updates": [
+                        {"transition": True},
+                        "description",
+                        "title",
+                        {"tags": {"overwrite": True}},
+                        {"fixVersion": {"overwrite": True}},
+                        {"assignee": {"overwrite": True}},
+                        "url",
+                    ],
+                    "sync": ["issue"],
+                },
             },
-            'github': {
+            "github": {
+                "sidpremkumar/Demo_repo": {
+                    "project": "FACTORY",
+                    "component": "gitbz",
+                    "issue_updates": [
+                        {"transition": True},
+                        "description",
+                        "title",
+                        {"tags": {"overwrite": True}},
+                        {"fixVersion": {"overwrite": True}},
+                        {"assignee": {"overwrite": True}},
+                        "url",
+                    ],
+                    "sync": ["issue"],
+                }
             },
         },
-        'map': {
-            'pagure': {
-                'Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
-                                 'issue_updates': [{'transition': True},
-                                                   'description',
-                                                   'title',
-                                                   {'tags': {'overwrite': True}},
-                                                   {'fixVersion': {'overwrite': True}},
-                                                   {'assignee': {'overwrite': True}},
-                                                   'url'],
-                                 'sync': ['issue']},
-            },
-            'github': {
-                'sidpremkumar/Demo_repo': {'project': 'FACTORY', 'component': 'gitbz',
-                                           'issue_updates': [{'transition': True},
-                                                             'description',
-                                                             'title',
-                                                             {'tags': {'overwrite': True}},
-                                                             {'fixVersion': {'overwrite': True}},
-                                                             {'assignee': {'overwrite': True}},
-                                                             'url'],
-                                           'sync': ['issue']}
-
-            },
-        },
-        }
+    }
 }

@@ -15,44 +15,44 @@ class TestUpstreamIssue(unittest.TestCase):
 
     def setUp(self):
         self.mock_config = {
-            'sync2jira': {
-                'map': {
-                    'github': {
-                        'org/repo': {'sync': ['issue']},
+            "sync2jira": {
+                "map": {
+                    "github": {
+                        "org/repo": {"sync": ["issue"]},
                     },
-                    'pagure': {
-                        'org/repo': {'sync': ['issue']},
+                    "pagure": {
+                        "org/repo": {"sync": ["issue"]},
                     },
                 },
                 "jira": {
                     # Nothing, really..
                 },
-                'filters': {
-                    'github':
-                        {'org/repo': {'filter1': 'filter1', 'labels': ['custom_tag']}},
-                    'pagure':
-                        {'org/repo': {'filter1': 'filter1', 'tags': ['custom_tag']}},
+                "filters": {
+                    "github": {
+                        "org/repo": {"filter1": "filter1", "labels": ["custom_tag"]}
+                    },
+                    "pagure": {
+                        "org/repo": {"filter1": "filter1", "tags": ["custom_tag"]}
+                    },
                 },
                 "github_token": "mock_token",
             },
         }
         # Mock Pagure Message
         self.mock_pagure_message = {
-            'msg': {
-                'project': {
-                    'name': 'org/repo'
+            "msg": {
+                "project": {"name": "org/repo"},
+                "issue": {
+                    "filter1": "filter1",
+                    "tags": ["custom_tag"],
+                    "comments": [],
+                    "assignee": "mock_assignee",
                 },
-                'issue': {
-                    'filter1': 'filter1',
-                    'tags': ['custom_tag'],
-                    'comments': [],
-                    'assignee': 'mock_assignee'
-                },
-                'tags': ['new_tag'],
-                'comment': 'new_comment',
-                'status': 'temp'
+                "tags": ["new_tag"],
+                "comment": "new_comment",
+                "status": "temp",
             },
-            'topic': 'io.pagure.prod.pagure.issue.drop',
+            "topic": "io.pagure.prod.pagure.issue.drop",
         }
 
         # Mock GitHub Comment
@@ -495,11 +495,9 @@ class TestUpstreamIssue(unittest.TestCase):
             ["custom_tag", "another_tag", "and_another"],
         )
 
-    @mock.patch('sync2jira.intermediary.Issue.from_pagure')
-    @mock.patch(PATH + 'requests')
-    def test_pagure_issues_error(self,
-                                 mock_requests,
-                                 mock_issue_from_pagure):
+    @mock.patch("sync2jira.intermediary.Issue.from_pagure")
+    @mock.patch(PATH + "requests")
+    def test_pagure_issues_error(self, mock_requests, mock_issue_from_pagure):
         """
         This function tests 'pagure_issues' function where we get an IOError
         """
@@ -508,123 +506,98 @@ class TestUpstreamIssue(unittest.TestCase):
         get_return.__bool__ = mock.Mock(return_value=False)
         get_return.__nonzero__ = get_return.__bool__
         get_return.json.side_effect = Exception()
-        get_return.text.return_value = {
-            'issues': [
-                {'assignee': 'mock_assignee'}
-            ]
-
-        }
+        get_return.text.return_value = {"issues": [{"assignee": "mock_assignee"}]}
         mock_requests.get.return_value = get_return
 
         # Call the function
         with self.assertRaises(IOError):
-            list(u.pagure_issues(
-                upstream='org/repo',
-                config=self.mock_config
-            ))
+            list(u.pagure_issues(upstream="org/repo", config=self.mock_config))
 
         # Assert everything was called correctly
         mock_requests.get.assert_called_with(
-            'https://pagure.io/api/0/org/repo/issues',
-            params={'filter1': 'filter1', 'tags': ['custom_tag']}
+            "https://pagure.io/api/0/org/repo/issues",
+            params={"filter1": "filter1", "tags": ["custom_tag"]},
         )
         mock_issue_from_pagure.assert_not_called()
 
-    @mock.patch('sync2jira.intermediary.Issue.from_pagure')
-    @mock.patch(PATH + 'requests')
-    def test_pagure_issues(self,
-                           mock_requests,
-                           mock_issue_from_pagure):
+    @mock.patch("sync2jira.intermediary.Issue.from_pagure")
+    @mock.patch(PATH + "requests")
+    def test_pagure_issues(self, mock_requests, mock_issue_from_pagure):
         """
         This function tests 'pagure_issues' function
         """
         # Set up return values
         get_return = MagicMock()
-        get_return.json.return_value = {
-            'issues': [
-                {'assignee': 'mock_assignee'}
-            ]
-
-        }
-        get_return.request.url = 'mock_url'
+        get_return.json.return_value = {"issues": [{"assignee": "mock_assignee"}]}
+        get_return.request.url = "mock_url"
         mock_requests.get.return_value = get_return
-        mock_issue_from_pagure.return_value = 'Successful Call!'
+        mock_issue_from_pagure.return_value = "Successful Call!"
 
         # Call the function
-        response = list(u.pagure_issues(
-            upstream='org/repo',
-            config=self.mock_config
-        ))
+        response = list(u.pagure_issues(upstream="org/repo", config=self.mock_config))
 
         # Assert everything was called correctly
-        self.assertEqual(response[0], 'Successful Call!')
+        self.assertEqual(response[0], "Successful Call!")
         mock_requests.get.assert_called_with(
-            'https://pagure.io/api/0/org/repo/issues',
-            params={'filter1': 'filter1', 'tags': ['custom_tag']}
+            "https://pagure.io/api/0/org/repo/issues",
+            params={"filter1": "filter1", "tags": ["custom_tag"]},
         )
         mock_issue_from_pagure.assert_called_with(
-            'org/repo',
-            {'assignee': ['mock_assignee']},
-            self.mock_config
+            "org/repo", {"assignee": ["mock_assignee"]}, self.mock_config
         )
 
-    @mock.patch('sync2jira.intermediary.Issue.from_pagure')
-    def test_handle_pagure_message_not_in_mapped(self,
-                                                 mock_issue_from_pagure):
+    @mock.patch("sync2jira.intermediary.Issue.from_pagure")
+    def test_handle_pagure_message_not_in_mapped(self, mock_issue_from_pagure):
         """
         This function tests 'handle_pagure_message' where upstream is not in mapped repo
         """
         # Set up return values
-        self.mock_pagure_message['msg']['project']['name'] = 'bad_repo'
+        self.mock_pagure_message["msg"]["project"]["name"] = "bad_repo"
         # Call the function
         response = u.handle_pagure_message(
-            msg=self.mock_pagure_message,
-            config=self.mock_config
+            msg=self.mock_pagure_message, config=self.mock_config
         )
 
         # Assert all calls made correctly
         self.assertEqual(None, response)
         mock_issue_from_pagure.assert_not_called()
 
-    @mock.patch('sync2jira.intermediary.Issue.from_pagure')
-    def test_handle_pagure_message_bad_filter(self,
-                                              mock_issue_from_pagure):
+    @mock.patch("sync2jira.intermediary.Issue.from_pagure")
+    def test_handle_pagure_message_bad_filter(self, mock_issue_from_pagure):
         """
         This function tests 'handle_pagure_message' where comparing the actual vs. filter does not equate
         """
         # Set up return values
-        self.mock_pagure_message['msg']['issue']['filter1'] = 'filter2'
+        self.mock_pagure_message["msg"]["issue"]["filter1"] = "filter2"
 
         # Call function
         response = u.handle_pagure_message(
-            msg=self.mock_pagure_message,
-            config=self.mock_config)
+            msg=self.mock_pagure_message, config=self.mock_config
+        )
 
         # Assert that calls were made correctly
         mock_issue_from_pagure.assert_not_called()
         self.assertEqual(None, response)
 
-    @mock.patch('sync2jira.intermediary.Issue.from_pagure')
-    def test_handle_pagure_message_bad_tag(self,
-                                           mock_issue_from_pagure):
+    @mock.patch("sync2jira.intermediary.Issue.from_pagure")
+    def test_handle_pagure_message_bad_tag(self, mock_issue_from_pagure):
         """
         This function tests 'handle_pagure_message' where the tags do not match
         """
         # Set up return values
-        self.mock_pagure_message['msg']['issue']['tags'] = ['bad_tags']
+        self.mock_pagure_message["msg"]["issue"]["tags"] = ["bad_tags"]
 
         # Call function
         response = u.handle_pagure_message(
-            msg=self.mock_pagure_message,
-            config=self.mock_config)
+            msg=self.mock_pagure_message, config=self.mock_config
+        )
 
         # Assert that calls were made correctly
         mock_issue_from_pagure.assert_not_called()
         self.assertEqual(None, response)
 
-    @mock.patch('sync2jira.intermediary.Issue.from_pagure')
-    def test_handle_pagure_message_successful(self,
-                                              mock_issue_from_pagure):
+    @mock.patch("sync2jira.intermediary.Issue.from_pagure")
+    def test_handle_pagure_message_successful(self, mock_issue_from_pagure):
         """
         This function tests 'handle_pagure_message' where everything goes smoothly
         and we test edge cases!
@@ -634,18 +607,22 @@ class TestUpstreamIssue(unittest.TestCase):
 
         # Call the function
         response = u.handle_pagure_message(
-            msg=self.mock_pagure_message,
-            config=self.mock_config
+            msg=self.mock_pagure_message, config=self.mock_config
         )
 
         # Assert that calls were made correctly
         mock_issue_from_pagure.assert_called_with(
-            'org/repo',
-            {'status': 'Dropped', 'assignee': ['mock_assignee'], 'filter1': 'filter1', 'comments': ['new_comment'],
-             'tags': ['custom_tag', 'new_tag']},
-            self.mock_config
+            "org/repo",
+            {
+                "status": "Dropped",
+                "assignee": ["mock_assignee"],
+                "filter1": "filter1",
+                "comments": ["new_comment"],
+                "tags": ["custom_tag", "new_tag"],
+            },
+            self.mock_config,
         )
-        self.assertEqual(response, 'Successful Call!')
+        self.assertEqual(response, "Successful Call!")
 
     @mock.patch(PATH + "Github")
     @mock.patch("sync2jira.intermediary.Issue.from_github")
@@ -849,7 +826,7 @@ class TestUpstreamIssue(unittest.TestCase):
         # Assert everything was called correctly
         mock_requests.get.assert_called_with("mock_url", headers="mock_headers")
 
-    @mock.patch(PATH + 'requests')
+    @mock.patch(PATH + "requests")
     def test_fetch_github_data(self, mock_requests):
         """
         Tests the 'api_call_get' function where everything goes smoothly!

@@ -38,35 +38,37 @@ def handle_pagure_message(msg, config, suffix):
     :rtype: sync2jira.intermediary.PR
     """
     # Extract our upstream name
-    upstream = msg['msg']['pullrequest']['project']['name']
-    ns = msg['msg']['pullrequest']['project'].get('namespace') or None
+    upstream = msg["msg"]["pullrequest"]["project"]["name"]
+    ns = msg["msg"]["pullrequest"]["project"].get("namespace") or None
     if ns:
-        upstream = '{ns}/{upstream}'.format(ns=ns, upstream=upstream)
-    mapped_repos = config['sync2jira']['map']['pagure']
+        upstream = "{ns}/{upstream}".format(ns=ns, upstream=upstream)
+    mapped_repos = config["sync2jira"]["map"]["pagure"]
 
     # Check if we should sync this PR
     if upstream not in mapped_repos:
         log.debug("%r not in Pagure map: %r", upstream, mapped_repos.keys())
         return None
-    elif 'pullrequest' not in mapped_repos[upstream]['sync']:
+    elif "pullrequest" not in mapped_repos[upstream]["sync"]:
         log.debug("%r not in Pagure PR map: %r", upstream, mapped_repos.keys())
         return None
 
     # Format the assignee field to match github (i.e. in a list)
-    msg['msg']['pullrequest']['assignee'] = [msg['msg']['pullrequest']['assignee']]
+    msg["msg"]["pullrequest"]["assignee"] = [msg["msg"]["pullrequest"]["assignee"]]
 
     # Update suffix, Pagure suffix only register as comments
-    if msg['msg']['pullrequest']['status'] == 'Closed':
-        suffix = 'closed'
-    elif msg['msg']['pullrequest']['status'] == 'Merged':
-        suffix = 'merged'
-    elif msg['msg']['pullrequest'].get('closed_by') and \
-            msg['msg']['pullrequest']['status'] == 'Open':
-        suffix = 'reopened'
-    elif msg['msg']['pullrequest']['status'] == 'Open':
-        suffix = 'open'
+    if msg["msg"]["pullrequest"]["status"] == "Closed":
+        suffix = "closed"
+    elif msg["msg"]["pullrequest"]["status"] == "Merged":
+        suffix = "merged"
+    elif (
+        msg["msg"]["pullrequest"].get("closed_by")
+        and msg["msg"]["pullrequest"]["status"] == "Open"
+    ):
+        suffix = "reopened"
+    elif msg["msg"]["pullrequest"]["status"] == "Open":
+        suffix = "open"
 
-    return i.PR.from_pagure(upstream, msg['msg']['pullrequest'], suffix, config)
+    return i.PR.from_pagure(upstream, msg["msg"]["pullrequest"], suffix, config)
 
 
 def handle_github_message(body, config, suffix):
@@ -107,14 +109,11 @@ def pagure_prs(upstream, config):
     :rtype: sync2jira.intermediary.PR
     """
     # Build our our URL
-    base = config['sync2jira'].get('pagure_url', 'https://pagure.io')
-    url = base + '/api/0/' + upstream + '/pull-requests'
+    base = config["sync2jira"].get("pagure_url", "https://pagure.io")
+    url = base + "/api/0/" + upstream + "/pull-requests"
 
     # Get our filters
-    params = config['sync2jira']\
-        .get('filters', {})\
-        .get('pagure', {}) \
-        .get(upstream, {})
+    params = config["sync2jira"].get("filters", {}).get("pagure", {}).get(upstream, {})
 
     # Make a GET call to Pagure.io
     response = requests.get(url, params=params)
@@ -128,14 +127,14 @@ def pagure_prs(upstream, config):
         raise IOError("response: %r %r %r" % (response, reason, response.request.url))
 
     # Extract and format our data
-    data = response.json()['requests']
+    data = response.json()["requests"]
 
     # Reformat Assignee
     for pr in data:
-        pr['assignee'] = [pr['assignee']]
+        pr["assignee"] = [pr["assignee"]]
 
     # Build our final list of data and yield
-    prs = (i.PR.from_pagure(upstream, pr, 'open', config) for pr in data)
+    prs = (i.PR.from_pagure(upstream, pr, "open", config) for pr in data)
     for pr in prs:
         yield pr
 

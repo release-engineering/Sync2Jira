@@ -34,8 +34,8 @@ setup(
     description="Sync GitHub and pagure issues to jira, via fedmsg",
     author="Ralph Bean",
     author_email="rbean@redhat.com",
-    url='https://github.com/release-engineering/Sync2Jira',
-    license='LGPLv2+',
+    url="https://github.com/release-engineering/Sync2Jira",
+    license="LGPLv2+",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved :: GNU Lesser General "

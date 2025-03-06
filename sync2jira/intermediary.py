@@ -86,24 +86,28 @@ class Issue(object):
     @classmethod
     def from_pagure(cls, upstream, issue, config):
         """Helper function to create intermediary object."""
-        base = config['sync2jira'].get('pagure_url', 'https://pagure.io')
-        upstream_source = 'pagure'
+        base = config["sync2jira"].get("pagure_url", "https://pagure.io")
+        upstream_source = "pagure"
         comments = []
-        for comment in issue['comments']:
+        for comment in issue["comments"]:
             # Only add comments that are not Metadata updates
-            if '**Metadata Update' in comment['comment']:
+            if "**Metadata Update" in comment["comment"]:
                 continue
             # Else add the comment
             # Convert the date to datetime
-            comment['date_created'] = datetime.fromtimestamp(float(comment['date_created']))
-            comments.append({
-                'author': comment['user']['name'],
-                'body': trim_string(comment['comment']),
-                'name': comment['user']['name'],
-                'id': comment['id'],
-                'date_created': comment['date_created'],
-                'changed': None
-            })
+            comment["date_created"] = datetime.fromtimestamp(
+                float(comment["date_created"])
+            )
+            comments.append(
+                {
+                    "author": comment["user"]["name"],
+                    "body": trim_string(comment["comment"]),
+                    "name": comment["user"]["name"],
+                    "id": comment["id"],
+                    "date_created": comment["date_created"],
+                    "changed": None,
+                }
+            )
 
         # Perform any mapping
         mapping = config["sync2jira"]["map"][upstream_source][upstream].get(
@@ -116,20 +120,20 @@ class Issue(object):
 
         return cls(
             source=upstream_source,
-            title=issue['title'],
-            url=base + '/%s/issue/%i' % (upstream, issue['id']),
+            title=issue["title"],
+            url=base + "/%s/issue/%i" % (upstream, issue["id"]),
             upstream=upstream,
             config=config,
             comments=comments,
-            tags=issue['tags'],
-            fixVersion=[issue['milestone']],
-            priority=issue['priority'],
-            content=issue['content'],
-            reporter=issue['user'],
-            assignee=issue['assignee'],
-            status=issue['status'],
-            id=issue['id'],
-            upstream_id=issue['number']
+            tags=issue["tags"],
+            fixVersion=[issue["milestone"]],
+            priority=issue["priority"],
+            content=issue["content"],
+            reporter=issue["user"],
+            assignee=issue["assignee"],
+            status=issue["status"],
+            id=issue["id"],
+            upstream_id=issue["number"],
         )
 
     @classmethod
@@ -257,38 +261,41 @@ class PR(object):
     def from_pagure(cls, upstream, pr, suffix, config):
         """Helper function to create intermediary object."""
         # Set our upstream source
-        upstream_source = 'pagure'
+        upstream_source = "pagure"
 
         # Format our comments
         comments = []
-        for comment in pr['comments']:
+        for comment in pr["comments"]:
             # Only add comments that are not Metadata updates
-            if '**Metadata Update' in comment['comment']:
+            if "**Metadata Update" in comment["comment"]:
                 continue
             # Else add the comment
             # Convert the date to datetime
-            comment['date_created'] = datetime.fromtimestamp(
-                float(comment['date_created']))
-            comments.append({
-                'author': comment['user']['name'],
-                'body': trim_string(comment['comment']),
-                'name': comment['user']['name'],
-                'id': comment['id'],
-                'date_created': comment['date_created'],
-                'changed': None
-            })
+            comment["date_created"] = datetime.fromtimestamp(
+                float(comment["date_created"])
+            )
+            comments.append(
+                {
+                    "author": comment["user"]["name"],
+                    "body": trim_string(comment["comment"]),
+                    "name": comment["user"]["name"],
+                    "id": comment["id"],
+                    "date_created": comment["date_created"],
+                    "changed": None,
+                }
+            )
 
         # Build our URL
         url = f"https://pagure.io/{pr['project']['name']}/pull-request/{pr['id']}"
 
         # Match a JIRA
-        match = matcher(pr.get('initial_comment'), comments)
+        match = matcher(pr.get("initial_comment"), comments)
 
         # Return our PR object
         return cls(
             source=upstream_source,
             jira_key=match,
-            title=pr['title'],
+            title=pr["title"],
             url=url,
             upstream=upstream,
             config=config,
@@ -296,11 +303,11 @@ class PR(object):
             # tags=issue['labels'],
             # fixVersion=[issue['milestone']],
             priority=None,
-            content=pr['initial_comment'],
-            reporter=pr['user']['fullname'],
-            assignee=pr['assignee'],
-            status=pr['status'],
-            id=pr['id'],
+            content=pr["initial_comment"],
+            reporter=pr["user"]["fullname"],
+            assignee=pr["assignee"],
+            status=pr["status"],
+            id=pr["id"],
             suffix=suffix,
             match=match,
             # upstream_id=issue['number']
