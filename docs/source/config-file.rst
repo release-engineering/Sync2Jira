@@ -80,6 +80,12 @@ The config file is made up of multiple parts
 .. code-block:: python
 
     'map': {
+            'pagure': {
+                'Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
+                                'issue_updates': [...], 'pr_updates': [...], 'mapping': [...], 'labels': [...],
+                                 'owner': 'jira_username'},
+                # 'koji': { 'project': 'BREW', 'component': None, },
+            },
             'github': {
                 'GITHUB_USERNAME/Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
                                                 'issue_updates': [...], 'pr_updates': [...], 'mapping': [...], 'labels': [...],
@@ -147,7 +153,7 @@ The config file is made up of multiple parts
 
     .. note::
 
-        :Overwrite: Setting this to :code:`True` will ensure that Upstream (GitHub) values will overwrite downstream ones (i.e. if its empty upstream it'll be empty downstream)
+        :Overwrite: Setting this to :code:`True` will ensure that Upstream (GitHub or Pagure) values will overwrite downstream ones (i.e. if its empty upstream it'll be empty downstream)
         :CUSTOM_TRANSITION: Setting this value will get Sync2Jira to automatically transition downstream tickets once their upstream counterparts get closed. Set this to whatever 'closed' means downstream.
 
 * You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with downstream components

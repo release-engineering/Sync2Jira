@@ -13,11 +13,6 @@
   >
   <link rel="stylesheet" href="{{ url_for('static', filename = 'font.css') }}" />
   <title>Sync2Jira - Sync Page</title>
-    <script>
-    function goBack() {
-      window.history.back()
-    }
-    </script>
 </head>
 <body>
   <div class="pf-c-page" id="page-layout-table-simple">
@@ -38,7 +33,7 @@
             </a>
           </li>
           <li class="pf-c-nav__item pf-m-expandable">
-            <a href="{{ url }}/pagure" class="pf-c-nav__link" aria-expanded="false">Pagure
+            <a href="{{ url }}/pagure" class="pf-c-nav__link pf-m-current" aria-expanded="false">Pagure
               <span class="pf-c-nav__toggle">
                 <i class="fas fa-angle-right" aria-hidden="true"></i>
               </span>
@@ -51,22 +46,30 @@
   <main role="main" class="pf-c-page__main" tabindex="-1" id="main-content-page-layout-table-simple">
     <section class="pf-c-page__main-section pf-m-light">
       <div class="pf-c-content">
-        <h1>Successfully started syncing the following repos:</h1>
-          <ul>
-            {% for repo_name in synced_repos %}
-                <li>{{ repo_name }}</li>
-            {% endfor %}
-        </ul>
+        <h1>Pagure Sync</h1>
+        <p>Select the repos you would like to be re-synced!</p>
       </div>
     </section>
     <section class="pf-c-page__main-section pf-m-no-padding-mobile">
-     <div class="pf-c-form__group pf-m-action">
-      <div class="pf-c-form__horizontal-group">
-        <div class="pf-c-form__actions">
-          <button class="pf-c-button pf-m-primary" onclick="goBack()">Back</button>
+      <form novalidate class="pf-c-form pf-m-horizontal" action="{{ url }}/handle-event" method="post">
+        {% for repo_name, info in pagure.items() %}
+            <div class="pf-c-form__group">
+              <div class="pf-c-form__horizontal-group">
+                <div class="pf-c-check">
+                  <input class="pf-c-check__input" type="checkbox" type="checkbox" id="alt-form-checkbox1" name="{{ repo_name }}" />
+                  <label class="pf-c-check__label" for="alt-form-checkbox1">{{ repo_name }}</label>
+                </div>
+              </div>
+            </div>
+        {% endfor %}
+        <div class="pf-c-form__group pf-m-action">
+          <div class="pf-c-form__horizontal-group">
+            <div class="pf-c-form__actions">
+              <button class="pf-c-button pf-m-primary" type="submit">Sync Selected Repos</button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </form>
     </section>
   </main>
 </div>

@@ -8,7 +8,7 @@
 
 ## What is Sync2Jira?
 
-This is a process that listens to activity on upstream repos on
+This is a process that listens to activity on upstream repos on Pagure and
 GitHub via fedmsg, and syncs new issues there to a Jira instance elsewhere.
 
 ## Documentation
@@ -22,7 +22,7 @@ We have set up a quick-start [here](https://sync2jira.readthedocs.io/en/master/q
 Configuration is in folder `fedmsg.d`.
 
 You can maintain a mapping there that allows you to match one upstream repo
-(say, 'pungi') to a downstream project/component pair in Jira (say,
+(say, 'pungi' on Pagure) to a downstream project/component pair in Jira (say,
 'COMPOSE', and 'Pungi').
 
 On startup:

@@ -10,7 +10,7 @@ import os
 import jira.client
 
 # Local Modules
-from jira_values import GITHUB
+from jira_values import PAGURE, GITHUB
 from runtime_config import runtime_config
 
 from sync2jira.main import main as m
@@ -42,6 +42,13 @@ def main():
     failed = False
 
     # Compare to our old values
+    log.info("[OS-BUILD] Comparing values with Pagure...")
+    try:
+        compare_data(client, PAGURE)
+    except Exception as e:
+        failed = True
+        log.info(f"[OS-BUILD] When comparing Pagure something went wrong.\nException {e}")
+
     log.info("[OS-BUILD] Comparing values with GitHub...")
     try:
         compare_data(client, GITHUB)

@@ -57,6 +57,11 @@ config = {
             'storypoints': 'customfield_12310243',
             },
         'map': {
+            'pagure': {
+                'Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
+                                 'updates': [...], 'sync': ['pullrequest', 'issue']},
+                # 'koji': { 'project': 'BREW', 'component': None, },
+            },
             'github': {
                 'GITHUB_USERNAME/Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
                                                 'issue_updates': [

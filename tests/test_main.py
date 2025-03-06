@@ -25,14 +25,19 @@ class TestMain(unittest.TestCase):
         """
         # Mock Config dict
         self.mock_config = {
-            "sync2jira": {
-                "jira": {"mock_jira_instance": {"mock_jira": "mock_jira"}},
-                "testing": {},
-                "legacy_matching": False,
-                "map": {"github": {"key_github": {"sync": ["issue", "pullrequest"]}}},
-                "initialize": True,
-                "listen": True,
-                "develop": False,
+            'sync2jira': {
+                'jira': {
+                    'mock_jira_instance': {'mock_jira': 'mock_jira'}
+                },
+                'testing': {},
+                'legacy_matching': False,
+                'map': {
+                    'pagure': {'key_pagure': {'sync': ['issue', 'pullrequest']}},
+                    'github': {'key_github': {'sync': ['issue', 'pullrequest']}}
+                },
+                'initialize': True,
+                'listen': True,
+                'develop': False,
             },
         }
 
@@ -145,30 +150,57 @@ class TestMain(unittest.TestCase):
         This tests 'initialize' function where everything goes smoothly!
         """
         # Set up return values
-        mock_u.github_issues.return_value = ["mock_issue_github"]
+        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
+        mock_u.github_issues.return_value = ['mock_issue_github']
 
         # Call the function
         m.initialize_issues(self.mock_config)
 
         # Assert everything was called correctly
-        mock_u.github_issues.assert_called_with("key_github", self.mock_config)
-        mock_d.sync_with_jira.assert_any_call("mock_issue_github", self.mock_config)
+        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
+        mock_u.github_issues.assert_called_with('key_github', self.mock_config)
+        mock_d.sync_with_jira.assert_any_call('mock_issue_pagure', self.mock_config)
+        mock_d.sync_with_jira.assert_any_call('mock_issue_github', self.mock_config)
 
-    @mock.patch(PATH + "u_issue")
-    @mock.patch(PATH + "d_issue")
-    def test_initialize_repo_name_github(self, mock_d, mock_u):
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
+    def test_initialize_repo_name_pagure(self,
+                                         mock_d,
+                                         mock_u):
+        """
+        This tests 'initialize' function where we want to sync an individual repo for Pagure
+        """
+        # Set up return values
+        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
+        mock_u.github_issues.return_value = ['mock_issue_github']
+
+        # Call the function
+        m.initialize_issues(self.mock_config, repo_name='key_pagure')
+
+        # Assert everything was called correctly
+        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
+        mock_u.github_issues.assert_not_called()
+        mock_d.sync_with_jira.assert_called_with('mock_issue_pagure', self.mock_config)
+
+    @mock.patch(PATH + 'u_issue')
+    @mock.patch(PATH + 'd_issue')
+    def test_initialize_repo_name_github(self,
+                                         mock_d,
+                                         mock_u):
         """
         This tests 'initialize' function where we want to sync an individual repo for GitHub
         """
         # Set up return values
-        mock_u.github_issues.return_value = ["mock_issue_github"]
+        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
+        mock_u.github_issues.return_value = ['mock_issue_github']
 
         # Call the function
         m.initialize_issues(self.mock_config, repo_name="key_github")
 
         # Assert everything was called correctly
-        mock_u.github_issues.assert_called_with("key_github", self.mock_config)
-        mock_d.sync_with_jira.assert_called_with("mock_issue_github", self.mock_config)
+        mock_u.github_issues.assert_called_with('key_github', self.mock_config)
+        mock_u.pagure_issues.assert_not_called()
+        mock_d.sync_with_jira.assert_called_with('mock_issue_github', self.mock_config)
 
     @mock.patch(PATH + "u_issue")
     @mock.patch(PATH + "d_issue")
@@ -177,7 +209,8 @@ class TestMain(unittest.TestCase):
         This tests 'initialize' function where syncing with JIRA throws an exception
         """
         # Set up return values
-        mock_u.github_issues.return_value = ["mock_issue_github"]
+        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
+        mock_u.github_issues.return_value = ['mock_issue_github']
         mock_d.sync_with_jira.side_effect = Exception()
 
         # Call the function
@@ -185,8 +218,8 @@ class TestMain(unittest.TestCase):
             m.initialize_issues(self.mock_config)
 
         # Assert everything was called correctly
-        mock_u.github_issues.assert_called_with("key_github", self.mock_config)
-        mock_d.sync_with_jira.assert_any_call("mock_issue_github", self.mock_config)
+        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
+        mock_d.sync_with_jira.assert_any_call('mock_issue_pagure', self.mock_config)
 
     @mock.patch(PATH + "u_issue")
     @mock.patch(PATH + "d_issue")
@@ -199,15 +232,17 @@ class TestMain(unittest.TestCase):
         This tests 'initialize' where we get an GitHub API limit error.
         """
         # Set up return values
-        mock_error = MagicMock(side_effect=Exception("API rate limit exceeded"))
+        mock_error = MagicMock(side_effect=Exception('API rate limit exceeded'))
+        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
         mock_u.github_issues.side_effect = mock_error
 
         # Call the function
         m.initialize_issues(self.mock_config, testing=True)
 
         # Assert everything was called correctly
-        mock_u.github_issues.assert_called_with("key_github", self.mock_config)
-        mock_d.sync_with_jira.assert_not_called()
+        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
+        mock_d.sync_with_jira.assert_any_call('mock_issue_pagure', self.mock_config)
+        mock_u.github_issues.assert_called_with('key_github', self.mock_config)
         mock_sleep.assert_called_with(3600)
         mock_report_failure.assert_not_called()
 
@@ -222,7 +257,8 @@ class TestMain(unittest.TestCase):
         This tests 'initialize' where we get a GitHub API (not limit) error.
         """
         # Set up return values
-        mock_error = MagicMock(side_effect=Exception("Random Error"))
+        mock_error = MagicMock(side_effect=Exception('Random Error'))
+        mock_u.pagure_issues.return_value = ['mock_issue_pagure']
         mock_u.github_issues.side_effect = mock_error
 
         # Call the function
@@ -230,8 +266,9 @@ class TestMain(unittest.TestCase):
             m.initialize_issues(self.mock_config, testing=True)
 
         # Assert everything was called correctly
-        mock_u.github_issues.assert_called_with("key_github", self.mock_config)
-        mock_d.sync_with_jira.assert_not_called()
+        mock_u.pagure_issues.assert_called_with('key_pagure', self.mock_config)
+        mock_d.sync_with_jira.assert_any_call('mock_issue_pagure', self.mock_config)
+        mock_u.github_issues.assert_called_with('key_github', self.mock_config)
         mock_sleep.assert_not_called()
         mock_report_failure.assert_called_with(self.mock_config)
 
@@ -324,6 +361,7 @@ class TestMain(unittest.TestCase):
         # Assert everything was called correctly
         mock_d.sync_with_jira.assert_not_called()
         mock_u.handle_github_message.assert_not_called()
+        mock_u.handle_pagure_message.assert_not_called()
 
     @mock.patch.dict(
         PATH + "issue_handlers", {"github.issue.comment": lambda msg, c: None}
@@ -344,6 +382,7 @@ class TestMain(unittest.TestCase):
         # Assert everything was called correctly
         mock_d.sync_with_jira.assert_not_called()
         mock_u.handle_github_message.assert_not_called()
+        mock_u.handle_pagure_message.assert_not_called()
 
     @mock.patch.dict(
         PATH + "issue_handlers", {"github.issue.comment": lambda msg, c: "dummy_issue"}

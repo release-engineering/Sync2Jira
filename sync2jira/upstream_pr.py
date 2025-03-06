@@ -19,12 +19,54 @@
 
 import logging
 
+import requests
 from github import Github
 
 import sync2jira.intermediary as i
 import sync2jira.upstream_issue as u_issue
 
 log = logging.getLogger("sync2jira")
+
+
+def handle_pagure_message(msg, config, suffix):
+    """
+    Handle Pagure message from FedMsg.
+
+    :param Dict msg: FedMsg Message
+    :param Dict config: Config File
+    :returns: Issue object
+    :rtype: sync2jira.intermediary.PR
+    """
+    # Extract our upstream name
+    upstream = msg['msg']['pullrequest']['project']['name']
+    ns = msg['msg']['pullrequest']['project'].get('namespace') or None
+    if ns:
+        upstream = '{ns}/{upstream}'.format(ns=ns, upstream=upstream)
+    mapped_repos = config['sync2jira']['map']['pagure']
+
+    # Check if we should sync this PR
+    if upstream not in mapped_repos:
+        log.debug("%r not in Pagure map: %r", upstream, mapped_repos.keys())
+        return None
+    elif 'pullrequest' not in mapped_repos[upstream]['sync']:
+        log.debug("%r not in Pagure PR map: %r", upstream, mapped_repos.keys())
+        return None
+
+    # Format the assignee field to match github (i.e. in a list)
+    msg['msg']['pullrequest']['assignee'] = [msg['msg']['pullrequest']['assignee']]
+
+    # Update suffix, Pagure suffix only register as comments
+    if msg['msg']['pullrequest']['status'] == 'Closed':
+        suffix = 'closed'
+    elif msg['msg']['pullrequest']['status'] == 'Merged':
+        suffix = 'merged'
+    elif msg['msg']['pullrequest'].get('closed_by') and \
+            msg['msg']['pullrequest']['status'] == 'Open':
+        suffix = 'reopened'
+    elif msg['msg']['pullrequest']['status'] == 'Open':
+        suffix = 'open'
+
+    return i.PR.from_pagure(upstream, msg['msg']['pullrequest'], suffix, config)
 
 
 def handle_github_message(body, config, suffix):
@@ -53,6 +95,49 @@ def handle_github_message(body, config, suffix):
     github_client = Github(config["sync2jira"]["github_token"])
     reformat_github_pr(pr, upstream, github_client)
     return i.PR.from_github(upstream, pr, suffix, config)
+
+
+def pagure_prs(upstream, config):
+    """
+    Creates a Generator for all Pagure PRs in upstream repo.
+
+    :param String upstream: Upstream Repo
+    :param Dict config: Config Dict
+    :returns: Pagure Issue object generator
+    :rtype: sync2jira.intermediary.PR
+    """
+    # Build our our URL
+    base = config['sync2jira'].get('pagure_url', 'https://pagure.io')
+    url = base + '/api/0/' + upstream + '/pull-requests'
+
+    # Get our filters
+    params = config['sync2jira']\
+        .get('filters', {})\
+        .get('pagure', {}) \
+        .get(upstream, {})
+
+    # Make a GET call to Pagure.io
+    response = requests.get(url, params=params)
+
+    # Catch if we have an error
+    if not bool(response):
+        try:
+            reason = response.json()
+        except Exception:
+            reason = response.text
+        raise IOError("response: %r %r %r" % (response, reason, response.request.url))
+
+    # Extract and format our data
+    data = response.json()['requests']
+
+    # Reformat Assignee
+    for pr in data:
+        pr['assignee'] = [pr['assignee']]
+
+    # Build our final list of data and yield
+    prs = (i.PR.from_pagure(upstream, pr, 'open', config) for pr in data)
+    for pr in prs:
+        yield pr
 
 
 def github_prs(upstream, config):

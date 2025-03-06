@@ -17,7 +17,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110.15.0 USA
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
-"""Sync GitHub issues to a jira instance, via fedora-messaging."""
+"""Sync GitHub and Pagure issues to a jira instance, via fedora-messaging."""
 
 # Build-In Modules
 import logging
@@ -71,6 +71,16 @@ issue_handlers = {
     "github.issue.milestoned": u_issue.handle_github_message,
     "github.issue.demilestoned": u_issue.handle_github_message,
     "github.issue.edited": u_issue.handle_github_message,
+    # Pagure
+    'pagure.issue.new': u_issue.handle_pagure_message,
+    'pagure.issue.tag.added': u_issue.handle_pagure_message,
+    'pagure.issue.comment.added': u_issue.handle_pagure_message,
+    'pagure.issue.comment.edited': u_issue.handle_pagure_message,
+    'pagure.issue.assigned.added': u_issue.handle_pagure_message,
+    'pagure.issue.assigned.reset': u_issue.handle_pagure_message,
+    'pagure.issue.edit': u_issue.handle_pagure_message,
+    'pagure.issue.drop': u_issue.handle_pagure_message,
+    'pagure.issue.tag.removed': u_issue.handle_pagure_message,
 }
 
 # PR related handlers
@@ -85,6 +95,10 @@ pr_handlers = {
     "github.issue.comment": u_pr.handle_github_message,
     "github.pull_request.reopened": u_pr.handle_github_message,
     "github.pull_request.closed": u_pr.handle_github_message,
+    # Pagure
+    'pagure.pull-request.new': u_pr.handle_pagure_message,
+    'pagure.pull-request.comment.added': u_pr.handle_pagure_message,
+    'pagure.pull-request.initial_comment.edited': u_pr.handle_pagure_message,
 }
 INITIALIZE = os.getenv("INITIALIZE", "0")
 
@@ -116,8 +130,8 @@ def load_config(loader=fedmsg.config.load_config):
     if "map" not in config["sync2jira"]:
         raise ValueError("No sync2jira.map section found in fedmsg.d/ config")
 
-    possible = {"github"}
-    specified = set(config["sync2jira"]["map"].keys())
+    possible = set(['pagure', 'github'])
+    specified = set(config['sync2jira']['map'].keys())
     if not specified.issubset(possible):
         message = "Specified handlers: %s, must be a subset of %s."
         raise ValueError(
@@ -159,8 +173,8 @@ def callback(msg):
 
 def listen(config):
     """
-    Listens to activity on upstream repos on GitHub
-    via fedmsg, and syncs new issues there to the JIRA instance
+    Listens to activity on upstream repos on pagure and github \
+    via fedmsg, and syncs new issues there to the JIRA instance \
     defined in 'fedmsg.d/sync2jira.py'
 
     :param Dict config: Config dict
@@ -201,9 +215,9 @@ def listen(config):
 
 def initialize_issues(config, testing=False, repo_name=None):
     """
-    Initial initialization needed to sync any upstream
-    repo with JIRA. Goes through all issues and
-    checks if they're already on JIRA / Need to be
+    Initial initialization needed to sync any upstream \
+    repo with JIRA. Goes through all issues and \
+    checks if they're already on JIRA / Need to be \
     created.
 
     :param Dict config: Config dict for JIRA
@@ -212,14 +226,27 @@ def initialize_issues(config, testing=False, repo_name=None):
     :returns: Nothing
     """
     log.info("Running initialization to sync all issues from upstream to jira")
-    log.info("Testing flag is %r", config["sync2jira"]["testing"])
-    mapping = config["sync2jira"]["map"]
-    for upstream in mapping.get("github", {}).keys():
-        if "issue" not in mapping.get("github", {}).get(upstream, {}).get("sync", []):
+    log.info("Testing flag is %r", config['sync2jira']['testing'])
+    mapping = config['sync2jira']['map']
+    for upstream in mapping.get('pagure', {}).keys():
+        if 'issue' not in mapping.get('pagure', {}).get(upstream, {}).get('sync', []):
             continue
         if repo_name is not None and upstream != repo_name:
             continue
-        # Try and except for GitHub API limit
+        for issue in u_issue.pagure_issues(upstream, config):
+            try:
+                d_issue.sync_with_jira(issue, config)
+            except Exception as e:
+                log.error(f"Failed on {issue}\nException: {e}")
+                raise
+    log.info("Done with pagure issue initialization.")
+
+    for upstream in mapping.get('github', {}).keys():
+        if 'issue' not in mapping.get('github', {}).get(upstream, {}).get('sync', []):
+            continue
+        if repo_name is not None and upstream != repo_name:
+            continue
+        # Try and except for github API limit
         try:
             for issue in u_issue.github_issues(upstream, config):
                 try:
@@ -241,14 +268,14 @@ def initialize_issues(config, testing=False, repo_name=None):
                     # Only send the failure email if we are not developing
                     report_failure(config)
                     raise
-    log.info("Done with GitHub issue initialization.")
+    log.info("Done with github issue initialization.")
 
 
 def initialize_pr(config, testing=False, repo_name=None):
     """
-    Initial initialization needed to sync any upstream
-    repo with JIRA. Goes through all PRs and
-    checks if they're already on JIRA / Need to be
+    Initial initialization needed to sync any upstream \
+    repo with JIRA. Goes through all PRs and \
+    checks if they're already on JIRA / Need to be \
     created.
 
     :param Dict config: Config dict for JIRA
@@ -257,16 +284,24 @@ def initialize_pr(config, testing=False, repo_name=None):
     :returns: Nothing
     """
     log.info("Running initialization to sync all PRs from upstream to jira")
-    log.info("Testing flag is %r", config["sync2jira"]["testing"])
-    mapping = config["sync2jira"]["map"]
-    for upstream in mapping.get("github", {}).keys():
-        if "pullrequest" not in mapping.get("github", {}).get(upstream, {}).get(
-            "sync", []
-        ):
+    log.info("Testing flag is %r", config['sync2jira']['testing'])
+    mapping = config['sync2jira']['map']
+    for upstream in mapping.get('pagure', {}).keys():
+        if 'pullrequest' not in mapping.get('pagure', {}).get(upstream, {}).get('sync', []):
             continue
         if repo_name is not None and upstream != repo_name:
             continue
-        # Try and except for GitHub API limit
+        for pr in u_pr.pagure_prs(upstream, config):
+            if pr:
+                d_pr.sync_with_jira(pr, config)
+    log.info("Done with pagure PR initialization.")
+
+    for upstream in mapping.get('github', {}).keys():
+        if 'pullrequest' not in mapping.get('github', {}).get(upstream, {}).get('sync', []):
+            continue
+        if repo_name is not None and upstream != repo_name:
+            continue
+        # Try and except for github API limit
         try:
             for pr in u_pr.github_prs(upstream, config):
                 try:
@@ -289,12 +324,13 @@ def initialize_pr(config, testing=False, repo_name=None):
                     # Only send the failure email if we are not developing
                     report_failure(config)
                     raise
-    log.info("Done with GitHub PR initialization.")
+    log.info("Done with github PR initialization.")
 
 
 def handle_msg(body, suffix, config):
     """
     Function to handle incoming message
+
     :param Dict body: Incoming message body
     :param String suffix: Incoming suffix
     :param Dict config: Config dict
@@ -383,6 +419,5 @@ def report_failure(config):
         text=html_text,
     )
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

@@ -32,6 +32,11 @@ Want to quickly get started working with Sync2Jira? Follow these steps:
     .. code-block:: python
 
         'map': {
+            'pagure': {
+                'Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
+                                 'updates': [...], 'sync': [..]},
+                # 'koji': { 'project': 'BREW', 'component': None, },
+            },
             'github': {
                 'GITHUB_USERNAME/Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
                                                  'issue_updates': [...], 'sync': [..]},

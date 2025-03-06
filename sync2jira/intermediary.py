@@ -16,6 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110.15.0 USA
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
+from datetime import datetime
 import re
 from typing import Optional
 
@@ -81,6 +82,55 @@ class Issue(object):
     @property
     def upstream_title(self):
         return self._title
+
+    @classmethod
+    def from_pagure(cls, upstream, issue, config):
+        """Helper function to create intermediary object."""
+        base = config['sync2jira'].get('pagure_url', 'https://pagure.io')
+        upstream_source = 'pagure'
+        comments = []
+        for comment in issue['comments']:
+            # Only add comments that are not Metadata updates
+            if '**Metadata Update' in comment['comment']:
+                continue
+            # Else add the comment
+            # Convert the date to datetime
+            comment['date_created'] = datetime.fromtimestamp(float(comment['date_created']))
+            comments.append({
+                'author': comment['user']['name'],
+                'body': trim_string(comment['comment']),
+                'name': comment['user']['name'],
+                'id': comment['id'],
+                'date_created': comment['date_created'],
+                'changed': None
+            })
+
+        # Perform any mapping
+        mapping = config["sync2jira"]["map"][upstream_source][upstream].get(
+            "mapping", []
+        )
+
+        # Check for fixVersion
+        if any("fixVersion" in item for item in mapping):
+            map_fixVersion(mapping, issue)
+
+        return cls(
+            source=upstream_source,
+            title=issue['title'],
+            url=base + '/%s/issue/%i' % (upstream, issue['id']),
+            upstream=upstream,
+            config=config,
+            comments=comments,
+            tags=issue['tags'],
+            fixVersion=[issue['milestone']],
+            priority=issue['priority'],
+            content=issue['content'],
+            reporter=issue['user'],
+            assignee=issue['assignee'],
+            status=issue['status'],
+            id=issue['id'],
+            upstream_id=issue['number']
+        )
 
     @classmethod
     def from_github(cls, upstream, issue, config):
@@ -202,6 +252,59 @@ class PR(object):
     @property
     def title(self):
         return "[%s] %s" % (self.upstream, self._title)
+
+    @classmethod
+    def from_pagure(cls, upstream, pr, suffix, config):
+        """Helper function to create intermediary object."""
+        # Set our upstream source
+        upstream_source = 'pagure'
+
+        # Format our comments
+        comments = []
+        for comment in pr['comments']:
+            # Only add comments that are not Metadata updates
+            if '**Metadata Update' in comment['comment']:
+                continue
+            # Else add the comment
+            # Convert the date to datetime
+            comment['date_created'] = datetime.fromtimestamp(
+                float(comment['date_created']))
+            comments.append({
+                'author': comment['user']['name'],
+                'body': trim_string(comment['comment']),
+                'name': comment['user']['name'],
+                'id': comment['id'],
+                'date_created': comment['date_created'],
+                'changed': None
+            })
+
+        # Build our URL
+        url = f"https://pagure.io/{pr['project']['name']}/pull-request/{pr['id']}"
+
+        # Match a JIRA
+        match = matcher(pr.get('initial_comment'), comments)
+
+        # Return our PR object
+        return cls(
+            source=upstream_source,
+            jira_key=match,
+            title=pr['title'],
+            url=url,
+            upstream=upstream,
+            config=config,
+            comments=comments,
+            # tags=issue['labels'],
+            # fixVersion=[issue['milestone']],
+            priority=None,
+            content=pr['initial_comment'],
+            reporter=pr['user']['fullname'],
+            assignee=pr['assignee'],
+            status=pr['status'],
+            id=pr['id'],
+            suffix=suffix,
+            match=match,
+            # upstream_id=issue['number']
+        )
 
     @classmethod
     def from_github(cls, upstream, pr, suffix, config):

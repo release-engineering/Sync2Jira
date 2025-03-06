@@ -149,6 +149,11 @@ def _matching_jira_issue_query(client, issue, config, free=False):
     # Query the JIRA client and store the results
     results_of_query: jira.client.ResultList = client.search_issues(query)
     if len(results_of_query) > 1:
+        # Sometimes if an issue gets dropped it is created with the url: pagure.com/something/issue/5
+        # Then when that issue is dropped and another one is created is is created with the same
+        # url : pagure.com/something/issue/5.
+        # We need to ensure that we are not catching a dropped issue
+        # Loop through the results of the query and make sure the ids match
         final_results = []
         # TODO: there is pagure-specific code in here that handles the case where a dropped issue's URL is
         #       re-used by an issue opened later. i.e. pagure re-uses IDs
@@ -803,9 +808,9 @@ def _update_fixVersion(updates, existing, issue, client):
         for version in existing.fields.fixVersions:
             fix_version.append({"name": version.name})
 
-    # GitHub does not allow for multiple fixVersions (milestones)
+    # GitHub and Pagure does not allow for multiple fixVersions (milestones)
     # But JIRA does, that is why we're looping here. Hopefully one
-    # day GitHub will support multiple fixVersions.
+    # day GitHub/Pagure will support multiple fixVersions :0
     for version in issue.fixVersion:
         if version is not None:
             # Update the fixVersion only if it's already not in JIRA
