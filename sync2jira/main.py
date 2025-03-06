@@ -206,6 +206,9 @@ def listen(config):
             # Old style
             "org.fedoraproject.prod.github.issue.#",
             "org.fedoraproject.prod.github.pull_request.#",
+            # Pagure (Old style)
+            "org.fedoraproject.prod.pagure.issue.#",
+            "org.fedoraproject.prod.pagure.pull-request.#",
         ],
     }
 
