@@ -175,7 +175,7 @@ class TestIntermediary(unittest.TestCase):
         self.assertEqual(response.reporter, "mock_reporter")
         self.assertEqual(response.assignee, "mock_assignee")
         self.assertEqual(response.status, "mock_status")
-        self.assertEqual(response.id, "mock_date")
+        self.assertEqual(response.id, "1234")
         self.assertEqual(response.downstream, {"mock_downstream": "mock_key"})
 
     def test_from_github_open(self):
@@ -329,7 +329,7 @@ class TestIntermediary(unittest.TestCase):
         self.assertEqual(response.reporter, "mock_reporter")
         self.assertEqual(response.assignee, "mock_assignee")
         self.assertEqual(response.status, "mock_status")
-        self.assertEqual(response.id, "mock_date")
+        self.assertEqual(response.id, "1234")
         self.assertEqual(
             response.downstream,
             {"mock_downstream": "mock_key", "mapping": [{"fixVersion": "Test XXX"}]},
