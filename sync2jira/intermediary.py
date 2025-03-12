@@ -133,7 +133,8 @@ class Issue(object):
             assignee=issue["assignee"],
             status=issue["status"],
             id=issue["id"],
-            upstream_id=issue["number"],
+            upstream_id=issue["id"],
+            storypoints=None,
         )
 
     @classmethod

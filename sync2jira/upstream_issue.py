@@ -215,7 +215,7 @@ def handle_pagure_message(msg, config):
 
                 # Some messages send tags as strings, others as dicts.  Handle both.
                 actual = [tag["name"] for tag in actual if isinstance(tag, dict)] + [
-                    tag for tag in actual if isinstance(tag, string_type)
+                    tag for tag in actual if isinstance(tag, str)
                 ]
 
                 intersection = set(actual) & set(expected)
