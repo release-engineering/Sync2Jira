@@ -181,17 +181,17 @@ def handle_github_message(body, config, is_pr=False):
     return i.Issue.from_github(upstream, issue, config)
 
 
-def handle_pagure_message(msg, config):
+def handle_pagure_message(body, config):
     """
     Handle Pagure message from FedMsg.
 
-    :param Dict msg: FedMsg Message
+    :param Dict body: FedMsg Message
     :param Dict config: Config File
     :returns: Issue object
     :rtype: sync2jira.intermediary.Issue
     """
-    upstream = msg["msg"]["project"]["name"]
-    ns = msg["msg"]["project"].get("namespace") or None
+    upstream = body["project"]["name"]
+    ns = body["project"].get("namespace") or None
     if ns:
         upstream = "{ns}/{upstream}".format(ns=ns, upstream=upstream)
     mapped_repos = config["sync2jira"]["map"]["pagure"]
@@ -209,9 +209,7 @@ def handle_pagure_message(msg, config):
         for key, expected in _filter.items():
             # special handling for tag: we look for it in the list of msg tags
             if key == "tags":
-                actual = msg["msg"]["issue"].get("tags", []) + msg["msg"].get(
-                    "tags", []
-                )
+                actual = body["issue"].get("tags", []) + body.get("tags", [])
 
                 # Some messages send tags as strings, others as dicts.  Handle both.
                 actual = [tag["name"] for tag in actual if isinstance(tag, dict)] + [
@@ -226,7 +224,7 @@ def handle_pagure_message(msg, config):
                     return None
             else:
                 # direct comparison
-                actual = msg["msg"]["issue"].get(key)
+                actual = body["issue"].get(key)
                 if actual != expected:
                     log.debug(
                         "Actual %r %r != expected %r on issue: %s",
@@ -239,8 +237,8 @@ def handle_pagure_message(msg, config):
 
     # If this is a dropped issue upstream
     try:
-        if msg["topic"] == "io.pagure.prod.pagure.issue.drop":
-            msg["msg"]["issue"]["status"] = "Dropped"
+        if body["_topic"] == "io.pagure.prod.pagure.issue.drop":
+            body["issue"]["status"] = "Dropped"
     except KeyError:
         # Otherwise do nothing
         pass
@@ -248,8 +246,8 @@ def handle_pagure_message(msg, config):
     # If this is a tag edit upstream
     try:
         # Add all updated tags to the tags on the issue
-        for tag in msg["msg"]["tags"]:
-            msg["msg"]["issue"]["tags"].append(tag)
+        for tag in body["tags"]:
+            body["issue"]["tags"].append(tag)
     except KeyError:
         # Otherwise do nothing
         pass
@@ -257,15 +255,15 @@ def handle_pagure_message(msg, config):
     # If this is a comment edit
     try:
         # Add it to the comments on the issue
-        msg["msg"]["issue"]["comments"].append(msg["msg"]["comment"])
+        body["issue"]["comments"].append(body["comment"])
     except KeyError:
         # Otherwise do nothing
         pass
 
     # Format the assignee field to match github (i.e. in a list)
-    msg["msg"]["issue"]["assignee"] = [msg["msg"]["issue"]["assignee"]]
+    body["issue"]["assignee"] = [body["issue"]["assignee"]]
 
-    return i.Issue.from_pagure(upstream, msg["msg"]["issue"], config)
+    return i.Issue.from_pagure(upstream, body["issue"], config)
 
 
 def pagure_issues(upstream, config):

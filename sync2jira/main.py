@@ -168,6 +168,7 @@ def callback(msg):
     log.debug("Handling %r %r %r", suffix, topic, idx)
 
     body = msg.body.get("body") or msg.body
+    body["_topic"] = topic
     handle_msg(body, suffix, config)
 
 

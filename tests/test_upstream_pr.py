@@ -40,29 +40,27 @@ class TestUpstreamPR(unittest.TestCase):
         }
         # Mock Pagure Message
         self.mock_pagure_message = {
-            "msg": {
-                "pullrequest": {
+            "pullrequest": {
+                "assignee": "mock_assignee",
+                "project": {"name": "org/repo"},
+                "issue": {
+                    "filter1": "filter1",
+                    "tags": ["custom_tag"],
+                    "comments": [
+                        {
+                            "date_created": "1234",
+                            "user": {"name": "mock_name"},
+                            "comment": "mock_body",
+                            "id": "1234",
+                        }
+                    ],
                     "assignee": "mock_assignee",
-                    "project": {"name": "org/repo"},
-                    "issue": {
-                        "filter1": "filter1",
-                        "tags": ["custom_tag"],
-                        "comments": [
-                            {
-                                "date_created": "1234",
-                                "user": {"name": "mock_name"},
-                                "comment": "mock_body",
-                                "id": "1234",
-                            }
-                        ],
-                        "assignee": "mock_assignee",
-                    },
-                    "tags": ["new_tag"],
-                    "comment": "new_comment",
-                    "status": "Open",
                 },
-                "topic": "io.pagure.prod.pagure.issue.drop",
-            }
+                "tags": ["new_tag"],
+                "comment": "new_comment",
+                "status": "Open",
+            },
+            "_topic": "io.pagure.prod.pagure.issue.drop",
         }
 
         # Mock GitHub Comment
@@ -124,7 +122,7 @@ class TestUpstreamPR(unittest.TestCase):
 
         # Call the function
         response = u.handle_pagure_message(
-            msg=self.mock_pagure_message,
+            body=self.mock_pagure_message,
             config=self.mock_config,
             suffix="comment",
         )
@@ -163,11 +161,11 @@ class TestUpstreamPR(unittest.TestCase):
         This function tests 'handle_pagure_message' where upstream is not in mapped repo
         """
         # Set up return values
-        self.mock_pagure_message["msg"]["pullrequest"]["project"]["name"] = "bad_repo"
+        self.mock_pagure_message["pullrequest"]["project"]["name"] = "bad_repo"
 
         # Call the function
         response = u.handle_pagure_message(
-            msg=self.mock_pagure_message,
+            body=self.mock_pagure_message,
             config=self.mock_config,
             suffix="comment",
         )

@@ -10,7 +10,7 @@ import os
 import jira.client
 
 # Local Modules
-from jira_values import PAGURE, GITHUB
+from jira_values import GITHUB, PAGURE
 from runtime_config import runtime_config
 
 from sync2jira.main import main as m

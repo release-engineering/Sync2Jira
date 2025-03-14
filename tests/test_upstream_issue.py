@@ -40,19 +40,17 @@ class TestUpstreamIssue(unittest.TestCase):
         }
         # Mock Pagure Message
         self.mock_pagure_message = {
-            "msg": {
-                "project": {"name": "org/repo"},
-                "issue": {
-                    "filter1": "filter1",
-                    "tags": ["custom_tag"],
-                    "comments": [],
-                    "assignee": "mock_assignee",
-                },
-                "tags": ["new_tag"],
-                "comment": "new_comment",
-                "status": "temp",
+            "project": {"name": "org/repo"},
+            "issue": {
+                "filter1": "filter1",
+                "tags": ["custom_tag"],
+                "comments": [],
+                "assignee": "mock_assignee",
             },
-            "topic": "io.pagure.prod.pagure.issue.drop",
+            "tags": ["new_tag"],
+            "comment": "new_comment",
+            "status": "temp",
+            "_topic": "io.pagure.prod.pagure.issue.drop",
         }
 
         # Mock GitHub Comment
@@ -552,10 +550,10 @@ class TestUpstreamIssue(unittest.TestCase):
         This function tests 'handle_pagure_message' where upstream is not in mapped repo
         """
         # Set up return values
-        self.mock_pagure_message["msg"]["project"]["name"] = "bad_repo"
+        self.mock_pagure_message["project"]["name"] = "bad_repo"
         # Call the function
         response = u.handle_pagure_message(
-            msg=self.mock_pagure_message, config=self.mock_config
+            body=self.mock_pagure_message, config=self.mock_config
         )
 
         # Assert all calls made correctly
@@ -568,11 +566,11 @@ class TestUpstreamIssue(unittest.TestCase):
         This function tests 'handle_pagure_message' where comparing the actual vs. filter does not equate
         """
         # Set up return values
-        self.mock_pagure_message["msg"]["issue"]["filter1"] = "filter2"
+        self.mock_pagure_message["issue"]["filter1"] = "filter2"
 
         # Call function
         response = u.handle_pagure_message(
-            msg=self.mock_pagure_message, config=self.mock_config
+            body=self.mock_pagure_message, config=self.mock_config
         )
 
         # Assert that calls were made correctly
@@ -585,11 +583,11 @@ class TestUpstreamIssue(unittest.TestCase):
         This function tests 'handle_pagure_message' where the tags do not match
         """
         # Set up return values
-        self.mock_pagure_message["msg"]["issue"]["tags"] = ["bad_tags"]
+        self.mock_pagure_message["issue"]["tags"] = ["bad_tags"]
 
         # Call function
         response = u.handle_pagure_message(
-            msg=self.mock_pagure_message, config=self.mock_config
+            body=self.mock_pagure_message, config=self.mock_config
         )
 
         # Assert that calls were made correctly
@@ -607,7 +605,7 @@ class TestUpstreamIssue(unittest.TestCase):
 
         # Call the function
         response = u.handle_pagure_message(
-            msg=self.mock_pagure_message, config=self.mock_config
+            body=self.mock_pagure_message, config=self.mock_config
         )
 
         # Assert that calls were made correctly

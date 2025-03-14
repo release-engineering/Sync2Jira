@@ -19,8 +19,8 @@
 
 import logging
 
-import requests
 from github import Github
+import requests
 
 import sync2jira.intermediary as i
 import sync2jira.upstream_issue as u_issue
@@ -28,18 +28,18 @@ import sync2jira.upstream_issue as u_issue
 log = logging.getLogger("sync2jira")
 
 
-def handle_pagure_message(msg, config, suffix):
+def handle_pagure_message(body, config, suffix):
     """
     Handle Pagure message from FedMsg.
 
-    :param Dict msg: FedMsg Message
+    :param Dict body: FedMsg Message
     :param Dict config: Config File
     :returns: Issue object
     :rtype: sync2jira.intermediary.PR
     """
     # Extract our upstream name
-    upstream = msg["msg"]["pullrequest"]["project"]["name"]
-    ns = msg["msg"]["pullrequest"]["project"].get("namespace") or None
+    upstream = body["pullrequest"]["project"]["name"]
+    ns = body["pullrequest"]["project"].get("namespace") or None
     if ns:
         upstream = "{ns}/{upstream}".format(ns=ns, upstream=upstream)
     mapped_repos = config["sync2jira"]["map"]["pagure"]
@@ -53,22 +53,21 @@ def handle_pagure_message(msg, config, suffix):
         return None
 
     # Format the assignee field to match github (i.e. in a list)
-    msg["msg"]["pullrequest"]["assignee"] = [msg["msg"]["pullrequest"]["assignee"]]
+    body["pullrequest"]["assignee"] = [body["pullrequest"]["assignee"]]
 
     # Update suffix, Pagure suffix only register as comments
-    if msg["msg"]["pullrequest"]["status"] == "Closed":
+    if body["pullrequest"]["status"] == "Closed":
         suffix = "closed"
-    elif msg["msg"]["pullrequest"]["status"] == "Merged":
+    elif body["pullrequest"]["status"] == "Merged":
         suffix = "merged"
     elif (
-        msg["msg"]["pullrequest"].get("closed_by")
-        and msg["msg"]["pullrequest"]["status"] == "Open"
+        body["pullrequest"].get("closed_by") and body["pullrequest"]["status"] == "Open"
     ):
         suffix = "reopened"
-    elif msg["msg"]["pullrequest"]["status"] == "Open":
+    elif body["pullrequest"]["status"] == "Open":
         suffix = "open"
 
-    return i.PR.from_pagure(upstream, msg["msg"]["pullrequest"], suffix, config)
+    return i.PR.from_pagure(upstream, body["pullrequest"], suffix, config)
 
 
 def handle_github_message(body, config, suffix):
