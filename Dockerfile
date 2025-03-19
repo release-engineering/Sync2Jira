@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/ubi:latest
+FROM registry.access.redhat.com/ubi9/ubi:9.5-1739751568
 
 ARG SYNC2JIRA_GIT_REPO=https://github.com/release-engineering/Sync2Jira.git
 ARG SYNC2JIRA_GIT_REF=master
@@ -22,17 +22,23 @@ LABEL \
     distribution-scope="public"
 
 # Installing sync2jira dependencies
+RUN rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
 RUN dnf -y install \
     git \
     python3-pip \
     krb5-devel \
     python-devel \
+    fedora-messaging \
     gcc \
   && dnf -y clean all
 
 ENV SYNC2JIRA_VERSION=$SYNC2JIRA_VERSION
 
 USER root
+
+# Copy in license file
+RUN mkdir /licenses
+COPY LICENSE /licenses/LICENSE
 
 # Create Sync2Jira folder
 RUN mkdir -p /usr/local/src/sync2jira

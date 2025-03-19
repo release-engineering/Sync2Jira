@@ -16,25 +16,26 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110.15.0 USA
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
-from setuptools import setup
 import os
 
-with open('requirements.txt', 'rb') as f:
-    install_requires = f.read().decode('utf-8').split('\n')
-    if not os.getenv('READTHEDOCS'):
-        install_requires.append('requests-kerberos')
+from setuptools import setup
 
-with open('test-requirements.txt', 'rb') as f:
-    test_requires = f.read().decode('utf-8').split('\n')
+with open("requirements.txt", "rb") as f:
+    install_requires = f.read().decode("utf-8").split("\n")
+    if not os.getenv("READTHEDOCS"):
+        install_requires.append("requests-kerberos")
+
+with open("test-requirements.txt", "rb") as f:
+    test_requires = f.read().decode("utf-8").split("\n")
 
 setup(
-    name='sync2jira',
+    name="sync2jira",
     version=2.0,
-    description="Sync pagure and github issues to jira, via fedmsg",
-    author='Ralph Bean',
-    author_email='rbean@redhat.com',
-    url='https://pagure.io/sync-to-jira',
-    license='LGPLv2+',
+    description="Sync GitHub and pagure issues to jira, via fedmsg",
+    author="Ralph Bean",
+    author_email="rbean@redhat.com",
+    url="https://github.com/release-engineering/Sync2Jira",
+    license="LGPLv2+",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved :: GNU Lesser General "
@@ -46,15 +47,13 @@ setup(
     install_requires=install_requires,
     tests_require=test_requires,
     packages=[
-        'sync2jira',
+        "sync2jira",
     ],
     include_package_data=True,
     zip_safe=False,
     entry_points={
-        'console_scripts': [
+        "console_scripts": [
             "sync2jira=sync2jira.main:main",
-            "sync2jira-list-managed-urls=sync2jira.main:list_managed",
-            "sync2jira-close-duplicates=sync2jira.main:close_duplicates",
         ],
     },
 )

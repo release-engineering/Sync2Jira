@@ -59,7 +59,23 @@ The config file is made up of multiple parts
     },
 
 * Here you can configure multiple JIRA instances if you have projects with differing downstream JIRA instances.
-  Ensure to name them approproialty, in name of the JIRA instance above is `example`.
+  Ensure to name them appropriately, in name of the JIRA instance above is `example`.
+
+.. code-block:: python
+
+    "default_jira_fields": {
+      "storypoints": "customfield_12310243"
+    },
+
+* The keys in the :code:`default_jira_fields` map are used as the values of the github_project_fields
+  list (see below). The keys indicate how the fields in GitHub Project items correspond to
+  fields in Jira issues so that these values can be synced properly. Currently, we support
+  only :code:`storypoints` and :code:`priority`. By default, the value for the priority is sourced
+  from the upstream :code:`priority` field, but providing a :code:`priority` key for
+  :code:`default_jira_fields` will override that. Unfortunately, there is no default available
+  for sourcing story points, so, the :code:`storypoints` key must be provided if projects wish
+  to sync story point values, and, for our corporate Jira instance, the value should be specified
+  as :code:`customfield_12310243`.
 
 .. code-block:: python
 
@@ -95,17 +111,18 @@ The config file is made up of multiple parts
         * Optional: Field to have custom set labels on all downstream issues created.
     * :code:`'type'`
         * Optional: Set the issue type that will be created. The default is Bug.
-    * :code:`'issue_type': {'bug': 'Bug', 'enhancement': 'Story'}`
-        * Optional: Set the issue type based on github labels. If none match, fall back to what :code:`type` is set to.
+    * :code:`'issue_types': {'bug': 'Bug', 'enhancement': 'Story'}`
+        * Optional: Set the issue type based on GitHub labels. If none match, fall back to what :code:`type` is set to.
    * :code:`'EXD-Service': {'guild': 'SOME_GUILD', 'value': 'SOME_VALUE'}`
         * Sync custom EXD-Service field
 
      .. note::
 
-            :pullrequest: After enabling PR syncing, just type "Relates to JIRA: XXXX-1234" in the comment or description of the PR to sync with a JIRA issue. After this, updates such as when it has been merged will automatically be added to the JIRA ticket.
+            :pullrequest: After enabling PR syncing, just type "JIRA: XXXX-1234" in the comment or description of the PR to sync with a JIRA issue. After this, updates such as when it has been merged will automatically be added to the JIRA ticket.
 
-* You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with downstream components
-  You can add the following to the :code:`issue_updates` array:
+* You can add your projects here. The :code:`'project'` field is associated
+  with downstream JIRA projects, and :code:`'component'` with downstream
+  components.  You can add the following to the :code:`issue_updates` array:
 
     * :code:`'comments'`
         * Sync comments and comment edits
@@ -121,7 +138,7 @@ The config file is made up of multiple parts
         * Sync title
     * :code:`{'transition': True/'CUSTOM_TRANSITION'}`
         * Sync status (open/closed), Sync only status/Attempt to transition JIRA ticket to CUSTOM_TRANSITION on upstream closure
-    * :code:`{'on_close': {'apply_lables': ['label', ...]}}`
+    * :code:`{'on_close': {'apply_labels': ['label', ...]}}`
         * When the upstream issue is closed, apply additional labels on the corresponding Jira ticket.
     * :code:`github_markdown`
         * If description syncing is turned on, this flag will convert Github markdown to Jira syntax. This uses the pypandoc module.
@@ -129,11 +146,15 @@ The config file is made up of multiple parts
         * If selected this will add a comment to all newly created JIRA issue in the format 'UPSTREAM_PROJECT-#1' where the number indicates the issue ID. This allows users to search for the issue on JIRA via the issue number.
     * :code:`url`
         * This flag will add the upstream url to the bottom of the JIRA ticket
+    * :code:`github_project_number`
+        * Specify the GitHub project number. If specified, story points and priority will be selected from this project, and other projects linked to the issues will be ignored.
+    * :code:`github_project_fields`
+        * Sync GitHub projects fields. e.g, storypoints, priority
 
     .. note::
 
         :Overwrite: Setting this to :code:`True` will ensure that Upstream (GitHub or Pagure) values will overwrite downstream ones (i.e. if its empty upstream it'll be empty downstream)
-        :CUSTOM_TRANSITION: Setting this value will get Sync2Jira to automatially transition downstream tickets once their upstream counterparts get closed. Set this to whatever 'closed' means downstream.
+        :CUSTOM_TRANSITION: Setting this value will get Sync2Jira to automatically transition downstream tickets once their upstream counterparts get closed. Set this to whatever 'closed' means downstream.
 
 * You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with downstream components
   You can add the following to the :code:`pr_updates` array:
@@ -146,10 +167,37 @@ The config file is made up of multiple parts
 * You can add the following to the mapping array. This array will map an upstream field to the downstream counterpart with XXX replaced.
 
     * :code:`{'fixVersion': 'Test XXX'}`
-        * Maps upstream milestone (suppose it's called 'milesone') to downstream fixVersion with a mapping (for our example it would be 'Test milesone')
+        * Maps upstream milestone (suppose it's called 'milestone') to downstream fixVersion with a mapping (for our example it would be 'Test milestone')
 
 * It is strongly encouraged for teams to use the :code:`owner` field. If configured, owners will be alerted if Sync2Jira finds duplicate downstream issues.
   Further the owner will be used as a default in case the program is unable to find a valid assignee.
+
+.. code-block:: python
+
+    'github_project_fields': {
+        'storypoints': {
+          'gh_field': 'Estimate'
+        },
+        'priority': {
+          'gh_field': 'Priority',
+          'options': {
+            'P0': 'Blocker',
+            'P1': 'Critical',
+            'P2': 'Major',
+            'P3': 'Minor',
+            'P4': 'Optional',
+            'P5': 'Trivial'
+          }
+        }
+    }
+
+* Specify the GitHub project field and its mapping to Jira. The currently supported fields are :code:`storypoints`
+  and :code:`priority`.
+
+* The :code:`gh_field` points to the GitHub field name.
+
+* The :code:`options` key is used to specify a mapping between GitHub field values as Jira field values.
+  This is particularly useful for cases like priority which uses keywords for values.
 
 .. code-block:: python
 

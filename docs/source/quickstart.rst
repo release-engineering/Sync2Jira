@@ -10,7 +10,7 @@ Want to quickly get started working with Sync2Jira? Follow these steps:
 
         'github_token': 'YOUR_TOKEN',
 
-3. Enter relevent JIRA information
+3. Enter relevant JIRA information
     .. code-block:: python
 
         'default_jira_instance': 'example',
@@ -39,11 +39,11 @@ Want to quickly get started working with Sync2Jira? Follow these steps:
             },
             'github': {
                 'GITHUB_USERNAME/Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
-                                                 'updates': [...], 'sync': [..]},
+                                                 'issue_updates': [...], 'sync': [..]},
             },
         },
 
-    .. note:: You can learn more about what can go into the updates list `here <config-file.html>`_
+    .. note:: You can learn more about what can go into the issue_updates list `here <config-file.html>`_
 
 5. Finally you can tweak the config files optional settings to your liking
     .. code-block:: python

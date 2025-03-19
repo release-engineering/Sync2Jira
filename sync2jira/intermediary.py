@@ -18,14 +18,32 @@
 # Authors:  Ralph Bean <rbean@redhat.com>
 from datetime import datetime
 import re
+from typing import Optional
 
 
 class Issue(object):
     """Issue Intermediary object"""
 
-    def __init__(self, source, title, url, upstream, comments,
-                 config, tags, fixVersion, priority, content,
-                 reporter, assignee, status, id, upstream_id, downstream=None):
+    def __init__(
+        self,
+        source,
+        title,
+        url,
+        upstream,
+        comments,
+        config,
+        tags,
+        fixVersion,
+        priority,
+        content,
+        reporter,
+        assignee,
+        status,
+        id,
+        storypoints,
+        upstream_id,
+        downstream=None,
+    ):
         self.source = source
         self._title = title[:254]
         self.url = url
@@ -34,16 +52,17 @@ class Issue(object):
         self.tags = tags
         self.fixVersion = fixVersion
         self.priority = priority
+        self.storypoints = storypoints
 
         # First trim the size of the content
-        self.content = trimString(content)
+        self.content = trim_string(content)
 
         # JIRA treats utf-8 characters in ways we don't totally understand, so scrub content down to
         # simple ascii characters right from the start.
-        self.content = self.content.encode('ascii', errors='replace').decode('ascii')
+        self.content = self.content.encode("ascii", errors="replace").decode("ascii")
 
         # We also apply this content in regexs to pattern match, so remove any escape characters
-        self.content = self.content.replace('\\', '')
+        self.content = self.content.replace("\\", "")
 
         self.reporter = reporter
         self.assignee = assignee
@@ -51,13 +70,13 @@ class Issue(object):
         self.id = str(id)
         self.upstream_id = upstream_id
         if not downstream:
-            self.downstream = config['sync2jira']['map'][self.source][upstream]
+            self.downstream = config["sync2jira"]["map"][self.source][upstream]
         else:
             self.downstream = downstream
 
     @property
     def title(self):
-        _title = u'[%s] %s' % (self.upstream, self._title)
+        _title = "[%s] %s" % (self.upstream, self._title)
         return _title[:254].strip()
 
     @property
@@ -67,108 +86,135 @@ class Issue(object):
     @classmethod
     def from_pagure(cls, upstream, issue, config):
         """Helper function to create intermediary object."""
-        base = config['sync2jira'].get('pagure_url', 'https://pagure.io')
-        upstream_source = 'pagure'
+        base = config["sync2jira"].get("pagure_url", "https://pagure.io")
+        upstream_source = "pagure"
         comments = []
-        for comment in issue['comments']:
+        for comment in issue["comments"]:
             # Only add comments that are not Metadata updates
-            if '**Metadata Update' in comment['comment']:
+            if "**Metadata Update" in comment["comment"]:
                 continue
             # Else add the comment
             # Convert the date to datetime
-            comment['date_created'] = datetime.fromtimestamp(float(comment['date_created']))
-            comments.append({
-                'author': comment['user']['name'],
-                'body': trimString(comment['comment']),
-                'name': comment['user']['name'],
-                'id': comment['id'],
-                'date_created': comment['date_created'],
-                'changed': None
-            })
+            comment["date_created"] = datetime.fromtimestamp(
+                float(comment["date_created"])
+            )
+            comments.append(
+                {
+                    "author": comment["user"]["name"],
+                    "body": trim_string(comment["comment"]),
+                    "name": comment["user"]["name"],
+                    "id": comment["id"],
+                    "date_created": comment["date_created"],
+                    "changed": None,
+                }
+            )
 
         # Perform any mapping
-        mapping = config['sync2jira']['map'][upstream_source][upstream].get('mapping', [])
+        mapping = config["sync2jira"]["map"][upstream_source][upstream].get(
+            "mapping", []
+        )
 
         # Check for fixVersion
-        if any('fixVersion' in item for item in mapping):
+        if any("fixVersion" in item for item in mapping):
             map_fixVersion(mapping, issue)
 
-        return Issue(
+        return cls(
             source=upstream_source,
-            title=issue['title'],
-            url=base + '/%s/issue/%i' % (upstream, issue['id']),
+            title=issue["title"],
+            url=base + "/%s/issue/%i" % (upstream, issue["id"]),
             upstream=upstream,
             config=config,
             comments=comments,
-            tags=issue['tags'],
-            fixVersion=[issue['milestone']],
-            priority=issue['priority'],
-            content=issue['content'],
-            reporter=issue['user'],
-            assignee=issue['assignee'],
-            status=issue['status'],
-            id=issue['date_created'],
-            upstream_id=issue['id']
+            tags=issue["tags"],
+            fixVersion=[issue["milestone"]],
+            priority=issue["priority"],
+            content=issue["content"],
+            reporter=issue["user"],
+            assignee=issue["assignee"],
+            status=issue["status"],
+            id=issue["id"],
+            upstream_id=issue["id"],
+            storypoints=None,
         )
 
     @classmethod
     def from_github(cls, upstream, issue, config):
         """Helper function to create intermediary object."""
-        upstream_source = 'github'
+        upstream_source = "github"
         comments = []
-        for comment in issue['comments']:
-            comments.append({
-                'author': comment['author'],
-                'name': comment['name'],
-                'body': trimString(comment['body']),
-                'id': comment['id'],
-                'date_created': comment['date_created'],
-                'changed': None
-            })
+        for comment in issue["comments"]:
+            comments.append(
+                {
+                    "author": comment["author"],
+                    "name": comment["name"],
+                    "body": trim_string(comment["body"]),
+                    "id": comment["id"],
+                    "date_created": comment["date_created"],
+                    "changed": None,
+                }
+            )
 
         # Reformat the state field
-        if issue['state']:
-            if issue['state'] == 'open':
-                issue['state'] = 'Open'
-            elif issue['state'] == 'closed':
-                issue['state'] = 'Closed'
+        if issue["state"]:
+            if issue["state"] == "open":
+                issue["state"] = "Open"
+            elif issue["state"] == "closed":
+                issue["state"] = "Closed"
 
         # Perform any mapping
-        mapping = config['sync2jira']['map'][upstream_source][upstream].get('mapping', [])
+        mapping = config["sync2jira"]["map"][upstream_source][upstream].get(
+            "mapping", []
+        )
 
         # Check for fixVersion
-        if any('fixVersion' in item for item in mapping):
+        if any("fixVersion" in item for item in mapping):
             map_fixVersion(mapping, issue)
 
-        # TODO: Priority is broken
-        return Issue(
+        return cls(
             source=upstream_source,
-            title=issue['title'],
-            url=issue['html_url'],
+            title=issue["title"],
+            url=issue["html_url"],
             upstream=upstream,
             config=config,
             comments=comments,
-            tags=issue['labels'],
-            fixVersion=[issue['milestone']],
-            priority=None,
-            content=issue['body'] or '',
-            reporter=issue['user'],
-            assignee=issue['assignees'],
-            status=issue['state'],
-            id=issue['id'],
-            upstream_id=issue['number']
+            tags=issue["labels"],
+            fixVersion=[issue["milestone"]],
+            priority=issue.get("priority"),
+            content=issue["body"] or "",
+            reporter=issue["user"],
+            assignee=issue["assignees"],
+            status=issue["state"],
+            id=issue["id"],
+            storypoints=issue.get("storypoints"),
+            upstream_id=issue["number"],
         )
 
     def __repr__(self):
-        return "<Issue %s >" % self.url
+        return f"<Issue {self.url} >"
 
 
 class PR(object):
     """PR intermediary object"""
 
-    def __init__(self, source, jira_key, title, url, upstream, config,
-                 comments, priority, content, reporter,
-                 assignee, status, id, suffix, match, downstream=None):
+    def __init__(
+        self,
+        source,
+        jira_key,
+        title,
+        url,
+        upstream,
+        config,
+        comments,
+        priority,
+        content,
+        reporter,
+        assignee,
+        status,
+        id,
+        suffix,
+        match,
+        downstream=None,
+    ):
         self.source = source
         self.jira_key = jira_key
         self._title = title[:254]
@@ -183,12 +229,14 @@ class PR(object):
         # simple ascii characters right from the start.
         if content:
             # First trim the size of the content
-            self.content = trimString(content)
+            self.content = trim_string(content)
 
-            self.content = self.content.encode('ascii', errors='replace').decode('ascii')
+            self.content = self.content.encode("ascii", errors="replace").decode(
+                "ascii"
+            )
 
             # We also apply this content in regexs to pattern match, so remove any escape characters
-            self.content = self.content.replace('\\', '')
+            self.content = self.content.replace("\\", "")
         else:
             self.content = None
 
@@ -201,51 +249,54 @@ class PR(object):
         # self.upstream_id = upstream_id
 
         if not downstream:
-            self.downstream = config['sync2jira']['map'][self.source][upstream]
+            self.downstream = config["sync2jira"]["map"][self.source][upstream]
         else:
             self.downstream = downstream
         return
 
     @property
     def title(self):
-        return u'[%s] %s' % (self.upstream, self._title)
+        return "[%s] %s" % (self.upstream, self._title)
 
     @classmethod
-    def from_pagure(self, upstream, pr, suffix, config):
+    def from_pagure(cls, upstream, pr, suffix, config):
         """Helper function to create intermediary object."""
         # Set our upstream source
-        upstream_source = 'pagure'
+        upstream_source = "pagure"
 
         # Format our comments
         comments = []
-        for comment in pr['comments']:
+        for comment in pr["comments"]:
             # Only add comments that are not Metadata updates
-            if '**Metadata Update' in comment['comment']:
+            if "**Metadata Update" in comment["comment"]:
                 continue
             # Else add the comment
             # Convert the date to datetime
-            comment['date_created'] = datetime.fromtimestamp(
-                float(comment['date_created']))
-            comments.append({
-                'author': comment['user']['name'],
-                'body': trimString(comment['comment']),
-                'name': comment['user']['name'],
-                'id': comment['id'],
-                'date_created': comment['date_created'],
-                'changed': None
-            })
+            comment["date_created"] = datetime.fromtimestamp(
+                float(comment["date_created"])
+            )
+            comments.append(
+                {
+                    "author": comment["user"]["name"],
+                    "body": trim_string(comment["comment"]),
+                    "name": comment["user"]["name"],
+                    "id": comment["id"],
+                    "date_created": comment["date_created"],
+                    "changed": None,
+                }
+            )
 
         # Build our URL
         url = f"https://pagure.io/{pr['project']['name']}/pull-request/{pr['id']}"
 
         # Match a JIRA
-        match = matcher(pr.get('initial_comment'), comments)
+        match = matcher(pr.get("initial_comment"), comments)
 
         # Return our PR object
-        return PR(
+        return cls(
             source=upstream_source,
             jira_key=match,
-            title=pr['title'],
+            title=pr["title"],
             url=url,
             upstream=upstream,
             config=config,
@@ -253,55 +304,57 @@ class PR(object):
             # tags=issue['labels'],
             # fixVersion=[issue['milestone']],
             priority=None,
-            content=pr['initial_comment'],
-            reporter=pr['user']['fullname'],
-            assignee=pr['assignee'],
-            status=pr['status'],
-            id=pr['id'],
+            content=pr["initial_comment"],
+            reporter=pr["user"]["fullname"],
+            assignee=pr["assignee"],
+            status=pr["status"],
+            id=pr["id"],
             suffix=suffix,
             match=match,
             # upstream_id=issue['number']
         )
 
     @classmethod
-    def from_github(self, upstream, pr, suffix, config):
+    def from_github(cls, upstream, pr, suffix, config):
         """Helper function to create intermediary object."""
         # Set our upstream source
-        upstream_source = 'github'
+        upstream_source = "github"
 
         # Format our comments
         comments = []
-        for comment in pr['comments']:
-            comments.append({
-                'author': comment['author'],
-                'name': comment['name'],
-                'body': trimString(comment['body']),
-                'id': comment['id'],
-                'date_created': comment['date_created'],
-                'changed': None
-            })
+        for comment in pr["comments"]:
+            comments.append(
+                {
+                    "author": comment["author"],
+                    "name": comment["name"],
+                    "body": trim_string(comment["body"]),
+                    "id": comment["id"],
+                    "date_created": comment["date_created"],
+                    "changed": None,
+                }
+            )
 
         # Build our URL
-        url = pr['html_url']
+        url = pr["html_url"]
 
         # Match to a JIRA
         match = matcher(pr.get("body"), comments)
 
         # Figure out what state we're transitioning too
-        if 'reopened' in suffix:
-            suffix = 'reopened'
-        elif 'closed' in suffix:
+        if "reopened" in suffix:
+            suffix = "reopened"
+        elif "closed" in suffix:
             # Check if we're merging or closing
-            if pr['merged']:
-                suffix = 'merged'
+            if pr["merged"]:
+                suffix = "merged"
             else:
-                suffix = 'closed'
+                suffix = "closed"
 
         # Return our PR object
-        return PR(
+        return cls(
             source=upstream_source,
             jira_key=match,
-            title=pr['title'],
+            title=pr["title"],
             url=url,
             upstream=upstream,
             config=config,
@@ -309,12 +362,12 @@ class PR(object):
             # tags=issue['labels'],
             # fixVersion=[issue['milestone']],
             priority=None,
-            content=pr.get('body'),
-            reporter=pr['user']['fullname'],
-            assignee=pr['assignee'],
+            content=pr.get("body"),
+            reporter=pr["user"]["fullname"],
+            assignee=pr["assignee"],
             # GitHub PRs do not have status
             status=None,
-            id=pr['number'],
+            id=pr["number"],
             # upstream_id=issue['number'],
             suffix=suffix,
             match=match,
@@ -329,49 +382,54 @@ def map_fixVersion(mapping, issue):
     :param Dict issue: Upstream issue object
     """
     # Get our fixVersion mapping
-    fixVersion_map = list(filter(lambda d: "fixVersion" in d, mapping))[0]['fixVersion']
+    fixVersion_map = next(filter(lambda d: "fixVersion" in d, mapping))["fixVersion"]
 
     # Now update the fixVersion
-    if issue['milestone']:
-        issue['milestone'] = fixVersion_map.replace('XXX', issue['milestone'])
+    if issue["milestone"]:
+        issue["milestone"] = fixVersion_map.replace("XXX", issue["milestone"])
 
 
-def matcher(content, comments):
+JIRA_REFERENCE = re.compile(r"\bJIRA:\s*([A-Z]+-\d+)\b")
+
+
+def matcher(content: Optional[str], comments: list[dict[str, str]]) -> str:
     """
     Helper function to match to a JIRA
+
+    Extract the Jira ticket reference from the first instance of the magic
+    cookie (e.g., "JIRA: FACTORY-1234") found when searching
+    through the comments in reverse order.  If no reference is found in the
+    comments, then look in the PR description.  This ordering allows later
+    comments to override earlier ones as well as any reference in the
+    description.
 
     :param String content: PR description
     :param List comments: Comments
     :return: JIRA match or None
     :rtype: Bool
     """
-    # Build out a string with all comments and initial_comment
-    all_data = " "
-    for comment in reversed(comments):
-        all_data += f" {comment['body']}"
-    if content:
-        all_data += content
-    if all_data:
-        # Parse to extract the JIRA information. 2 types of matches:
-        # 1 - To match to JIRA issue (i.e. Relates to JIRA: FACTORY-1234)
-        # 2 - To match to upstream issue (i.e. Relates to Issue: !5)
-        match_jira = re.findall(r"Relates to JIRA: ([\w]*-[\d]*)",
-                                all_data)
-        if match_jira:
-            for match in match_jira:
-                # Assert that the match was correct
-                if re.match(r"[\w]*-[\d]*", match):
-                    return match
-        else:
+
+    def find_it(input_str: str) -> str:
+        if not input_str:
             return None
+        match = JIRA_REFERENCE.search(input_str)
+        return match.group(1) if match else None
+
+    for comment in reversed(comments):
+        match_str = find_it(comment["body"])
+        if match_str:
+            break
+    else:
+        match_str = find_it(content)
+    return match_str
 
 
-def trimString(content):
+def trim_string(content):
     """
     Helper function to trim a string to ensure it is not over 50000 char
     Ref: https://github.com/release-engineering/Sync2Jira/issues/123
 
-    :param String commentBody: Comment content
+    :param String content: Comment content
     :rtype: String
     """
     if len(content) > 50000:

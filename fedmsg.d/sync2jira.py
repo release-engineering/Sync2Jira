@@ -53,7 +53,9 @@ config = {
                 'token_auth': 'YOUR_JIRA_ACCESS_TOKEN',
             },
         },
-
+        'default_jira_fields': {
+            'storypoints': 'customfield_12310243',
+            },
         'map': {
             'pagure': {
                 'Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
@@ -62,7 +64,23 @@ config = {
             },
             'github': {
                 'GITHUB_USERNAME/Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
-                                                 'updates': [...], 'sync': ['pullrequest', 'issue']},
+                                                'issue_updates': [
+                                                    'comments',
+                                                    'upstream_id',
+                                                    'title',
+                                                    'description',
+                                                    'github_markdown',
+                                                    'upstream_id',
+                                                    'url',
+                                                    {'transition': 'Closed'},
+                                                    {'assignee': {'overwrite': False}},
+                                                    'github_project_fields'],
+                                                'github_project_number': '1',
+                                                'github_project_fields': {'storypoints': {'gh_field': 'Estimate'},
+                                                    'priority': {'gh_field': 'Priority', 'options':
+                                                                 {'P0': 'Blocker', 'P1': 'Critical', 'P2': 'Major',
+                                                                  'P3': 'Minor', 'P4': 'Optional', 'P5': 'Trivial'}}},
+                                                 'sync': ['pullrequest', 'issue']},
             },
         },
         'filters': {
