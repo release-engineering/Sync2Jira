@@ -39,9 +39,9 @@ def handle_pagure_message(body, config, suffix):
     """
     # Extract our upstream name
     upstream = body["pullrequest"]["project"]["name"]
-    ns = body["pullrequest"]["project"].get("namespace") or None
+    ns = body["pullrequest"]["project"].get("namespace")
     if ns:
-        upstream = "{ns}/{upstream}".format(ns=ns, upstream=upstream)
+        upstream = f"{ns}/{upstream}"
     mapped_repos = config["sync2jira"]["map"]["pagure"]
 
     # Check if we should sync this PR
@@ -128,14 +128,10 @@ def pagure_prs(upstream, config):
     # Extract and format our data
     data = response.json()["requests"]
 
-    # Reformat Assignee
+    # Reformat Assignee and yield finally
     for pr in data:
         pr["assignee"] = [pr["assignee"]]
-
-    # Build our final list of data and yield
-    prs = (i.PR.from_pagure(upstream, pr, "open", config) for pr in data)
-    for pr in prs:
-        yield pr
+        yield i.PR.from_pagure(upstream, pr, "open", config)
 
 
 def github_prs(upstream, config):

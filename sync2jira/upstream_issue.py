@@ -191,9 +191,9 @@ def handle_pagure_message(body, config):
     :rtype: sync2jira.intermediary.Issue
     """
     upstream = body["project"]["name"]
-    ns = body["project"].get("namespace") or None
+    ns = body["project"].get("namespace")
     if ns:
-        upstream = "{ns}/{upstream}".format(ns=ns, upstream=upstream)
+        upstream = f"{ns}/{upstream}"
     mapped_repos = config["sync2jira"]["map"]["pagure"]
 
     if upstream not in mapped_repos:
@@ -289,16 +289,13 @@ def pagure_issues(upstream, config):
         raise IOError("response: %r %r %r" % (response, reason, response.request.url))
     data = response.json()["issues"]
 
-    # Reformat  the assignee value so that it is enclosed within an array
-    # We do this because Github supports multiple assignees, but JIRA doesn't :(
+    # Reformat the assignee value so that it is enclosed within an array
+    # We do this because GitHub supports multiple assignees, but JIRA doesn't :(
     # Hopefully in the future it will support multiple assignees, thus enclosing
     # the assignees in a list prepares for that support
     for issue in data:
         issue["assignee"] = [issue["assignee"]]
-
-    issues = (i.Issue.from_pagure(upstream, issue, config) for issue in data)
-    for issue in issues:
-        yield issue
+        yield i.Issue.from_pagure(upstream, issue, config)
 
 
 def github_issues(upstream, config):

@@ -130,7 +130,7 @@ def load_config(loader=fedmsg.config.load_config):
     if "map" not in config["sync2jira"]:
         raise ValueError("No sync2jira.map section found in fedmsg.d/ config")
 
-    possible = set(["pagure", "github"])
+    possible = {"pagure", "github"}
     specified = set(config["sync2jira"]["map"].keys())
     if not specified.issubset(possible):
         message = "Specified handlers: %s, must be a subset of %s."
@@ -174,8 +174,8 @@ def callback(msg):
 
 def listen(config):
     """
-    Listens to activity on upstream repos on pagure and github \
-    via fedmsg, and syncs new issues there to the JIRA instance \
+    Listens to activity on upstream repos on pagure and GitHub
+    via fedmsg, and syncs new issues there to the JIRA instance
     defined in 'fedmsg.d/sync2jira.py'
 
     :param Dict config: Config dict
@@ -219,9 +219,9 @@ def listen(config):
 
 def initialize_issues(config, testing=False, repo_name=None):
     """
-    Initial initialization needed to sync any upstream \
-    repo with JIRA. Goes through all issues and \
-    checks if they're already on JIRA / Need to be \
+    Initial initialization needed to sync any upstream
+    repo with JIRA. Goes through all issues and
+    checks if they're already on JIRA / Need to be
     created.
 
     :param Dict config: Config dict for JIRA
@@ -241,7 +241,7 @@ def initialize_issues(config, testing=False, repo_name=None):
             try:
                 d_issue.sync_with_jira(issue, config)
             except Exception as e:
-                log.error(f"Failed on {issue}\nException: {e}")
+                log.error("Failed on %r\nException: %s", issue, str(e))
                 raise
     log.info("Done with pagure issue initialization.")
 
@@ -250,7 +250,7 @@ def initialize_issues(config, testing=False, repo_name=None):
             continue
         if repo_name is not None and upstream != repo_name:
             continue
-        # Try and except for github API limit
+        # Try and except for GitHub API limit
         try:
             for issue in u_issue.github_issues(upstream, config):
                 try:
@@ -309,7 +309,7 @@ def initialize_pr(config, testing=False, repo_name=None):
             continue
         if repo_name is not None and upstream != repo_name:
             continue
-        # Try and except for github API limit
+        # Try and except for GitHub API limit
         try:
             for pr in u_pr.github_prs(upstream, config):
                 try:

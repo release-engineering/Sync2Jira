@@ -810,7 +810,7 @@ def _update_fixVersion(updates, existing, issue, client):
 
     # GitHub and Pagure does not allow for multiple fixVersions (milestones)
     # But JIRA does, that is why we're looping here. Hopefully one
-    # day GitHub/Pagure will support multiple fixVersions :0
+    # day GitHub/Pagure will support multiple fixVersions.
     for version in issue.fixVersion:
         if version is not None:
             # Update the fixVersion only if it's already not in JIRA
