@@ -177,7 +177,7 @@ def listen(config):
         queue: {
             "durable": True,  # Persist the queue on broker restart
             "auto_delete": False,  # Delete the queue when the client terminates
-            "exclusive": True,  # Disallow multiple simultaneous consumers
+            "exclusive": False,  # Allow multiple simultaneous consumers
             "arguments": {},
         },
     }
