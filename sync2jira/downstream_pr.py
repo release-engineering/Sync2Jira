@@ -192,6 +192,26 @@ def sync_with_jira(pr, config):
     if isinstance(pr, Issue):
         pr.jira_key = matcher(pr.content, pr.comments)
 
+    retry = False
+    while True:
+        try:
+            update_jira(client, pr)
+            break
+        except JIRAError:
+            # We got an error from Jira; if this was a re-try attempt, let the
+            # exception propagate (and crash the run).
+            if retry:
+                raise
+
+            # The error is probably because our access has expired; refresh it
+            # and try again.
+            client = d_issue.get_jira_client(pr, config)
+
+        # Retry the update
+        retry = True
+
+
+def update_jira(client, pr):
     query = f"Key = {pr.jira_key}"
     try:
         response = client.search_issues(query)
