@@ -146,12 +146,10 @@ def callback(msg):
     topic = msg.topic
     idx = msg.id
     suffix = ".".join(topic.split(".")[3:])
-    log.debug("Encountered %r %r %r", suffix, topic, idx)
 
     if suffix not in issue_handlers and suffix not in pr_handlers:
+        log.info("No handler for %r %r %r", suffix, topic, idx)
         return
-
-    log.debug("Handling %r %r %r", suffix, topic, idx)
 
     body = msg.body.get("body") or msg.body
     handle_msg(body, suffix, config)
@@ -305,10 +303,12 @@ def handle_msg(body, suffix, config):
         if "pull_request" in body["issue"]:
             if body["action"] == "deleted":
                 # FIXME:  What _should_ we be doing in this case?  Calling pr_handlers[]()??
+                log.info("Not handling PR 'action' == 'deleted'")
                 return
             # Handle this PR update as though it were an Issue, if that's
             # acceptable to the configuration.
             if not (pr := handler(body, config, is_pr=True)):
+                log.info("Not handling PR update -- not configured")
                 return
             # PRs require additional handling (Issues do not have suffix, and
             # reporter needs to be reformatted).
@@ -319,9 +319,13 @@ def handle_msg(body, suffix, config):
         else:
             if issue := handler(body, config):
                 d_issue.sync_with_jira(issue, config)
+            else:
+                log.info("Not handling Issue update -- not configured")
     elif handler := pr_handlers.get(suffix):
         if pr := handler(body, config, suffix):
             d_pr.sync_with_jira(pr, config)
+        else:
+            log.info("Not handling PR update -- not configured")
 
 
 def main(runtime_test=False, runtime_config=None):
