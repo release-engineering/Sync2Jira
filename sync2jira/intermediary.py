@@ -76,7 +76,7 @@ class Issue(object):
 
     @property
     def title(self):
-        _title = "[%s] %s" % (self.upstream, self._title)
+        _title = f"[{self.upstream}] {self._title}"
         return _title[:254].strip()
 
     @property
@@ -121,7 +121,7 @@ class Issue(object):
         return cls(
             source=upstream_source,
             title=issue["title"],
-            url=base + "/%s/issue/%i" % (upstream, issue["id"]),
+            url=f"{base}/{upstream}/issue/{issue['id']}",
             upstream=upstream,
             config=config,
             comments=comments,
@@ -256,7 +256,7 @@ class PR(object):
 
     @property
     def title(self):
-        return "[%s] %s" % (self.upstream, self._title)
+        return f"[{self.upstream}] {self._title}"
 
     @classmethod
     def from_pagure(cls, upstream, pr, suffix, config):
