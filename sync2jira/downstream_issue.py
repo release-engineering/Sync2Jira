@@ -183,8 +183,9 @@ def _matching_jira_issue_query(client, issue, config, free=False):
                     # We went through all the comments and didn't find anything
                     # that indicated it was a duplicate
                     log.warning(
-                        "Matching downstream issue %s to upstream issue %s"
-                        % (result.fields.summary, issue.title)
+                        "Matching downstream issue %s to upstream issue %s",
+                        result.fields.summary,
+                        issue.title,
                     )
                     final_results.append(result)
                 else:
@@ -508,7 +509,7 @@ def _get_preferred_issue_types(config, issue):
                 type_list.insert(0, "Story")
             else:
                 type_list.insert(0, "Bug")
-    log.debug("Preferred issue type list: %s" % type_list)
+    log.debug("Preferred issue type list: %s", type_list)
     return type_list
 
 
