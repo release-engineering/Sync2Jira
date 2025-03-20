@@ -142,7 +142,6 @@ def load_config(loader=fedmsg.config.load_config):
 
 
 def callback(msg):
-    config = load_config()
     topic = msg.topic
     idx = msg.id
     suffix = ".".join(topic.split(".")[3:])
@@ -151,6 +150,7 @@ def callback(msg):
         log.info("No handler for %r %r %r", suffix, topic, idx)
         return
 
+    config = load_config()
     body = msg.body.get("body") or msg.body
     handle_msg(body, suffix, config)
 

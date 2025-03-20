@@ -42,12 +42,11 @@ def format_comment(pr, pr_suffix, client):
     """
     # Find the pr.reporters JIRA username
     ret = client.search_users(pr.reporter)
-    if len(ret) > 0:
-        # Loop through ret till we find an match
-        for user in ret:
-            if user.displayName == pr.reporter:
-                reporter = f"[~{user.key}]"
-                break
+    # Loop through ret till we find a match
+    for user in ret:
+        if user.displayName == pr.reporter:
+            reporter = f"[~{user.key}]"
+            break
     else:
         reporter = pr.reporter
 
