@@ -24,7 +24,7 @@ import difflib
 import logging
 import operator
 import re
-from typing import Optional
+from typing import Optional, Union
 
 # 3rd Party Modules
 from jira import JIRAError
@@ -433,7 +433,7 @@ def assign_user(client, issue, downstream, remove_all=False):
     log.warning("Was not able to assign user %s", issue.assignee[0]["fullname"])
 
 
-def change_status(client, downstream, status, issue):
+def change_status(client, downstream, status, issue: Union[Issue, PR]):
     """
     Change status of JIRA issue.
 
