@@ -24,7 +24,7 @@ import difflib
 import logging
 import operator
 import re
-from typing import Optional
+from typing import Optional, Union
 
 # 3rd Party Modules
 from jira import JIRAError
@@ -433,7 +433,7 @@ def assign_user(client, issue, downstream, remove_all=False):
     log.warning("Was not able to assign user %s", issue.assignee[0]["fullname"])
 
 
-def change_status(client, downstream, status, issue):
+def change_status(client, downstream, status, issue: Union[Issue, PR]):
     """
     Change status of JIRA issue.
 
@@ -1152,6 +1152,26 @@ def sync_with_jira(issue, config):
         ):
             issue.content = pypandoc.convert_text(issue.content, "jira", format="gfm")
 
+    retry = False
+    while True:
+        try:
+            update_jira(client, config, issue)
+            break
+        except JIRAError:
+            # We got an error from Jira; if this was a re-try attempt, let the
+            # exception propagate (and crash the run).
+            if retry:
+                raise
+
+            # The error is probably because our access has expired; refresh it
+            # and try again.
+            client = get_jira_client(issue, config)
+
+        # Retry the update
+        retry = True
+
+
+def update_jira(client, config, issue):
     # First, check to see if we have a matching issue using the new method.
     # If we do, then just bail out.  No sync needed.
     log.info("Looking for matching downstream issue via new method.")

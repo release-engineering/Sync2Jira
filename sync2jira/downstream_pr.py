@@ -21,6 +21,8 @@ import logging
 
 # 3rd Party Modules
 from jira import JIRAError
+from jira.client import Issue as JIRAIssue
+from jira.client import ResultList
 
 # Local Modules
 import sync2jira.downstream_issue as d_issue
@@ -40,12 +42,11 @@ def format_comment(pr, pr_suffix, client):
     """
     # Find the pr.reporters JIRA username
     ret = client.search_users(pr.reporter)
-    if len(ret) > 0:
-        # Loop through ret till we find an match
-        for user in ret:
-            if user.displayName == pr.reporter:
-                reporter = f"[~{user.key}]"
-                break
+    # Loop through ret till we find a match
+    for user in ret:
+        if user.displayName == pr.reporter:
+            reporter = f"[~{user.key}]"
+            break
     else:
         reporter = pr.reporter
 
@@ -63,14 +64,14 @@ def format_comment(pr, pr_suffix, client):
     return comment
 
 
-def issue_link_exists(client, existing, pr):
+def issue_link_exists(client, existing: JIRAIssue, pr):
     """
     Checks if we've already linked this PR
 
     :param jira.client.JIRA client: JIRA Client
     :param jira.resources.Issue existing: Existing JIRA issue that was found
     :param sync2jira.intermediary.PR pr: Upstream issue we're pulling data from
-    :returns: True/False if the issue exists/does not exists
+    :returns: True/False if the issue exists/does not exist
     """
     # Query for our issue
     for issue_link in client.remote_links(existing):
@@ -80,7 +81,7 @@ def issue_link_exists(client, existing, pr):
     return False
 
 
-def comment_exists(client, existing, new_comment):
+def comment_exists(client, existing: JIRAIssue, new_comment):
     """
     Checks if new_comment exists in existing
     :param jira.client.JIRA client: JIRA Client
@@ -99,7 +100,7 @@ def comment_exists(client, existing, new_comment):
 
 def update_jira_issue(existing, pr, client):
     """
-    Updates an existing JIRA issue (i.e. tags, assignee, comments etc).
+    Updates an existing JIRA issue (i.e. tags, assignee, comments etc.).
 
     :param jira.resources.Issue existing: Existing JIRA issue that was found
     :param sync2jira.intermediary.PR pr: Upstream issue we're pulling data from
@@ -114,7 +115,7 @@ def update_jira_issue(existing, pr, client):
     # See if the issue_link and comment exists
     exists = issue_link_exists(client, existing, pr)
     comment_exist = comment_exists(client, existing, new_comment)
-    # Check if the comment if already there
+    # Check if the comment is already there
     if not exists:
         if not comment_exist:
             log.info(f"Added comment for PR {pr.title} on JIRA {pr.jira_key}")
@@ -162,7 +163,7 @@ def update_transition(client, existing, pr, transition_type):
 
 def sync_with_jira(pr, config):
     """
-    Attempts to sync a upstream PR with JIRA (i.e. by finding
+    Attempts to sync an upstream PR with JIRA (i.e. by finding
     an existing issue).
 
     :param sync2jira.intermediary.PR/Issue pr: PR or Issue object
@@ -192,9 +193,29 @@ def sync_with_jira(pr, config):
     if isinstance(pr, Issue):
         pr.jira_key = matcher(pr.content, pr.comments)
 
+    retry = False
+    while True:
+        try:
+            update_jira(client, pr)
+            break
+        except JIRAError:
+            # We got an error from Jira; if this was a re-try attempt, let the
+            # exception propagate (and crash the run).
+            if retry:
+                raise
+
+            # The error is probably because our access has expired; refresh it
+            # and try again.
+            client = d_issue.get_jira_client(pr, config)
+
+        # Retry the update
+        retry = True
+
+
+def update_jira(client, pr):
     query = f"Key = {pr.jira_key}"
     try:
-        response = client.search_issues(query)
+        response: ResultList[JIRAIssue] = client.search_issues(query)
         # Throw error and return if nothing could be found
         if len(response) == 0 or len(response) > 1:
             log.warning(f"No JIRA issue could be found for {pr.title}")
