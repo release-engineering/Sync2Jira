@@ -1148,10 +1148,12 @@ def sync_with_jira(issue, config):
             # We got an error from Jira; if this was a re-try attempt, let the
             # exception propagate (and crash the run).
             if retry:
+                log.info("[Issue] Jira retry failed; aborting")
                 raise
 
             # The error is probably because our access has expired; refresh it
             # and try again.
+            log.info("[Issue] Jira request failed; refreshing the Jira client")
             client = get_jira_client(issue, config)
 
         # Retry the update

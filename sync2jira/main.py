@@ -308,7 +308,7 @@ def handle_msg(body, suffix, config):
             # Handle this PR update as though it were an Issue, if that's
             # acceptable to the configuration.
             if not (pr := handler(body, config, is_pr=True)):
-                log.info("Not handling PR update -- not configured")
+                log.info("Not handling PR issue update -- not configured")
                 return
             # PRs require additional handling (Issues do not have suffix, and
             # reporter needs to be reformatted).
