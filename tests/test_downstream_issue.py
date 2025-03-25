@@ -180,12 +180,10 @@ class TestDownstreamIssue(unittest.TestCase):
     def test_get_existing_newstyle(self, client):
         config = self.mock_config
 
-        class MockIssue(object):
-            downstream = {"key": "value"}
-            title = "A title, a title..."
-            url = "http://threebean.org"
-
-        issue = MockIssue()
+        issue = MagicMock()
+        issue.downstream = {"key": "value"}
+        issue.title = "A title, a title..."
+        issue.url = "http://threebean.org"
         mock_results_of_query = MagicMock()
         mock_results_of_query.fields.summary = "A title, a title..."
 
