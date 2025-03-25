@@ -562,7 +562,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_check_jira_status.return_value = False
 
         # Call the function
-        with self.assertRaises(JIRAError):
+        with self.assertRaises(RuntimeError):
             d.sync_with_jira(issue=self.mock_issue, config=self.mock_config)
 
         # Assert all calls were made correctly

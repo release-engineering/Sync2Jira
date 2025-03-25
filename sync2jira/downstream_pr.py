@@ -184,19 +184,10 @@ def sync_with_jira(pr, config):
     # Create a client connection for this issue
     client = d_issue.get_jira_client(pr, config)
 
-    # Check the status of the JIRA client
-    if not config["sync2jira"]["develop"] and not d_issue.check_jira_status(client):
-        log.warning("The JIRA server looks like its down. Shutting down...")
-        raise JIRAError
-
-    # Find our JIRA issue if one exists
-    if isinstance(pr, Issue):
-        pr.jira_key = matcher(pr.content, pr.comments)
-
     retry = False
     while True:
         try:
-            update_jira(client, pr)
+            update_jira(client, config, pr)
             break
         except JIRAError:
             # We got an error from Jira; if this was a re-try attempt, let the
@@ -212,7 +203,16 @@ def sync_with_jira(pr, config):
         retry = True
 
 
-def update_jira(client, pr):
+def update_jira(client, config, pr):
+    # Check the status of the JIRA client
+    if not config["sync2jira"]["develop"] and not d_issue.check_jira_status(client):
+        log.warning("The JIRA server looks like its down. Shutting down...")
+        raise RuntimeError("Jira server status check failed; aborting...")
+
+    # Find our JIRA issue if one exists
+    if isinstance(pr, Issue):
+        pr.jira_key = matcher(pr.content, pr.comments)
+
     query = f"Key = {pr.jira_key}"
     try:
         response: ResultList[JIRAIssue] = client.search_issues(query)

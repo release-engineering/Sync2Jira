@@ -1139,19 +1139,6 @@ def sync_with_jira(issue, config):
     # Create a client connection for this issue
     client = get_jira_client(issue, config)
 
-    # Check the status of the JIRA client
-    if not config["sync2jira"]["develop"] and not check_jira_status(client):
-        log.warning("The JIRA server looks like its down. Shutting down...")
-        raise JIRAError
-
-    if issue.downstream.get("issue_updates"):
-        if (
-            issue.source == "github"
-            and issue.content
-            and "github_markdown" in issue.downstream["issue_updates"]
-        ):
-            issue.content = pypandoc.convert_text(issue.content, "jira", format="gfm")
-
     retry = False
     while True:
         try:
@@ -1172,6 +1159,19 @@ def sync_with_jira(issue, config):
 
 
 def update_jira(client, config, issue):
+    # Check the status of the JIRA client
+    if not config["sync2jira"]["develop"] and not check_jira_status(client):
+        log.warning("The JIRA server looks like its down. Shutting down...")
+        raise RuntimeError("Jira server status check failed; aborting...")
+
+    if issue.downstream.get("issue_updates"):
+        if (
+            issue.source == "github"
+            and issue.content
+            and "github_markdown" in issue.downstream["issue_updates"]
+        ):
+            issue.content = pypandoc.convert_text(issue.content, "jira", format="gfm")
+
     # First, check to see if we have a matching issue using the new method.
     # If we do, then just bail out.  No sync needed.
     log.info("Looking for matching downstream issue via new method.")
