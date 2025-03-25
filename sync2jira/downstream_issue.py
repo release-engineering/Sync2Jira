@@ -24,7 +24,7 @@ import difflib
 import logging
 import operator
 import re
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 # 3rd Party Modules
 from jira import JIRAError
@@ -1065,7 +1065,10 @@ def _update_description(existing, issue):
         log.info("Updated description")
 
 
-def _update_on_close(existing, issue, updates):
+UPDATE_ENTRY = Union[str, dict[str, Union[str, dict[str, Any]]]]
+
+
+def _update_on_close(existing, issue, updates: list[UPDATE_ENTRY]):
     """Update downstream Jira issue when upstream issue was closed
 
     Example update configuration:
@@ -1088,11 +1091,12 @@ def _update_on_close(existing, issue, updates):
     :param dict updates: update configuration
     :return: None
     """
-    on_close_updates = None
     for item in updates:
-        if "on_close" in item:
-            on_close_updates = item["on_close"]
-            break
+        if isinstance(item, dict):
+            if on_close_updates := item.get("on_close"):
+                break
+    else:
+        on_close_updates = None
 
     if not on_close_updates:
         return
