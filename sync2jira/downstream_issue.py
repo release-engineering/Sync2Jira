@@ -117,12 +117,12 @@ def get_jira_client(issue, config):
 
     # Use the Jira instance set in the issue config. If none then
     # use the configured default jira instance.
-    jira_instance = issue.downstream.get("jira_instance", False)
-    if not jira_instance:
-        jira_instance = config["sync2jira"].get("default_jira_instance", False)
+    jira_instance = issue.downstream.get(
+        "jira_instance", config["sync2jira"].get("default_jira_instance")
+    )
     if not jira_instance:
         log.error("No jira_instance for issue and there is no default in the config")
-        raise Exception
+        raise Exception("No configured jira_instance for issue")
 
     client = jira.client.JIRA(**config["sync2jira"]["jira"][jira_instance])
     return client
@@ -201,21 +201,15 @@ def _matching_jira_issue_query(client, issue, config, free=False):
         return results_of_query
 
 
-def find_username(issue, config):
+def find_username(_issue, config):
     """
     Finds JIRA username for an issue object.
 
-    :param sync2jira.intermediary.Issue issue: Issue object
+    :param sync2jira.intermediary.Issue _issue: Issue object (not used)
     :param Dict config: Config dict
     :returns: Username string
     :rtype: String
     """
-    jira_instance = issue.downstream.get("jira_instance", False)
-    if not jira_instance:
-        jira_instance = config["sync2jira"].get("default_jira_instance", False)
-    if not jira_instance:
-        log.error("No jira_instance for issue and there is no default in the config")
-        raise Exception
     return config["sync2jira"]["jira_username"]
 
 
