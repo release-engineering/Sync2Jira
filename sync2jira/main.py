@@ -29,7 +29,9 @@ import warnings
 # 3rd Party Modules
 import fedmsg.config
 import fedora_messaging.api
+from github import GithubException
 import jinja2
+from jira import JIRAError
 
 # Local Modules
 import sync2jira.downstream_issue as d_issue
@@ -152,7 +154,14 @@ def callback(msg):
 
     config = load_config()
     body = msg.body.get("body") or msg.body
-    handle_msg(body, suffix, config)
+    try:
+        handle_msg(body, suffix, config)
+    except GithubException as e:
+        log.error("Unexpected GitHub error: %s", e)
+    except JIRAError as e:
+        log.error("Unexpected Jira error: %s", e)
+    except Exception as e:
+        log.exception("Unexpected error.", exc_info=e)
 
 
 def listen(config):
