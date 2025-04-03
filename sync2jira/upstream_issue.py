@@ -21,7 +21,7 @@ from copy import deepcopy
 import logging
 from urllib.parse import urlencode
 
-from github import Github
+from github import Github, UnknownObjectException
 import requests
 
 import sync2jira.intermediary as i
@@ -289,7 +289,14 @@ def reformat_github_issue(issue, upstream, github_client):
         issue["comments"] = []
     else:
         # We have multiple comments and need to make api call to get them
-        repo = github_client.get_repo(upstream)
+        try:
+            repo = github_client.get_repo(upstream)
+        except UnknownObjectException:
+            logging.warning(
+                "GitHub repo %r not found (has it been deleted or made private?)",
+                upstream,
+            )
+            raise
         github_issue = repo.get_issue(number=issue["number"])
         issue["comments"] = reformat_github_comments(github_issue.get_comments())
 

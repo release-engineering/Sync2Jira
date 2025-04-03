@@ -19,7 +19,7 @@
 
 import logging
 
-from github import Github
+from github import Github, UnknownObjectException
 
 import sync2jira.intermediary as i
 import sync2jira.upstream_issue as u_issue
@@ -79,7 +79,14 @@ def reformat_github_pr(pr, upstream, github_client):
         pr["comments"] = []
     else:
         # We have multiple comments and need to make api call to get them
-        repo = github_client.get_repo(upstream)
+        try:
+            repo = github_client.get_repo(upstream)
+        except UnknownObjectException:
+            logging.warning(
+                "GitHub repo %r not found (has it been deleted or made private?)",
+                upstream,
+            )
+            raise
         github_pr = repo.get_pull(number=pr["number"])
         pr["comments"] = u_issue.reformat_github_comments(
             github_pr.get_issue_comments()
