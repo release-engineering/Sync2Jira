@@ -8,3 +8,4 @@ pypandoc_binary
 urllib3
 jinja2
 flask
+webhook-to-fedora-messaging-messages
