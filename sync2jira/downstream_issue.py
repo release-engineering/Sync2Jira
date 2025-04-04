@@ -18,20 +18,16 @@
 # Authors:  Ralph Bean <rbean@redhat.com>
 
 from datetime import datetime, timezone
-
-# Python Standard Library Modules
 import difflib
 import logging
 import operator
 import re
 from typing import Any, Optional, Union
 
-# 3rd Party Modules
 from jira import JIRAError
 import jira.client
 import pypandoc
 
-# Local Modules
 from sync2jira.intermediary import Issue, PR
 
 # The date the service was upgraded
@@ -396,14 +392,11 @@ def assign_user(client, issue, downstream, remove_all=False):
     # First we need to find the user
 
     # See if any of the upstream users has full names available. Not all do.
-    def assignee_fullname(u_issue):
-        for assignee in u_issue.assignee:
-            if assignee["fullname"]:
-                return assignee["fullname"]
-        return None
-
-    fullname = assignee_fullname(issue)
-    if not fullname:
+    for assignee in issue.assignee:
+        if assignee["fullname"]:
+            fullname = assignee["fullname"]
+            break
+    else:
         # We can't find anybody if they don't have a name.
         return
 
@@ -675,7 +668,7 @@ def _update_jira_issue(existing, issue, client, config):
         _update_tags(updates, existing, issue)
 
     # Only synchronize fixVersion for listings that op-in
-    if any("fixVersion" in item for item in updates) and issue.fixVersion:
+    if issue.fixVersion and any("fixVersion" in item for item in updates):
         log.info("Looking for new fixVersions")
         _update_fixVersion(updates, existing, issue, client)
 
@@ -721,9 +714,8 @@ def _update_transition(client, existing, issue):
     # downstream JIRA ticket
 
     # First get the closed status from the config file
-    closed_status = next(
-        filter(lambda d: "transition" in d, issue.downstream.get("issue_updates", {}))
-    )["transition"]
+    t = filter(lambda d: "transition" in d, issue.downstream.get("issue_updates", {}))
+    closed_status = next(t)["transition"]
     if (
         closed_status is not True
         and issue.status == "Closed"
@@ -787,9 +779,8 @@ def _update_fixVersion(updates, existing, issue, client):
     """
     fix_version = []
     # If we are not supposed to overwrite JIRA content
-    if not bool(
-        next(filter(lambda d: "fixVersion" in d, updates))["fixVersion"]["overwrite"]
-    ):
+    fv = filter(lambda d: "fixVersion" in d, updates)
+    if not bool(next(fv)["fixVersion"]["overwrite"]):
         # We need to make sure we're not deleting any fixVersions on JIRA
         # Get all fixVersions for the issue
         for version in existing.fields.fixVersions:
@@ -841,9 +832,8 @@ def _update_assignee(client, existing, issue, updates):
     :returns: Nothing
     """
     # First check if overwrite is set to True
-    overwrite = bool(
-        next(filter(lambda d: "assignee" in d, updates))["assignee"]["overwrite"]
-    )
+    a = filter(lambda d: "assignee" in d, updates)
+    overwrite = bool(next(a)["assignee"]["overwrite"])
 
     # First check if the issue is already assigned to the same person
     update = False
@@ -1005,26 +995,23 @@ def _update_tags(updates, existing, issue):
 
 def _build_description(issue):
     # Build the description of the JIRA issue
-    if "description" in issue.downstream.get("issue_updates", {}):
-        description = "Upstream description: {quote}%s{quote}" % issue.content
-    else:
-        description = ""
+    issue_updates = issue.downstream.get("issue_updates", {})
+    description = ""
+    if "description" in issue_updates:
+        description = f"Upstream description: {{quote}}{issue.content}{{quote}}"
 
-    if any("transition" in item for item in issue.downstream.get("issue_updates", {})):
+    if any("transition" in item for item in issue_updates):
         # Just add it to the top of the description
         formatted_status = "Upstream issue status: " + issue.status
         description = formatted_status + "\n" + description
 
     if issue.reporter:
         # Add to the description
-        description = "[%s] Upstream Reporter: %s\n%s" % (
-            issue.id,
-            issue.reporter["fullname"],
-            description,
-        )
+        prefix = f"[{issue.id}] Upstream Reporter: {issue.reporter['fullname']}\n"
+        description = prefix + description
 
     # Add the url if requested
-    if "url" in issue.downstream.get("issue_updates", {}):
+    if "url" in issue_updates:
         description = description + f"\nUpstream URL: {issue.url}"
 
     return description
@@ -1099,11 +1086,10 @@ def _update_on_close(existing, issue, updates: list[UPDATE_ENTRY]):
     if "apply_labels" not in on_close_updates:
         return
 
-    updated_labels = list(
-        set(existing.fields.labels).union(set(on_close_updates["apply_labels"]))
-    )
     log.info("Applying 'on_close' labels to downstream Jira issue")
-    _update_jira_labels(existing, updated_labels)
+    existing_labels = set(existing.fields.labels)
+    updated_labels = existing_labels.union(set(on_close_updates["apply_labels"]))
+    _update_jira_labels(existing, list(updated_labels))
 
 
 def verify_tags(tags):
