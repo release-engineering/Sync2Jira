@@ -336,7 +336,6 @@ def attach_link(client, downstream, remote_link):
     :rtype: jira.resources.Issue
     """
     log.info("Attaching tracking link %r to %r", remote_link, downstream.key)
-    modified_desc = downstream.fields.description + " "
 
     # This is crazy.  Querying for application links requires admin perms which
     # we don't have, so duck-punch the client to think it has already made the
@@ -350,6 +349,7 @@ def attach_link(client, downstream, remote_link):
     # gets re-indexed, otherwise our searches won't work. Also, Handle some
     # weird API changes here...
     log.debug("Modifying desc of %r to trigger re-index.", downstream.key)
+    modified_desc = (downstream.fields.description or "") + " "
     downstream.update({"description": modified_desc})
 
     return downstream
