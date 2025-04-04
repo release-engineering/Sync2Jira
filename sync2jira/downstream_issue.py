@@ -18,8 +18,6 @@
 # Authors:  Ralph Bean <rbean@redhat.com>
 
 from datetime import datetime, timezone
-
-# Python Standard Library Modules
 import difflib
 import logging
 import operator
@@ -27,12 +25,10 @@ import re
 from typing import Any, Optional, Union
 import unicodedata
 
-# 3rd Party Modules
 from jira import JIRAError
 import jira.client
 import pypandoc
 
-# Local Modules
 from sync2jira.intermediary import Issue, PR
 
 # The date the service was upgraded
@@ -1008,26 +1004,23 @@ def _update_tags(updates, existing, issue):
 
 def _build_description(issue):
     # Build the description of the JIRA issue
-    if "description" in issue.downstream.get("issue_updates", {}):
-        description = "Upstream description: {quote}%s{quote}" % issue.content
-    else:
-        description = ""
+    issue_updates = issue.downstream.get("issue_updates", {})
+    description = ""
+    if "description" in issue_updates:
+        description = f"Upstream description: {{quote}}{issue.content}{{quote}}"
 
-    if any("transition" in item for item in issue.downstream.get("issue_updates", {})):
+    if any("transition" in item for item in issue_updates):
         # Just add it to the top of the description
         formatted_status = "Upstream issue status: " + issue.status
         description = formatted_status + "\n" + description
 
     if issue.reporter:
         # Add to the description
-        description = "[%s] Upstream Reporter: %s\n%s" % (
-            issue.id,
-            issue.reporter["fullname"],
-            description,
-        )
+        prefix = f"[{issue.id}] Upstream Reporter: {issue.reporter['fullname']}\n"
+        description = prefix + description
 
     # Add the url if requested
-    if "url" in issue.downstream.get("issue_updates", {}):
+    if "url" in issue_updates:
         description = description + f"\nUpstream URL: {issue.url}"
 
     # It seems that our Jira service won't tolerate characters outside the
