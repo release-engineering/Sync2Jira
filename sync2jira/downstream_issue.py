@@ -25,6 +25,7 @@ import logging
 import operator
 import re
 from typing import Any, Optional, Union
+import unicodedata
 
 # 3rd Party Modules
 from jira import JIRAError
@@ -1029,7 +1030,10 @@ def _build_description(issue):
     if "url" in issue.downstream.get("issue_updates", {}):
         description = description + f"\nUpstream URL: {issue.url}"
 
-    return description
+    # It seems that our Jira service won't tolerate characters outside the
+    # ASCII or LATIN-1 character sets (causing the request to fail with a
+    # `403`!), so replace them with their ASCII counterparts.
+    return remove_diacritics(description)
 
 
 def _update_description(existing, issue):
@@ -1203,3 +1207,9 @@ def update_jira(client, config, issue):
         _create_jira_issue(client, issue, config)
     else:
         _upgrade_jira_issue(client, match, issue, config)
+
+
+def remove_diacritics(text):
+    """Convert text from UTF-8 to its ASCII equivalent"""
+    normalized_text = unicodedata.normalize("NFD", text)
+    return "".join(c for c in normalized_text if not unicodedata.combining(c))
