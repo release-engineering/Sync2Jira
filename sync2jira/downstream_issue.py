@@ -23,6 +23,7 @@ import logging
 import operator
 import re
 from typing import Any, Optional, Union
+import unicodedata
 
 from jira import JIRAError
 import jira.client
@@ -367,6 +368,23 @@ def _upgrade_jira_issue(client, downstream, issue, config):
     attach_link(client, downstream, remote_link)
 
 
+def match_user(name: str, client: jira.client, downstream: jira.Issue) -> Optional[str]:
+    """Match an upstream user to an assignable downstream user and return the
+    downstream username; return None on failure.
+    """
+
+    # Get a list from Jira of users which match the supplied name and which are
+    # suitable for assignment to this issue.
+    users = client.search_assignable_users_for_issues(name, issueKey=downstream.key)
+
+    # Loop through the query results and return the username for the user which
+    # matches the fullname.
+    for user in users:
+        if user.displayName == name:
+            return user.name
+    return None
+
+
 def assign_user(client, issue, downstream, remove_all=False):
     """
     Attempts to assign a JIRA issue to the correct
@@ -395,21 +413,21 @@ def assign_user(client, issue, downstream, remove_all=False):
     for assignee in issue.assignee:
         if assignee["fullname"]:
             fullname = assignee["fullname"]
-            break
-    else:
-        # We can't find anybody if they don't have a name.
-        return
 
-    # Make API call to get a list of users
-    users = client.search_assignable_users_for_issues(fullname, issueKey=downstream.key)
+            # Try to match the upstream name to a downstream assignee.
+            match_name = match_user(fullname, client, downstream)
+            if not match_name:
+                # We didn't find a match; try again using a simplified
+                # character set, in case the downstream name is using ASCII
+                # instead of LATIN-1.
+                match_name = match_user(remove_diacritics(fullname), client, downstream)
+            if match_name:
+                # Assign the downstream issue to the matched user
+                downstream.update({"assignee": {"name": match_name}})
+                return
 
-    # Loop through the query
-    for user in users:
-        if user.displayName == issue.assignee[0]["fullname"]:
-            # Then we can assign the issue to the user
-            downstream.update({"assignee": {"name": user.name}})
-            return
-    # If there is an owner, assign it to them
+    # No downstream match for the upstream assignee; if there is a configured
+    # owner for the project, assign it to them.
     owner = issue.downstream.get("owner")
     if owner:
         client.assign_issue(downstream.id, owner)
@@ -1187,3 +1205,9 @@ def update_jira(client, config, issue):
         _create_jira_issue(client, issue, config)
     else:
         _upgrade_jira_issue(client, match, issue, config)
+
+
+def remove_diacritics(text):
+    """Convert text from UTF-8 to its ASCII equivalent"""
+    normalized_text = unicodedata.normalize("NFD", text)
+    return "".join(c for c in normalized_text if not unicodedata.combining(c))
