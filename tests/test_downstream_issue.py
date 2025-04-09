@@ -95,6 +95,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream = MagicMock()
         self.mock_downstream.id = 1234
         self.mock_downstream.fields.labels = ["tag3", "tag4"]
+        self.mock_downstream.key = "downstream_issue_key"
         mock_version1 = MagicMock()
         mock_version1.name = "fixVersion3"
         mock_version2 = MagicMock()
@@ -238,7 +239,7 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert that all calls mocked were called properly
         self.mock_downstream.update({"assignee": {"name": 1234}})
         mock_client.search_assignable_users_for_issues.assert_called_with(
-            "mock_assignee", project="mock_project"
+            "mock_assignee", issueKey=self.mock_downstream.key
         )
 
     @mock.patch("jira.client.JIRA")
@@ -261,7 +262,7 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert that all calls mocked were called properly
         mock_client.assign_issue.assert_called_with(1234, "mock_owner")
         mock_client.search_assignable_users_for_issues.assert_called_with(
-            "mock_assignee", project="mock_project"
+            "mock_assignee", issueKey=self.mock_downstream.key
         )
 
     @mock.patch("jira.client.JIRA")
@@ -285,7 +286,7 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert that all calls mocked were called properly
         mock_client.assign_issue.assert_not_called()
         mock_client.search_assignable_users_for_issues.assert_called_with(
-            "mock_assignee", project="mock_project"
+            "mock_assignee", issueKey=self.mock_downstream.key
         )
 
     @mock.patch("jira.client.JIRA")

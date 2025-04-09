@@ -408,9 +408,7 @@ def assign_user(client, issue, downstream, remove_all=False):
         return
 
     # Make API call to get a list of users
-    users = client.search_assignable_users_for_issues(
-        fullname, project=issue.downstream["project"]
-    )
+    users = client.search_assignable_users_for_issues(fullname, issueKey=downstream.key)
 
     # Loop through the query
     for user in users:
