@@ -691,9 +691,14 @@ def _update_jira_issue(existing, issue, client, config):
         _update_fixVersion(updates, existing, issue, client)
 
     # Only synchronize assignee for listings that op-in
-    if any("assignee" in item for item in updates):
-        log.info("Looking for new assignee(s)")
-        _update_assignee(client, existing, issue, updates)
+    for item in updates:
+        if isinstance(item, dict):
+            if assignee := item.get("assignee"):
+                log.info("Looking for new assignee(s)")
+                _update_assignee(
+                    client, existing, issue, assignee.get("overwrite", False)
+                )
+                break
 
     # Only synchronize descriptions for listings that op-in
     if "description" in updates:
@@ -839,50 +844,43 @@ def _update_fixVersion(updates, existing, issue, client):
             )
 
 
-def _update_assignee(client, existing, issue, updates):
+def _update_assignee(client, existing, issue, overwrite):
     """
-    Helper function update existing JIRA assignee from downstream issue.
+    Helper function which updates an existing JIRA assignee from the upstream issue.
 
     :param jira.client.JIRA client: JIRA client
     :param jira.resource.Issue existing: Existing JIRA issue
     :param sync2jira.intermediary.Issue issue: Upstream issue
-    :param List updates: Downstream updates requested by the user
+    :param bool overwrite: Overwrite existing JIRA assignee
     :returns: Nothing
     """
-    # First check if overwrite is set to True
-    a = filter(lambda d: "assignee" in d, updates)
-    overwrite = bool(next(a)["assignee"]["overwrite"])
 
-    # First check if the issue is already assigned to the same person
-    update = False
-    if issue.assignee and issue.assignee[0]:
-        try:
-            update = (
-                issue.assignee[0]["fullname"] != existing.fields.assignee.displayName
-            )
-        except AttributeError:
-            update = True
-
-    if not overwrite:
-        # Only assign if the existing JIRA issue doesn't have an assignee
-        # And the issue has an assignee
-        if not existing.fields.assignee and issue.assignee:
-            if issue.assignee[0] and update:
-                # Update the assignee
-                assign_user(client, issue, existing)
-                log.info("Updated assignee")
-                return
-    else:
-        # Update the assignee if we have someone to assignee it too
-        if update:
-            assign_user(client, issue, existing)
-            log.info("Updated assignee")
+    us_exists = bool(issue.assignee and issue.assignee[0])
+    ds_exists = bool(existing.fields.assignee) and hasattr(
+        existing.fields.assignee, "displayName"
+    )
+    if overwrite:
+        if ds_exists and us_exists:
+            # Overwrite the downstream assignment only if it is different from
+            # the upstream one.
+            un = issue.assignee[0]["fullname"]
+            dn = existing.fields.assignee.displayName
+            update = un != dn and remove_diacritics(un) != dn
         else:
-            if existing.fields.assignee and not issue.assignee:
-                # Else we should remove all assignees
-                # Set removeAll flag to true
-                assign_user(client, issue, existing, remove_all=True)
-                log.info("Updated assignee")
+            # Let assign_user() figure out what to do.
+            update = True
+    else:
+        # We're not overwriting, so call assign_user() only if the downstream
+        # doesn't already have an assignment.
+        update = not ds_exists
+
+    # De-assign the downstream issue if the upstream issue is unassigned and we
+    # are overwriting.
+    clear = overwrite and ds_exists and not us_exists
+
+    if update:
+        assign_user(client, issue, existing, remove_all=clear)
+        log.info("%s assignee", "Cleared" if clear else "Updated")
 
 
 def _update_jira_labels(issue, labels):
