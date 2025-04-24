@@ -222,7 +222,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch("jira.client.JIRA")
     def test_assign_user(self, mock_client):
         """
-        Test 'assign_user' function where remove_all flag is False
+        Test `assign_user()` when the downstream user matches the upstream user.
         """
         # Set up return values
         mock_user = MagicMock()
@@ -237,7 +237,75 @@ class TestDownstreamIssue(unittest.TestCase):
         )
 
         # Assert that all calls mocked were called properly
-        self.mock_downstream.update({"assignee": {"name": 1234}})
+        self.mock_downstream.update.assert_called_with(
+            {"assignee": {"name": mock_user.name}}
+        )
+        mock_client.search_assignable_users_for_issues.assert_called_with(
+            "mock_assignee", issueKey=self.mock_downstream.key
+        )
+
+    @mock.patch("jira.client.JIRA")
+    def test_assign_user_diacritics(self, mock_client):
+        """
+        Test `assign_user()` when the downstream user matches the upstream user
+        only when the diacritic characters are replaced.
+        """
+        # Set up return values
+        mock_user = MagicMock()
+        mock_user.displayName = "mock_assignee"
+        mock_user.key = "mock_user_key"
+        mock_client.search_assignable_users_for_issues.return_value = [mock_user]
+        mock_client.assign_issue.return_value = True
+        self.mock_issue.assignee = [{"fullname": "ḿòćḱ_ášśìǵńèé"}]
+        # Call the assign user function
+        d.assign_user(
+            issue=self.mock_issue, downstream=self.mock_downstream, client=mock_client
+        )
+
+        # Assert that all calls mocked were called properly
+        self.mock_downstream.update.assert_called_with(
+            {"assignee": {"name": mock_user.name}}
+        )
+        mock_client.search_assignable_users_for_issues.assert_called_with(
+            "mock_assignee", issueKey=self.mock_downstream.key
+        )
+
+    @mock.patch("jira.client.JIRA")
+    def test_assign_user_multiple(self, mock_client):
+        """
+        Test `assign_user()` when the upstream assignee field contains a list
+        in which most entries aren't useful.
+        """
+        # Set up return values
+        mock_user = MagicMock()
+        mock_user.displayName = "mock_assignee"
+        mock_user.key = "mock_user_key"
+        mock_user2 = MagicMock()
+        mock_user2.displayName = "mock_assignee2"
+        mock_user2.key = "mock_user_key2"
+        mock_client.search_assignable_users_for_issues.return_value = [
+            mock_user,
+            mock_user2,
+        ]
+        mock_client.assign_issue.return_value = True
+        self.mock_issue.assignee = [
+            {"fullname": None},
+            {"fullname": ""},
+            {"fullname": "not_a_match"},
+            {"fullname": "ḿòćḱ_ášśìǵńèé"},
+            # Should not match this next -- should match the previous.
+            {"fullname": "mock_assignee2"},
+        ]
+
+        # Call the assign user function
+        d.assign_user(
+            issue=self.mock_issue, downstream=self.mock_downstream, client=mock_client
+        )
+
+        # Assert that all calls mocked were called properly
+        self.mock_downstream.update.assert_called_with(
+            {"assignee": {"name": mock_user.name}}
+        )
         mock_client.search_assignable_users_for_issues.assert_called_with(
             "mock_assignee", issueKey=self.mock_downstream.key
         )
@@ -245,7 +313,8 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch("jira.client.JIRA")
     def test_assign_user_with_owner(self, mock_client):
         """
-        Test 'assign_user' function where remove_all flag is False
+        Test `assign_user()` to show that, when no downstream user is
+        available, the issue is assigned to the configured owner.
         """
         # Set up return values
         mock_user = MagicMock()
@@ -268,7 +337,8 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch("jira.client.JIRA")
     def test_assign_user_without_owner(self, mock_client):
         """
-        Test 'assign_user' function where remove_all flag is False
+        Test `assign_user()` when no downstream user is available and there is
+        no configured owner for the project.
         """
         # Set up return values
         mock_user = MagicMock()
@@ -292,7 +362,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch("jira.client.JIRA")
     def test_assign_user_remove_all(self, mock_client):
         """
-        Test 'assign_user' function where remove_all flag is True
+        Test 'assign_user' function when the `remove_all` flag is True
         """
         # Call the assign user function
         d.assign_user(
