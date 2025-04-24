@@ -826,66 +826,78 @@ class TestDownstreamIssue(unittest.TestCase):
 
     @mock.patch(PATH + "assign_user")
     @mock.patch("jira.client.JIRA")
-    def test_update_assignee_assignee(self, mock_client, mock_assign_user):
+    def test_update_assignee_all(self, mock_client, mock_assign_user):
         """
-        This function tests the 'update_assignee' function where issue.assignee exists
+        This function tests the `_update_assignee()` function in a variety of scenarios.
         """
-        # Call the function
-        d._update_assignee(
-            client=mock_client,
-            existing=self.mock_downstream,
-            issue=self.mock_issue,
-            updates=[{"assignee": {"overwrite": True}}],
+
+        # The values of expected_results mean:
+        #  - None:  _update_assignee() was not called
+        #  - True:  _update_assignee() was called with `remove_all` set to `True`
+        #  - False:  _update_assignee() was called with `remove_all` set to `False`
+        expected_results = iter(
+            (
+                # - overwrite = True
+                #    - downstream assignee exists
+                None,  # upstream assignee exists and assignments are equal: not called
+                None,  # upstream assignee exists and assignments differ only in diacritics: not called
+                False,  # upstream assignee exists and assignments are different: called with remove_all=False
+                True,  # upstream assignee does not exist: called with remove_all=True
+                True,  # upstream assignee is an empty list: called with remove_all=True
+                #    - downstream assignee does not exist
+                False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee does not exist: called with remove_all=False
+                False,  # upstream assignee is an empty list: called with remove_all=False
+                # - overwrite = False
+                #    - downstream assignee exists:
+                None,  # upstream assignee exists and assignments are equal: not called
+                None,  # upstream assignee exists and assignments differ only in diacritics: not called
+                None,  # upstream assignee exists and assignments are different: not called
+                None,  # upstream assignee does not exist: not called
+                None,  # upstream assignee is an empty list: not called
+                #    - downstream assignee does not exist
+                False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee does not exist: called with remove_all=False
+                False,  # upstream assignee is an empty list: called with remove_all=False
+            )
         )
+        match = "Erik"
+        for overwrite in (True, False):
+            for ds in (match, None):
+                if ds is None:
+                    delattr(self.mock_downstream.fields.assignee, "displayName")
+                else:
+                    setattr(self.mock_downstream.fields.assignee, "displayName", match)
 
-        # Assert all calls were made correctly
-        mock_assign_user.assert_called_with(
-            mock_client, self.mock_issue, self.mock_downstream
-        )
+                for us in (match, "Èŕìḱ", "Bob", None, []):
+                    if not us:
+                        self.mock_issue.assignee = us
+                    else:
+                        self.mock_issue.assignee = [{"fullname": us}]
 
-    @mock.patch(PATH + "assign_user")
-    @mock.patch("jira.client.JIRA")
-    def test_update_assignee_no_assignee(self, mock_client, mock_assign_user):
-        """
-        This function tests the '_update_assignee' function where issue.assignee does not exist
-        """
-        # Set up return values
-        self.mock_issue.assignee = None
+                    d._update_assignee(
+                        client=mock_client,
+                        existing=self.mock_downstream,
+                        issue=self.mock_issue,
+                        overwrite=overwrite,
+                    )
 
-        # Call the function
-        d._update_assignee(
-            client=mock_client,
-            existing=self.mock_downstream,
-            issue=self.mock_issue,
-            updates=[{"assignee": {"overwrite": True}}],
-        )
-
-        # Assert all calls were made correctly
-        mock_assign_user.assert_called_with(
-            mock_client, self.mock_issue, self.mock_downstream, remove_all=True
-        )
-
-    @mock.patch(PATH + "assign_user")
-    @mock.patch("jira.client.JIRA")
-    def test_update_assignee_no_overwrite(self, mock_client, mock_assign_user):
-        """
-        This function tests the '_update_assignee' function where overwrite is false
-        """
-        # Set up return values
-        self.mock_downstream.fields.assignee = None
-
-        # Call the function
-        d._update_assignee(
-            client=mock_client,
-            existing=self.mock_downstream,
-            issue=self.mock_issue,
-            updates=[{"assignee": {"overwrite": False}}],
-        )
-
-        # Assert all calls were made correctly
-        mock_assign_user.assert_called_with(
-            mock_client, self.mock_issue, self.mock_downstream
-        )
+                    # Check that the call was made correctly
+                    expected_result = next(expected_results)
+                    if expected_result is None:
+                        mock_assign_user.assert_not_called()
+                    else:
+                        mock_assign_user.assert_called_with(
+                            mock_client,
+                            self.mock_issue,
+                            self.mock_downstream,
+                            remove_all=expected_result,
+                        )
+                    mock_assign_user.reset_mock()
 
     @mock.patch(PATH + "verify_tags")
     @mock.patch(PATH + "_label_matching")
