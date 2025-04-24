@@ -165,7 +165,6 @@ class TestDownstreamIssue(unittest.TestCase):
             url = "wat"
 
         issue = MockIssue()
-        config = self.mock_config
         # Ensure that we get results back from the jira client.
         target1 = "target1"
         client.return_value.search_issues = mock.MagicMock(return_value=[target1])
@@ -432,7 +431,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self, mock_client, mock_attach_link, mock_update_jira_issue
     ):
         """
-        Tests '_create_jira_issue' function where we fail updating the epic link
+        Tests '_create_jira_issue' function when we fail while updating the epic link
         """
         # Set up return values
         mock_client.create_issue.return_value = self.mock_downstream
@@ -483,7 +482,8 @@ class TestDownstreamIssue(unittest.TestCase):
         self, mock_client, mock_attach_link, mock_update_jira_issue
     ):
         """
-        Tests '_create_jira_issue' function where we fail updating the EXD-Service field
+        Tests '_create_jira_issue' function when we fail while updating the
+        EXD-Service field
         """
         # Set up return values
         mock_client.create_issue.return_value = self.mock_downstream
@@ -757,8 +757,9 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch("jira.client.JIRA")
     def test_update_transition_not_found(self, mock_client):
         """
-        This function tests the '_update_transition' function where Upstream issue status
-        not in existing.fields.description and we can't find the appropriate closed status
+        This function tests the '_update_transition' function when the Upstream
+        issue status is not in the existing.fields.description value and we
+        can't find the appropriate closed status
         """
         # Set up return values
         self.mock_issue.status = "Closed"
@@ -1271,7 +1272,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self, mock_comment_format_legacy, mock_comment_format
     ):
         """
-        This function tests '_find_comment_in_jira' where we find a old comment
+        This function tests '_find_comment_in_jira' when we find an old comment
         """
         # Set up return values
         mock_comment_format.return_value = "mock_comment_body"
