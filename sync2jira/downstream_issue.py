@@ -175,8 +175,9 @@ def _matching_jira_issue_query(client, issue, config, free=False):
                     # We went through all the comments and didn't find anything
                     # that indicated it was a duplicate
                     log.warning(
-                        "Matching downstream issue %s to upstream issue %s"
-                        % (result.fields.summary, issue.title)
+                        "Matching downstream issue %s to upstream issue %s",
+                        result.key,
+                        issue.url,
                     )
                     final_results.append(result)
                 else:
@@ -384,7 +385,9 @@ def match_user(name: str, client: jira.client, downstream: jira.Issue) -> Option
     return None
 
 
-def assign_user(client, issue, downstream, remove_all=False):
+def assign_user(
+    client: jira.client, issue: Issue, downstream: jira.Issue, remove_all=False
+):
     """
     Attempts to assign a JIRA issue to the correct
     user based on the issue.
@@ -427,10 +430,12 @@ def assign_user(client, issue, downstream, remove_all=False):
     owner = issue.downstream.get("owner")
     if owner:
         client.assign_issue(downstream.id, owner)
-        log.info("Assigned %s to owner: %s", issue.title, owner)
+        log.info("Assigned %s to owner: %s", downstream.key, owner)
         return
     log.info(
-        "Unable to assign %s from upstream assignees %s",
+        "Unable to assign %s from upstream assignees %s in %s",
+        downstream.key,
+        [a["fullname"] for a in issue.assignee],
         issue.url,
         [a["fullname"] for a in issue.assignee],
     )
@@ -456,14 +461,26 @@ def change_status(client, downstream, status, issue: Union[Issue, PR]):
         try:
             client.transition_issue(downstream, tid)
             log.info(
-                "Updated downstream to %s status for issue %s", status, issue.title
+                "Updated %s to %s status for issue %s",
+                downstream.key,
+                status,
+                issue.url,
             )
-        except JIRAError:
+        except JIRAError as exc:
             log.error(
-                "Updating downstream issue failed for %s: %s", status, issue.title
+                "Updating %s to %s status for issue %s failed: %s",
+                downstream.key,
+                status,
+                issue.url,
+                exc,
             )
     else:
-        log.warning("Could not update JIRA %s for %s", status, issue.title)
+        log.warning(
+            "Could not update %s to %s status for issue %s",
+            downstream.key,
+            status,
+            issue.url,
+        )
 
 
 def _get_preferred_issue_types(config, issue):
@@ -656,7 +673,7 @@ def _update_jira_issue(existing, issue, client, config):
     """
     # Start with comments
     # Only synchronize comments for listings that op-in
-    log.info("Updating information for upstream issue: %s", issue.title)
+    log.info("Updating information for upstream issue: %s", issue.url)
 
     # Get a list of what the user wants to update for the upstream issue
     updates = issue.downstream.get("issue_updates", [])
@@ -721,7 +738,7 @@ def _update_jira_issue(existing, issue, client, config):
     log.info("Attempting to update downstream issue on upstream closed event")
     _update_on_close(existing, issue, updates)
 
-    log.info("Done updating %s!", issue.title)
+    log.info("Done updating %s!", issue.url)
 
 
 def _update_transition(client, existing, issue):
@@ -1050,10 +1067,10 @@ def _update_description(existing, issue):
         # issue regarding phantom updates
         # Get the diff between new_description and existing
         diff = difflib.unified_diff(existing.fields.description, new_description)
-        log.info(f"DEBUG: Issue {issue.title}")
-        log.info(f"DEBUG: Diff: {''.join(diff)}")
-        log.info(f"DEBUG: Old: {existing.fields.description}")
-        log.info(f"DEBUG: New: {new_description}")
+        log.debug("Issue %s", issue.title)
+        log.debug("Diff: %s", "".join(diff))
+        log.debug("Old: %s", existing.fields.description)
+        log.debug("New: %s", new_description)
 
         data = {"description": new_description}
         existing.update(data)
@@ -1132,7 +1149,7 @@ def sync_with_jira(issue, config):
     :returns: Nothing
     """
 
-    log.info("[Issue] Considering upstream %s, %s", issue.url, issue.title)
+    log.info('[Issue] Considering upstream %s, "%s"', issue.url, issue.title)
 
     # Create a client connection for this issue
     client = get_jira_client(issue, config)
