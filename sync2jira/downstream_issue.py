@@ -183,7 +183,7 @@ def _matching_jira_issue_query(client, issue, config, free=False):
                     # Else search returned a linked issue
                     final_results.append(search)
         if not final_results:
-            # Just return the most updated issue
+            # Only return the most updated issue
             results_of_query.sort(
                 key=lambda x: datetime.strptime(
                     x.fields.updated, "%Y-%m-%dT%H:%M:%S.%f+0000"
@@ -243,7 +243,7 @@ def _find_comment_in_jira(comment, j_comments):
     legacy_formatted_comment = _comment_format_legacy(comment)
     for item in j_comments:
         if item.raw["body"] == legacy_formatted_comment:
-            # If the comment is in the legacy comment format
+            # If the comment is in the legacy comment format,
             # return the item
             return item
         if str(comment["id"]) in item.raw["body"]:
@@ -259,8 +259,8 @@ def _find_comment_in_jira(comment, j_comments):
                 # Else they are equal and we can return the item
                 return item
         if comment["date_created"] < UPDATE_DATE:
-            # If the comments date is prior to the update_date
-            # We should not try to touch the comment
+            # If the comment date is prior to the update_date,
+            # we should not try to touch the comment
             return item
     return None
 
@@ -328,7 +328,7 @@ def attach_link(client, downstream, remote_link):
 
     :param jira.client.JIRA client: JIRA client
     :param jira.resources.Issue downstream: Response from creating the JIRA ticket
-    :param dict remote_link: Remote link dict with {'url': ...  , 'title': ... }
+    :param dict remote_link: Remote link dict with {'url': ..., 'title': ... }
     :return: downstream: Response from creating the JIRA ticket
     :rtype: jira.resources.Issue
     """
@@ -342,8 +342,8 @@ def attach_link(client, downstream, remote_link):
     # Add the link.
     client.add_remote_link(downstream.id, remote_link)
 
-    # Finally, after we've added the link we have to edit the issue so that it
-    # gets re-indexed, otherwise our searches won't work. Also, Handle some
+    # Finally, after we've added the link, we have to edit the issue so that it
+    # gets re-indexed; otherwise our searches won't work.  Also, handle some
     # weird API changes here...
     log.debug("Modifying desc of %r to trigger re-index.", downstream.key)
     modified_desc = (downstream.fields.description or "") + " "
@@ -354,9 +354,8 @@ def attach_link(client, downstream, remote_link):
 
 def _upgrade_jira_issue(client, downstream, issue, config):
     """
-    Given an old legacy-style downstream issue...
-    ...upgrade it to a new-style issue.
-    Simply mark it with an external-url field value.
+    Given an old legacy-style downstream issue, upgrade it to a new-style issue
+    by marking it with an external-url field value.
     """
     log.info("Upgrading %r %r issue for %r", downstream.key, issue.downstream, issue)
     if config["sync2jira"]["testing"]:
@@ -373,7 +372,7 @@ def match_user(name: str, client: jira.client, downstream: jira.Issue) -> Option
     downstream username; return None on failure.
     """
 
-    # Get a list from Jira of users which match the supplied name and which are
+    # Get a list from Jira of users that match the supplied name and are
     # suitable for assignment to this issue.
     users = client.search_assignable_users_for_issues(name, issueKey=downstream.key)
 
@@ -400,14 +399,11 @@ def assign_user(client, issue, downstream, remove_all=False):
     if remove_all:
         # Update the issue to have no assignees
         downstream.update(assignee={"name": ""})
-        # Then we're done! And we can go back !
         return
 
-    # JIRA only supports one assignee
-    # If we have more than one assignee (i.e. from GitHub)
-    # assign the issue to the first user (i.e. issue.assignee[0])
-
-    # First we need to find the user
+    # JIRA only supports one assignee; if we have more than one (i.e., from
+    # GitHub), assign the issue to the first user (i.e., issue.assignee[0])
+    # whose name is present and matches an acceptable Jira user.
 
     # See if any of the upstream users has full names available. Not all do.
     for assignee in issue.assignee:
@@ -438,7 +434,7 @@ def assign_user(client, issue, downstream, remove_all=False):
 
 def change_status(client, downstream, status, issue: Union[Issue, PR]):
     """
-    Change status of JIRA issue.
+    Change the status of JIRA issue.
 
 
     :param jira.client.JIRA client: JIRA client
@@ -489,15 +485,15 @@ def _get_preferred_issue_types(config, issue):
     cmap = config["sync2jira"].get("map", {})
     conf = cmap.get("github", {}).get(issue.upstream, {})
 
-    # we consider the issue_types mapping if it exists. If it does, exclude all other logic.
+    # We consider the issue_types mapping if it exists. If it does, exclude all other logic.
     if "issue_types" in conf:
         for tag, issue_type in conf["issue_types"].items():
             if tag in issue.tags:
                 type_list.insert(0, issue_type)
         type_list.sort()
 
-    # if issue_types was not provided, we consider the type option next. If that is not set
-    # fall back to the old behavior.
+    # If issue_types was not provided, we consider the type option next.  If
+    # that is not set, fall back to the old behavior.
     if not type_list:
         if "type" in conf:
             type_list.insert(0, conf["type"])
@@ -549,11 +545,11 @@ def _create_jira_issue(client, issue, config):
     log.info("Creating issue for %r:  %r", issue, kwargs)
     if config["sync2jira"]["testing"]:
         log.info("Testing flag is true.  Skipping actual creation.")
-        return
+        return None
 
     downstream = client.create_issue(**kwargs)
 
-    # Add Epic link, QA, EXD-Service field if present
+    # Add values to the Epic link, QA, and EXD-Service fields if present
     if (
         issue.downstream.get("epic-link")
         or issue.downstream.get("qa-contact")
@@ -621,8 +617,8 @@ def _create_jira_issue(client, issue, config):
     if default_status is not None:
         change_status(client, downstream, default_status, issue)
 
-    # Update relevant information (i.e. tags, assignees etc.) if the
-    # User opted in
+    # Update relevant information (i.e., tags, assignees, etc.) if the User
+    # opted in
     _update_jira_issue(downstream, issue, client, config)
 
     return downstream
@@ -638,8 +634,8 @@ def _label_matching(jira_labels, issue_labels):
     :returns: Updated filtered labels
     :rtype: List
     """
-    # We want to get the union of the jira_labels and the issue_labels
-    # i.e. all the labels in jira_labels and no duplicates from issue_labels
+    # We want to get the union of the jira_labels and the issue_labels --
+    # i.e., all the labels in jira_labels without duplicates from issue_labels
     updated_labels = list(set(jira_labels).union(set(issue_labels)))
     # Return our labels
     return updated_labels
@@ -647,7 +643,7 @@ def _label_matching(jira_labels, issue_labels):
 
 def _update_jira_issue(existing, issue, client, config):
     """
-    Updates an existing JIRA issue (i.e. tags, assignee, comments, etc.).
+    Updates an existing JIRA issue (i.e., tags, assignee, comments, etc.).
 
     :param jira.resources.Issue existing: Existing JIRA issue that was found
     :param sync2jira.intermediary.Issue issue: Upstream issue we're pulling data from
@@ -691,9 +687,14 @@ def _update_jira_issue(existing, issue, client, config):
         _update_fixVersion(updates, existing, issue, client)
 
     # Only synchronize assignee for listings that op-in
-    if any("assignee" in item for item in updates):
-        log.info("Looking for new assignee(s)")
-        _update_assignee(client, existing, issue, updates)
+    for item in updates:
+        if isinstance(item, dict):
+            if assignee := item.get("assignee"):
+                log.info("Looking for new assignee(s)")
+                _update_assignee(
+                    client, existing, issue, assignee.get("overwrite", False)
+                )
+                break
 
     # Only synchronize descriptions for listings that op-in
     if "description" in updates:
@@ -745,7 +746,7 @@ def _update_transition(client, existing, issue):
         comment_body = f"{hyperlink} closed. Attempting transition to {closed_status}."
         client.add_comment(existing, comment_body)
         # Ensure that closed_status is a valid choice
-        # Find all possible transactions (i.e. change states) we could `do
+        # Find all possible transactions (i.e., change states) we could do
         change_status(client, existing, closed_status, issue)
 
 
@@ -772,7 +773,7 @@ def _update_comments(client, existing, issue):
     :param sync2jira.intermediary.Issue issue: Upstream issue
     :returns: Nothing
     """
-    # First get all existing comments
+    # Get all existing comments
     comments = client.comments(existing)
     # Remove any comments that have already been added
     comments_d = _comment_matching(issue.comments, comments)
@@ -804,14 +805,14 @@ def _update_fixVersion(updates, existing, issue, client):
         for version in existing.fields.fixVersions:
             fix_version.append({"name": version.name})
 
-    # GitHub does not allow for multiple fixVersions (milestones)
-    # But JIRA does, that is why we're looping here. Hopefully one
+    # GitHub does not allow for multiple fixVersions (milestones),
+    # but JIRA does, which is why we're looping here. Hopefully, one
     # day GitHub will support multiple fixVersions.
     for version in issue.fixVersion:
         if version is not None:
             # Update the fixVersion only if it's already not in JIRA
             result = filter(lambda v: v["name"] == str(version), fix_version)
-            # If we have a result skip, if not then add it to fix_version
+            # If we have a result, skip; if not, then add it to fix_version
             if not result or not list(result):
                 fix_version.append({"name": version})
 
@@ -839,50 +840,43 @@ def _update_fixVersion(updates, existing, issue, client):
             )
 
 
-def _update_assignee(client, existing, issue, updates):
+def _update_assignee(client, existing, issue, overwrite):
     """
-    Helper function update existing JIRA assignee from downstream issue.
+    Helper function which updates an existing JIRA assignee from the upstream issue.
 
     :param jira.client.JIRA client: JIRA client
     :param jira.resource.Issue existing: Existing JIRA issue
     :param sync2jira.intermediary.Issue issue: Upstream issue
-    :param List updates: Downstream updates requested by the user
+    :param bool overwrite: Overwrite existing JIRA assignee
     :returns: Nothing
     """
-    # First check if overwrite is set to True
-    a = filter(lambda d: "assignee" in d, updates)
-    overwrite = bool(next(a)["assignee"]["overwrite"])
 
-    # First check if the issue is already assigned to the same person
-    update = False
-    if issue.assignee and issue.assignee[0]:
-        try:
-            update = (
-                issue.assignee[0]["fullname"] != existing.fields.assignee.displayName
-            )
-        except AttributeError:
-            update = True
-
-    if not overwrite:
-        # Only assign if the existing JIRA issue doesn't have an assignee
-        # And the issue has an assignee
-        if not existing.fields.assignee and issue.assignee:
-            if issue.assignee[0] and update:
-                # Update the assignee
-                assign_user(client, issue, existing)
-                log.info("Updated assignee")
-                return
-    else:
-        # Update the assignee if we have someone to assignee it too
-        if update:
-            assign_user(client, issue, existing)
-            log.info("Updated assignee")
+    us_exists = bool(issue.assignee and issue.assignee[0])
+    ds_exists = bool(existing.fields.assignee) and hasattr(
+        existing.fields.assignee, "displayName"
+    )
+    if overwrite:
+        if ds_exists and us_exists:
+            # Overwrite the downstream assignment only if it is different from
+            # the upstream one.
+            un = issue.assignee[0]["fullname"]
+            dn = existing.fields.assignee.displayName
+            update = un != dn and remove_diacritics(un) != dn
         else:
-            if existing.fields.assignee and not issue.assignee:
-                # Else we should remove all assignees
-                # Set removeAll flag to true
-                assign_user(client, issue, existing, remove_all=True)
-                log.info("Updated assignee")
+            # Let assign_user() figure out what to do.
+            update = True
+    else:
+        # We're not overwriting, so call assign_user() only if the downstream
+        # doesn't already have an assignment.
+        update = not ds_exists
+
+    # De-assign the downstream issue if the upstream issue is unassigned and we
+    # are overwriting.
+    clear = overwrite and ds_exists and not us_exists
+
+    if update:
+        assign_user(client, issue, existing, remove_all=clear)
+        log.info("%s assignee", "Cleared" if clear else "Updated")
 
 
 def _update_jira_labels(issue, labels):
@@ -997,7 +991,7 @@ def _update_tags(updates, existing, issue):
     :param sync2jira.intermediary.Issue issue: Upstream issue
     :returns: Nothing
     """
-    # First get all existing tags on the issue
+    # Get all existing tags on the issue
     updated_labels = issue.tags
 
     # Ensure no duplicates if overwrite is set to false
@@ -1019,7 +1013,7 @@ def _build_description(issue):
         description = f"Upstream description: {{quote}}{issue.content}{{quote}}"
 
     if any("transition" in item for item in issue_updates):
-        # Just add it to the top of the description
+        # Add the upstream issue status to the top of the description
         formatted_status = "Upstream issue status: " + issue.status
         description = formatted_status + "\n" + description
 
@@ -1112,7 +1106,7 @@ def _update_on_close(existing, issue, updates: list[UPDATE_ENTRY]):
 
 def verify_tags(tags):
     """
-    Helper function to ensure tag are JIRA ready :).
+    Helper function which ensures the tags are JIRA ready :).
 
     :param List tags: Input tags
     :returns: Updates tags
@@ -1126,7 +1120,7 @@ def verify_tags(tags):
 
 def sync_with_jira(issue, config):
     """
-    Attempts to sync an upstream issue with JIRA (i.e. by finding
+    Attempts to sync an upstream issue with JIRA (i.e., by finding
     an existing issue or creating a new one).
 
     :param sync2jira.intermediary.Issue issue: Issue object
@@ -1175,7 +1169,7 @@ def update_jira(client, config, issue):
             issue.content = pypandoc.convert_text(issue.content, "jira", format="gfm")
 
     # First, check to see if we have a matching issue using the new method.
-    # If we do, then just bail out.  No sync needed.
+    # If we do, then bail out.  No sync needed.
     log.info("Looking for matching downstream issue via new method.")
     existing = _get_existing_jira_issue(client, issue, config)
     if existing:
@@ -1188,8 +1182,8 @@ def update_jira(client, config, issue):
         _update_jira_issue(existing, issue, client, config)
         return
 
-    # If we're *not* configured to do legacy matching (upgrade mode) then there
-    # is nothing left to do than to but to create the issue and return.
+    # If we're *not* configured to do legacy matching (upgrade mode), then
+    # there is nothing left to do but to create the issue and return.
     if not config["sync2jira"].get("legacy_matching", True):
         log.debug("Legacy matching disabled.")
         _create_jira_issue(client, issue, config)

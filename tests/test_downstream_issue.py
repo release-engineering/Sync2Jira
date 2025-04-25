@@ -165,7 +165,6 @@ class TestDownstreamIssue(unittest.TestCase):
             url = "wat"
 
         issue = MockIssue()
-        config = self.mock_config
         # Ensure that we get results back from the jira client.
         target1 = "target1"
         client.return_value.search_issues = mock.MagicMock(return_value=[target1])
@@ -222,7 +221,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch("jira.client.JIRA")
     def test_assign_user(self, mock_client):
         """
-        Test 'assign_user' function where remove_all flag is False
+        Test `assign_user()` when the downstream user matches the upstream user.
         """
         # Set up return values
         mock_user = MagicMock()
@@ -237,7 +236,75 @@ class TestDownstreamIssue(unittest.TestCase):
         )
 
         # Assert that all calls mocked were called properly
-        self.mock_downstream.update({"assignee": {"name": 1234}})
+        self.mock_downstream.update.assert_called_with(
+            {"assignee": {"name": mock_user.name}}
+        )
+        mock_client.search_assignable_users_for_issues.assert_called_with(
+            "mock_assignee", issueKey=self.mock_downstream.key
+        )
+
+    @mock.patch("jira.client.JIRA")
+    def test_assign_user_diacritics(self, mock_client):
+        """
+        Test `assign_user()` when the downstream user matches the upstream user
+        only when the diacritic characters are replaced.
+        """
+        # Set up return values
+        mock_user = MagicMock()
+        mock_user.displayName = "mock_assignee"
+        mock_user.key = "mock_user_key"
+        mock_client.search_assignable_users_for_issues.return_value = [mock_user]
+        mock_client.assign_issue.return_value = True
+        self.mock_issue.assignee = [{"fullname": "ḿòćḱ_ášśìǵńèé"}]
+        # Call the assign user function
+        d.assign_user(
+            issue=self.mock_issue, downstream=self.mock_downstream, client=mock_client
+        )
+
+        # Assert that all calls mocked were called properly
+        self.mock_downstream.update.assert_called_with(
+            {"assignee": {"name": mock_user.name}}
+        )
+        mock_client.search_assignable_users_for_issues.assert_called_with(
+            "mock_assignee", issueKey=self.mock_downstream.key
+        )
+
+    @mock.patch("jira.client.JIRA")
+    def test_assign_user_multiple(self, mock_client):
+        """
+        Test `assign_user()` when the upstream assignee field contains a list
+        in which most entries aren't useful.
+        """
+        # Set up return values
+        mock_user = MagicMock()
+        mock_user.displayName = "mock_assignee"
+        mock_user.key = "mock_user_key"
+        mock_user2 = MagicMock()
+        mock_user2.displayName = "mock_assignee2"
+        mock_user2.key = "mock_user_key2"
+        mock_client.search_assignable_users_for_issues.return_value = [
+            mock_user,
+            mock_user2,
+        ]
+        mock_client.assign_issue.return_value = True
+        self.mock_issue.assignee = [
+            {"fullname": None},
+            {"fullname": ""},
+            {"fullname": "not_a_match"},
+            {"fullname": "ḿòćḱ_ášśìǵńèé"},
+            # Should not match this next -- should match the previous.
+            {"fullname": "mock_assignee2"},
+        ]
+
+        # Call the assign user function
+        d.assign_user(
+            issue=self.mock_issue, downstream=self.mock_downstream, client=mock_client
+        )
+
+        # Assert that all calls mocked were called properly
+        self.mock_downstream.update.assert_called_with(
+            {"assignee": {"name": mock_user.name}}
+        )
         mock_client.search_assignable_users_for_issues.assert_called_with(
             "mock_assignee", issueKey=self.mock_downstream.key
         )
@@ -245,7 +312,8 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch("jira.client.JIRA")
     def test_assign_user_with_owner(self, mock_client):
         """
-        Test 'assign_user' function where remove_all flag is False
+        Test `assign_user()` to show that, when no downstream user is
+        available, the issue is assigned to the configured owner.
         """
         # Set up return values
         mock_user = MagicMock()
@@ -268,7 +336,8 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch("jira.client.JIRA")
     def test_assign_user_without_owner(self, mock_client):
         """
-        Test 'assign_user' function where remove_all flag is False
+        Test `assign_user()` when no downstream user is available and there is
+        no configured owner for the project.
         """
         # Set up return values
         mock_user = MagicMock()
@@ -292,7 +361,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch("jira.client.JIRA")
     def test_assign_user_remove_all(self, mock_client):
         """
-        Test 'assign_user' function where remove_all flag is True
+        Test 'assign_user' function when the `remove_all` flag is True
         """
         # Call the assign user function
         d.assign_user(
@@ -362,7 +431,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self, mock_client, mock_attach_link, mock_update_jira_issue
     ):
         """
-        Tests '_create_jira_issue' function where we fail updating the epic link
+        Tests '_create_jira_issue' function when we fail while updating the epic link
         """
         # Set up return values
         mock_client.create_issue.return_value = self.mock_downstream
@@ -413,7 +482,8 @@ class TestDownstreamIssue(unittest.TestCase):
         self, mock_client, mock_attach_link, mock_update_jira_issue
     ):
         """
-        Tests '_create_jira_issue' function where we fail updating the EXD-Service field
+        Tests '_create_jira_issue' function when we fail while updating the
+        EXD-Service field
         """
         # Set up return values
         mock_client.create_issue.return_value = self.mock_downstream
@@ -687,8 +757,9 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch("jira.client.JIRA")
     def test_update_transition_not_found(self, mock_client):
         """
-        This function tests the '_update_transition' function where Upstream issue status
-        not in existing.fields.description and we can't find the appropriate closed status
+        This function tests the '_update_transition' function when the Upstream
+        issue status is not in the existing.fields.description value and we
+        can't find the appropriate closed status
         """
         # Set up return values
         self.mock_issue.status = "Closed"
@@ -826,66 +897,78 @@ class TestDownstreamIssue(unittest.TestCase):
 
     @mock.patch(PATH + "assign_user")
     @mock.patch("jira.client.JIRA")
-    def test_update_assignee_assignee(self, mock_client, mock_assign_user):
+    def test_update_assignee_all(self, mock_client, mock_assign_user):
         """
-        This function tests the 'update_assignee' function where issue.assignee exists
+        This function tests the `_update_assignee()` function in a variety of scenarios.
         """
-        # Call the function
-        d._update_assignee(
-            client=mock_client,
-            existing=self.mock_downstream,
-            issue=self.mock_issue,
-            updates=[{"assignee": {"overwrite": True}}],
+
+        # The values of expected_results mean:
+        #  - None:  _update_assignee() was not called
+        #  - True:  _update_assignee() was called with `remove_all` set to `True`
+        #  - False:  _update_assignee() was called with `remove_all` set to `False`
+        expected_results = iter(
+            (
+                # - overwrite = True
+                #    - downstream assignee exists
+                None,  # upstream assignee exists and assignments are equal: not called
+                None,  # upstream assignee exists and assignments differ only in diacritics: not called
+                False,  # upstream assignee exists and assignments are different: called with remove_all=False
+                True,  # upstream assignee does not exist: called with remove_all=True
+                True,  # upstream assignee is an empty list: called with remove_all=True
+                #    - downstream assignee does not exist
+                False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee does not exist: called with remove_all=False
+                False,  # upstream assignee is an empty list: called with remove_all=False
+                # - overwrite = False
+                #    - downstream assignee exists:
+                None,  # upstream assignee exists and assignments are equal: not called
+                None,  # upstream assignee exists and assignments differ only in diacritics: not called
+                None,  # upstream assignee exists and assignments are different: not called
+                None,  # upstream assignee does not exist: not called
+                None,  # upstream assignee is an empty list: not called
+                #    - downstream assignee does not exist
+                False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee does not exist: called with remove_all=False
+                False,  # upstream assignee is an empty list: called with remove_all=False
+            )
         )
+        match = "Erik"
+        for overwrite in (True, False):
+            for ds in (match, None):
+                if ds is None:
+                    delattr(self.mock_downstream.fields.assignee, "displayName")
+                else:
+                    setattr(self.mock_downstream.fields.assignee, "displayName", match)
 
-        # Assert all calls were made correctly
-        mock_assign_user.assert_called_with(
-            mock_client, self.mock_issue, self.mock_downstream
-        )
+                for us in (match, "Èŕìḱ", "Bob", None, []):
+                    if not us:
+                        self.mock_issue.assignee = us
+                    else:
+                        self.mock_issue.assignee = [{"fullname": us}]
 
-    @mock.patch(PATH + "assign_user")
-    @mock.patch("jira.client.JIRA")
-    def test_update_assignee_no_assignee(self, mock_client, mock_assign_user):
-        """
-        This function tests the '_update_assignee' function where issue.assignee does not exist
-        """
-        # Set up return values
-        self.mock_issue.assignee = None
+                    d._update_assignee(
+                        client=mock_client,
+                        existing=self.mock_downstream,
+                        issue=self.mock_issue,
+                        overwrite=overwrite,
+                    )
 
-        # Call the function
-        d._update_assignee(
-            client=mock_client,
-            existing=self.mock_downstream,
-            issue=self.mock_issue,
-            updates=[{"assignee": {"overwrite": True}}],
-        )
-
-        # Assert all calls were made correctly
-        mock_assign_user.assert_called_with(
-            mock_client, self.mock_issue, self.mock_downstream, remove_all=True
-        )
-
-    @mock.patch(PATH + "assign_user")
-    @mock.patch("jira.client.JIRA")
-    def test_update_assignee_no_overwrite(self, mock_client, mock_assign_user):
-        """
-        This function tests the '_update_assignee' function where overwrite is false
-        """
-        # Set up return values
-        self.mock_downstream.fields.assignee = None
-
-        # Call the function
-        d._update_assignee(
-            client=mock_client,
-            existing=self.mock_downstream,
-            issue=self.mock_issue,
-            updates=[{"assignee": {"overwrite": False}}],
-        )
-
-        # Assert all calls were made correctly
-        mock_assign_user.assert_called_with(
-            mock_client, self.mock_issue, self.mock_downstream
-        )
+                    # Check that the call was made correctly
+                    expected_result = next(expected_results)
+                    if expected_result is None:
+                        mock_assign_user.assert_not_called()
+                    else:
+                        mock_assign_user.assert_called_with(
+                            mock_client,
+                            self.mock_issue,
+                            self.mock_downstream,
+                            remove_all=expected_result,
+                        )
+                    mock_assign_user.reset_mock()
 
     @mock.patch(PATH + "verify_tags")
     @mock.patch(PATH + "_label_matching")
@@ -1189,7 +1272,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self, mock_comment_format_legacy, mock_comment_format
     ):
         """
-        This function tests '_find_comment_in_jira' where we find a old comment
+        This function tests '_find_comment_in_jira' when we find an old comment
         """
         # Set up return values
         mock_comment_format.return_value = "mock_comment_body"
