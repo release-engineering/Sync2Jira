@@ -358,6 +358,28 @@ class TestDownstreamIssue(unittest.TestCase):
             "mock_assignee", issueKey=self.mock_downstream.key
         )
 
+    @mock.patch(PATH + "match_user")
+    @mock.patch("jira.client.JIRA")
+    def test_assign_user_none(self, mock_client, mock_match_user):
+        """
+        Test `assign_user()` when no upstream user is available and there is
+        no configured owner for the project.
+        """
+        # Set up return values
+        self.mock_issue.assignee = []
+        self.mock_issue.downstream.pop("owner")
+
+        # Call the assign user function
+        d.assign_user(
+            issue=self.mock_issue, downstream=self.mock_downstream, client=mock_client
+        )
+
+        # Assert that all calls mocked were called properly
+        mock_match_user.assert_not_called()
+        mock_client.search_assignable_users_for_issues.assert_not_called()
+        self.mock_downstream.update.assert_not_called()
+        mock_client.assign_issue.assert_not_called()
+
     @mock.patch("jira.client.JIRA")
     def test_assign_user_remove_all(self, mock_client):
         """
