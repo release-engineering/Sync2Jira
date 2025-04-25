@@ -427,9 +427,13 @@ def assign_user(client, issue, downstream, remove_all=False):
     owner = issue.downstream.get("owner")
     if owner:
         client.assign_issue(downstream.id, owner)
-        log.warning("Assigned %s to owner: %s", issue.title, owner)
+        log.info("Assigned %s to owner: %s", issue.title, owner)
         return
-    log.warning("Was not able to assign user %s", issue.assignee[0]["fullname"])
+    log.info(
+        "Unable to assign %s from upstream assignees %s",
+        issue.url,
+        [a["fullname"] for a in issue.assignee],
+    )
 
 
 def change_status(client, downstream, status, issue: Union[Issue, PR]):
