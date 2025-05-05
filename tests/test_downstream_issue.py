@@ -935,12 +935,14 @@ class TestDownstreamIssue(unittest.TestCase):
                 None,  # upstream assignee exists and assignments are equal: not called
                 None,  # upstream assignee exists and assignments differ only in diacritics: not called
                 False,  # upstream assignee exists and assignments are different: called with remove_all=False
+                True,  # upstream assignee has a fullname of None: called with remove_all=True
                 True,  # upstream assignee does not exist: called with remove_all=True
                 True,  # upstream assignee is an empty list: called with remove_all=True
                 #    - downstream assignee does not exist
                 False,  # upstream assignee exists: called with remove_all=False
                 False,  # upstream assignee exists: called with remove_all=False
                 False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee has a fullname of None: called with remove_all=False
                 False,  # upstream assignee does not exist: called with remove_all=False
                 False,  # upstream assignee is an empty list: called with remove_all=False
                 # - overwrite = False
@@ -948,12 +950,14 @@ class TestDownstreamIssue(unittest.TestCase):
                 None,  # upstream assignee exists and assignments are equal: not called
                 None,  # upstream assignee exists and assignments differ only in diacritics: not called
                 None,  # upstream assignee exists and assignments are different: not called
+                None,  # upstream assignee has a fullname of None: not called
                 None,  # upstream assignee does not exist: not called
                 None,  # upstream assignee is an empty list: not called
                 #    - downstream assignee does not exist
                 False,  # upstream assignee exists: called with remove_all=False
                 False,  # upstream assignee exists: called with remove_all=False
                 False,  # upstream assignee exists: called with remove_all=False
+                False,  # upstream assignee has a fullname of None: called with remove_all=False
                 False,  # upstream assignee does not exist: called with remove_all=False
                 False,  # upstream assignee is an empty list: called with remove_all=False
             )
@@ -966,11 +970,15 @@ class TestDownstreamIssue(unittest.TestCase):
                 else:
                     setattr(self.mock_downstream.fields.assignee, "displayName", match)
 
-                for us in (match, "Èŕìḱ", "Bob", None, []):
-                    if not us:
-                        self.mock_issue.assignee = us
-                    else:
-                        self.mock_issue.assignee = [{"fullname": us}]
+                for us in (
+                    [{"fullname": match}],
+                    [{"fullname": "Èŕìḱ"}],
+                    [{"fullname": "Bob"}],
+                    [{"fullname": None}],
+                    None,
+                    [],
+                ):
+                    self.mock_issue.assignee = us
 
                     d._update_assignee(
                         client=mock_client,

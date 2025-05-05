@@ -437,7 +437,6 @@ def assign_user(
         downstream.key,
         [a["fullname"] for a in issue.assignee],
         issue.url,
-        [a["fullname"] for a in issue.assignee],
     )
 
 
@@ -872,7 +871,9 @@ def _update_assignee(client, existing, issue, overwrite):
     :returns: Nothing
     """
 
-    us_exists = bool(issue.assignee and issue.assignee[0])
+    us_exists = bool(
+        issue.assignee and issue.assignee[0] and issue.assignee[0].get("fullname")
+    )
     ds_exists = bool(existing.fields.assignee) and hasattr(
         existing.fields.assignee, "displayName"
     )
@@ -1224,5 +1225,7 @@ def update_jira(client, config, issue):
 
 def remove_diacritics(text):
     """Convert text from UTF-8 to its ASCII equivalent"""
+    if not text:
+        return ""
     normalized_text = unicodedata.normalize("NFD", text)
     return "".join(c for c in normalized_text if not unicodedata.combining(c))
