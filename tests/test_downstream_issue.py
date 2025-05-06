@@ -7,6 +7,7 @@ from jira import JIRAError
 import jira.client
 
 import sync2jira.downstream_issue as d
+from sync2jira.downstream_issue import remove_diacritics
 from sync2jira.intermediary import Issue
 
 PATH = "sync2jira.downstream_issue."
@@ -1536,3 +1537,15 @@ class TestDownstreamIssue(unittest.TestCase):
             )
             self.mock_downstream.update.assert_not_called()
             mock_client.add_comment.assert_not_called()
+
+    def test_remove_diacritics(self):
+        scenarios = [
+            ("Èŕìḱ", "Erik"),
+            ("Erik", "Erik"),
+            ("", ""),
+            (None, ""),
+        ]
+
+        for text, expected in scenarios:
+            actual = remove_diacritics(text)
+            self.assertEqual(actual, expected)
