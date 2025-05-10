@@ -581,7 +581,8 @@ spec:
       optional: true
     - name: netrc
       optional: true
-  taskRunTemplate: {}
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-sync2jira-legacy
   workspaces:
   - name: git-auth
     secret:
