@@ -425,6 +425,14 @@ def assign_user(
                 downstream.update({"assignee": {"name": match_name}})
                 return
 
+    if issue.assignee:
+        log.warning(
+            "Unable to assign %s from upstream assignees %s in %s",
+            downstream.key,
+            str([a.get("fullname", "<no-fullname>") for a in issue.assignee]),
+            issue.url,
+        )
+
     # No downstream match for the upstream assignee; if there is a configured
     # owner for the project, assign it to them.
     owner = issue.downstream.get("owner")
@@ -432,12 +440,6 @@ def assign_user(
         client.assign_issue(downstream.id, owner)
         log.info("Assigned %s to owner: %s", downstream.key, owner)
         return
-    log.info(
-        "Unable to assign %s from upstream assignees %s in %s",
-        downstream.key,
-        [a["fullname"] for a in issue.assignee],
-        issue.url,
-    )
 
 
 def change_status(client, downstream, status, issue: Union[Issue, PR]):
