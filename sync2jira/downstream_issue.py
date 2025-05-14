@@ -484,9 +484,19 @@ def change_status(client, downstream, status, issue: Union[Issue, PR]):
 
 def _get_preferred_issue_types(config, issue):
     """
-    Consider the configuration file and issue data to
-    figure out the right issue type to file. Used when
-    creating a new issue in Jira.
+    Determine the appropriate issue type to specify when creating the
+    downstream (Jira) issue.  In order of preference:
+     - the upstream issue type (if any)
+     - the issue type(s) from the mapping in the configuration file (if
+        present), selected based on the upstream "tags" (labels)
+     - the default issue type configured for the project (if any)
+     - "Story" if the issue title contains "RFE"
+     - otherwise, "Bug".
+
+    In all cases, a list of one item is returned, except when the upstream
+    issue has multiple tags which match multiple entries in the configured
+    mapping, in which case multiple entries are returned, sorted in ascending
+    lexographical order.
 
     :param Dict config: Config dict
     :param sync2jira.intermediary.Issue issue: Issue object
@@ -500,30 +510,27 @@ def _get_preferred_issue_types(config, issue):
     #     'bug': 'Bug',
     #     'enhancement': 'Story'
     #   }
-    type_list = []
+    if issue.issue_type:
+        return [issue.issue_type]
 
     cmap = config["sync2jira"].get("map", {})
     conf = cmap.get("github", {}).get(issue.upstream, {})
 
-    # We consider the issue_types mapping if it exists. If it does, exclude all other logic.
-    if "issue_types" in conf:
-        for tag, issue_type in conf["issue_types"].items():
-            if tag in issue.tags:
-                type_list.insert(0, issue_type)
+    if issue_types := conf.get("issue_types"):
+        type_list = [
+            issue_type for tag, issue_type in issue_types.items() if tag in issue.tags
+        ]
         type_list.sort()
+        if type_list:
+            return type_list
 
-    # If issue_types was not provided, we consider the type option next.  If
-    # that is not set, fall back to the old behavior.
-    if not type_list:
-        if "type" in conf:
-            type_list.insert(0, conf["type"])
-        else:
-            if "RFE" in issue.title:
-                type_list.insert(0, "Story")
-            else:
-                type_list.insert(0, "Bug")
-    log.debug("Preferred issue type list: %s" % type_list)
-    return type_list
+    if issue_type := conf.get("type"):
+        return [issue_type]
+
+    if "RFE" in issue.title:
+        return ["Story"]
+
+    return ["Bug"]
 
 
 def _create_jira_issue(client, issue, config):
