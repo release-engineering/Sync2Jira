@@ -625,9 +625,8 @@ def _create_jira_issue(client, issue, config):
         )
         client.add_comment(downstream, comment)
     if len(preferred_types) > 1:
-        comment = "Some labels look like issue types but were not considered:" + str(
-            {preferred_types[1:]}
-        )
+        comment = "Some labels look like issue types but were not considered:  "
+        comment += str(preferred_types[1:])
         client.add_comment(downstream, comment)
 
     remote_link = dict(url=issue.url, title=remote_link_title)
