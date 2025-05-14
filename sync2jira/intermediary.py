@@ -38,7 +38,7 @@ class Issue(object):
         reporter,
         assignee,
         status,
-        id,
+        id_,
         storypoints,
         upstream_id,
         issue_type,
@@ -67,7 +67,7 @@ class Issue(object):
         self.reporter = reporter
         self.assignee = assignee
         self.status = status
-        self.id = str(id)
+        self.id = str(id_)
         self.upstream_id = upstream_id
         self.issue_type = issue_type
         if not downstream:
@@ -86,7 +86,7 @@ class Issue(object):
 
     @classmethod
     def from_github(cls, upstream, issue, config):
-        """Helper function to create intermediary object."""
+        """Helper function to create an intermediary Issue object."""
         upstream_source = "github"
         comments = []
         for comment in issue["comments"]:
@@ -136,7 +136,7 @@ class Issue(object):
             reporter=issue["user"],
             assignee=issue["assignees"],
             status=issue["state"],
-            id=issue["id"],
+            id_=issue["id"],
             storypoints=issue.get("storypoints"),
             upstream_id=issue["number"],
             issue_type=issue_type,
@@ -163,7 +163,7 @@ class PR(object):
         reporter,
         assignee,
         status,
-        id,
+        id_,
         suffix,
         match,
         downstream=None,
@@ -196,7 +196,7 @@ class PR(object):
         self.reporter = reporter
         self.assignee = assignee
         self.status = status
-        self.id = str(id)
+        self.id = str(id_)
         self.suffix = suffix
         self.match = match
         # self.upstream_id = upstream_id
@@ -213,7 +213,7 @@ class PR(object):
 
     @classmethod
     def from_github(cls, upstream, pr, suffix, config):
-        """Helper function to create intermediary object."""
+        """Helper function to create an intermediary PR object."""
         # Set our upstream source
         upstream_source = "github"
 
@@ -264,7 +264,7 @@ class PR(object):
             assignee=pr["assignee"],
             # GitHub PRs do not have status
             status=None,
-            id=pr["number"],
+            id_=pr["number"],
             # upstream_id=issue['number'],
             suffix=suffix,
             match=match,
@@ -323,7 +323,7 @@ def matcher(content: Optional[str], comments: list[dict[str, str]]) -> str:
 
 def trim_string(content):
     """
-    Helper function to trim a string to ensure it is not over 50000 char
+    Helper function to trim a string to ensure it is not over 50,000 char
     Ref: https://github.com/release-engineering/Sync2Jira/issues/123
 
     :param String content: Comment content
