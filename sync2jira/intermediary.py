@@ -41,6 +41,7 @@ class Issue(object):
         id,
         storypoints,
         upstream_id,
+        issue_type,
         downstream=None,
     ):
         self.source = source
@@ -68,6 +69,7 @@ class Issue(object):
         self.status = status
         self.id = str(id)
         self.upstream_id = upstream_id
+        self.issue_type = issue_type
         if not downstream:
             self.downstream = config["sync2jira"]["map"][self.source][upstream]
         else:
@@ -106,6 +108,11 @@ class Issue(object):
             elif issue["state"] == "closed":
                 issue["state"] = "Closed"
 
+        # Get the issue type if any
+        issue_type = issue.get("type")
+        if isinstance(issue_type, dict):
+            issue_type = issue_type.get("name")
+
         # Perform any mapping
         mapping = config["sync2jira"]["map"][upstream_source][upstream].get(
             "mapping", []
@@ -132,6 +139,7 @@ class Issue(object):
             id=issue["id"],
             storypoints=issue.get("storypoints"),
             upstream_id=issue["number"],
+            issue_type=issue_type,
         )
 
     def __repr__(self):
