@@ -88,18 +88,7 @@ class Issue(object):
     def from_github(cls, upstream, issue, config):
         """Helper function to create an intermediary Issue object."""
         upstream_source = "github"
-        comments = []
-        for comment in issue["comments"]:
-            comments.append(
-                {
-                    "author": comment["author"],
-                    "name": comment["name"],
-                    "body": trim_string(comment["body"]),
-                    "id": comment["id"],
-                    "date_created": comment["date_created"],
-                    "changed": None,
-                }
-            )
+        comments = reformat_github_comments(issue)
 
         # Reformat the state field
         if issue["state"]:
@@ -218,18 +207,7 @@ class PR(object):
         upstream_source = "github"
 
         # Format our comments
-        comments = []
-        for comment in pr["comments"]:
-            comments.append(
-                {
-                    "author": comment["author"],
-                    "name": comment["name"],
-                    "body": trim_string(comment["body"]),
-                    "id": comment["id"],
-                    "date_created": comment["date_created"],
-                    "changed": None,
-                }
-            )
+        comments = reformat_github_comments(pr)
 
         # Build our URL
         url = pr["html_url"]
@@ -269,6 +247,20 @@ class PR(object):
             suffix=suffix,
             match=match,
         )
+
+
+def reformat_github_comments(issue):
+    return [
+        {
+            "author": comment["author"],
+            "name": comment["name"],
+            "body": trim_string(comment["body"]),
+            "id": comment["id"],
+            "date_created": comment["date_created"],
+            "changed": None,
+        }
+        for comment in issue["comments"]
+    ]
 
 
 def map_fixVersion(mapping, issue):
