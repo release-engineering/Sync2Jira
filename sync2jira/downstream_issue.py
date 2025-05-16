@@ -425,6 +425,14 @@ def assign_user(
                 downstream.update({"assignee": {"name": match_name}})
                 return
 
+    if issue.assignee:
+        log.warning(
+            "Unable to assign %s from upstream assignees %s in %s",
+            downstream.key,
+            str([a.get("fullname", "<no-fullname>") for a in issue.assignee]),
+            issue.url,
+        )
+
     # No downstream match for the upstream assignee; if there is a configured
     # owner for the project, assign it to them.
     owner = issue.downstream.get("owner")
@@ -432,12 +440,6 @@ def assign_user(
         client.assign_issue(downstream.id, owner)
         log.info("Assigned %s to owner: %s", downstream.key, owner)
         return
-    log.info(
-        "Unable to assign %s from upstream assignees %s in %s",
-        downstream.key,
-        [a["fullname"] for a in issue.assignee],
-        issue.url,
-    )
 
 
 def change_status(client, downstream, status, issue: Union[Issue, PR]):
@@ -484,9 +486,19 @@ def change_status(client, downstream, status, issue: Union[Issue, PR]):
 
 def _get_preferred_issue_types(config, issue):
     """
-    Consider the configuration file and issue data to
-    figure out the right issue type to file. Used when
-    creating a new issue in Jira.
+    Determine the appropriate issue type to specify when creating the
+    downstream (Jira) issue.  In order of preference:
+     - the issue type(s) from the mapping in the configuration file (if
+        present), selected based on the upstream "tags" (labels)
+     - the default issue type configured for the project (if any)
+     - the upstream issue type (if any)
+     - "Story" if the issue title contains "RFE"
+     - otherwise, "Bug".
+
+    In all cases, a list of one item is returned, except when the upstream
+    issue has multiple tags which match multiple entries in the configured
+    mapping, in which case multiple entries are returned, sorted in ascending
+    lexographical order.
 
     :param Dict config: Config dict
     :param sync2jira.intermediary.Issue issue: Issue object
@@ -500,30 +512,25 @@ def _get_preferred_issue_types(config, issue):
     #     'bug': 'Bug',
     #     'enhancement': 'Story'
     #   }
-    type_list = []
-
     cmap = config["sync2jira"].get("map", {})
     conf = cmap.get("github", {}).get(issue.upstream, {})
 
-    # We consider the issue_types mapping if it exists. If it does, exclude all other logic.
-    if "issue_types" in conf:
-        for tag, issue_type in conf["issue_types"].items():
-            if tag in issue.tags:
-                type_list.insert(0, issue_type)
-        type_list.sort()
+    if issue_types := conf.get("issue_types"):
+        type_list = [v for k, v in issue_types.items() if k in issue.tags]
+        if type_list:
+            type_list.sort()
+            return type_list
 
-    # If issue_types was not provided, we consider the type option next.  If
-    # that is not set, fall back to the old behavior.
-    if not type_list:
-        if "type" in conf:
-            type_list.insert(0, conf["type"])
-        else:
-            if "RFE" in issue.title:
-                type_list.insert(0, "Story")
-            else:
-                type_list.insert(0, "Bug")
-    log.debug("Preferred issue type list: %s" % type_list)
-    return type_list
+    if issue_type := conf.get("type"):
+        return [issue_type]
+
+    if issue.issue_type:
+        return [issue.issue_type]
+
+    if "RFE" in issue.title:
+        return ["Story"]
+
+    return ["Bug"]
 
 
 def _create_jira_issue(client, issue, config):
@@ -625,9 +632,8 @@ def _create_jira_issue(client, issue, config):
         )
         client.add_comment(downstream, comment)
     if len(preferred_types) > 1:
-        comment = "Some labels look like issue types but were not considered:" + str(
-            {preferred_types[1:]}
-        )
+        comment = "Some labels look like issue types but were not considered:  "
+        comment += str(preferred_types[1:])
         client.add_comment(downstream, comment)
 
     remote_link = dict(url=issue.url, title=remote_link_title)

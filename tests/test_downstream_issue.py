@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Any, Optional
 import unittest
 import unittest.mock as mock
 from unittest.mock import MagicMock
@@ -76,6 +77,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_issue.id = "1234"
         self.mock_issue.storypoints = 2
         self.mock_issue.priority = "P1"
+        self.mock_issue.issue_type = None
 
         # Mock issue updates
         self.mock_updates = [
@@ -399,15 +401,11 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.assign_issue.assert_not_called()
         mock_client.search_assignable_users_for_issues.assert_not_called()
 
-    @mock.patch(PATH + "_update_jira_issue")
-    @mock.patch(PATH + "attach_link")
-    @mock.patch("jira.client.JIRA")
-    def test_create_jira_issue(
-        self, mock_client, mock_attach_link, mock_update_jira_issue
+    def common_test_create_jira_issue(
+        self, mock_attach_link, mock_client, mock_update_jira_issue
     ):
-        """
-        Tests '_create_jira_issue' function
-        """
+        """Common code for testing _create_jira_issue"""
+
         # Set up return values
         mock_client.create_issue.return_value = self.mock_downstream
         mock_client.fields.return_value = [
@@ -426,7 +424,11 @@ class TestDownstreamIssue(unittest.TestCase):
             issuetype={"name": "Bug"},
             project={"key": "mock_project"},
             somecustumfield="somecustumvalue",
-            description="[1234] Upstream Reporter: mock_user\nUpstream issue status: Open\nUpstream description: {quote}mock_content{quote}",
+            description=(
+                "[1234] Upstream Reporter: mock_user\n"
+                "Upstream issue status: Open\n"
+                "Upstream description: {quote}mock_content{quote}"
+            ),
             summary="mock_title",
         )
         mock_attach_link.assert_called_with(
@@ -445,6 +447,20 @@ class TestDownstreamIssue(unittest.TestCase):
             {"customfield_3": {"value": "EXD-Project", "child": {"value": "EXD-Value"}}}
         )
         self.assertEqual(response, self.mock_downstream)
+
+    @mock.patch(PATH + "_update_jira_issue")
+    @mock.patch(PATH + "attach_link")
+    @mock.patch("jira.client.JIRA")
+    def test_create_jira_issue(
+        self, mock_client, mock_attach_link, mock_update_jira_issue
+    ):
+        """
+        Tests '_create_jira_issue' function normal success case
+        """
+        self.common_test_create_jira_issue(
+            mock_attach_link, mock_client, mock_update_jira_issue
+        )
+
         mock_client.add_comment.assert_not_called()
 
     @mock.patch(PATH + "_update_jira_issue")
@@ -457,43 +473,12 @@ class TestDownstreamIssue(unittest.TestCase):
         Tests '_create_jira_issue' function when we fail while updating the epic link
         """
         # Set up return values
-        mock_client.create_issue.return_value = self.mock_downstream
-        mock_client.fields.return_value = [
-            {"name": "Epic Link", "id": "customfield_1"},
-            {"name": "QA Contact", "id": "customfield_2"},
-            {"name": "EXD-Service", "id": "customfield_3"},
-        ]
         self.mock_downstream.update.side_effect = [JIRAError, "success", "success"]
 
-        # Call the function
-        response = d._create_jira_issue(
-            client=mock_client, issue=self.mock_issue, config=self.mock_config
+        self.common_test_create_jira_issue(
+            mock_attach_link, mock_client, mock_update_jira_issue
         )
 
-        # Assert everything was called correctly
-        mock_client.create_issue.assert_called_with(
-            issuetype={"name": "Bug"},
-            project={"key": "mock_project"},
-            somecustumfield="somecustumvalue",
-            description="[1234] Upstream Reporter: mock_user\nUpstream issue status: Open\nUpstream description: {quote}mock_content{quote}",
-            summary="mock_title",
-        )
-        mock_attach_link.assert_called_with(
-            mock_client,
-            self.mock_downstream,
-            {"url": "mock_url", "title": "Upstream issue"},
-        )
-        mock_update_jira_issue.assert_called_with(
-            self.mock_downstream, self.mock_issue, mock_client, self.mock_config
-        )
-        self.mock_downstream.update.assert_any_call({"customfield_1": "DUMMY-1234"})
-        self.mock_downstream.update.assert_any_call(
-            {"customfield_2": "dummy@dummy.com"}
-        )
-        self.mock_downstream.update.assert_any_call(
-            {"customfield_3": {"value": "EXD-Project", "child": {"value": "EXD-Value"}}}
-        )
-        self.assertEqual(response, self.mock_downstream)
         mock_client.add_comment.assert_called_with(
             self.mock_downstream, f"Error adding Epic-Link: DUMMY-1234"
         )
@@ -509,48 +494,44 @@ class TestDownstreamIssue(unittest.TestCase):
         EXD-Service field
         """
         # Set up return values
-        mock_client.create_issue.return_value = self.mock_downstream
-        mock_client.fields.return_value = [
-            {"name": "Epic Link", "id": "customfield_1"},
-            {"name": "QA Contact", "id": "customfield_2"},
-            {"name": "EXD-Service", "id": "customfield_3"},
-        ]
         self.mock_downstream.update.side_effect = ["success", "success", JIRAError]
 
-        # Call the function
-        response = d._create_jira_issue(
-            client=mock_client, issue=self.mock_issue, config=self.mock_config
+        self.common_test_create_jira_issue(
+            mock_attach_link, mock_client, mock_update_jira_issue
         )
 
-        # Assert everything was called correctly
-        mock_client.create_issue.assert_called_with(
-            issuetype={"name": "Bug"},
-            project={"key": "mock_project"},
-            somecustumfield="somecustumvalue",
-            description="[1234] Upstream Reporter: mock_user\nUpstream issue status: Open\nUpstream description: {quote}mock_content{quote}",
-            summary="mock_title",
-        )
-        mock_attach_link.assert_called_with(
-            mock_client,
-            self.mock_downstream,
-            {"url": "mock_url", "title": "Upstream issue"},
-        )
-        mock_update_jira_issue.assert_called_with(
-            self.mock_downstream, self.mock_issue, mock_client, self.mock_config
-        )
-        self.mock_downstream.update.assert_any_call({"customfield_1": "DUMMY-1234"})
-        self.mock_downstream.update.assert_any_call(
-            {"customfield_2": "dummy@dummy.com"}
-        )
-        self.mock_downstream.update.assert_any_call(
-            {"customfield_3": {"value": "EXD-Project", "child": {"value": "EXD-Value"}}}
-        )
-        self.assertEqual(response, self.mock_downstream)
         mock_client.add_comment.assert_called_with(
             self.mock_downstream,
             f"Error adding EXD-Service field.\n"
             f"Project: {self.mock_issue.downstream['EXD-Service']['guild']}\n"
             f"Value: {self.mock_issue.downstream['EXD-Service']['value']}",
+        )
+
+    @mock.patch(PATH + "_update_jira_issue")
+    @mock.patch(PATH + "attach_link")
+    @mock.patch(PATH + "_get_preferred_issue_types")
+    @mock.patch("jira.client.JIRA")
+    def test_create_jira_issue_multiple_types(
+        self,
+        mock_client,
+        mock_get_preferred_issue_types,
+        mock_attach_link,
+        mock_update_jira_issue,
+    ):
+        """
+        Tests '_create_jira_issue' function when multiple possible issue types are found
+        """
+        # Set up return values
+        issue_types = ["Bug", "Feature", "Outcome", "Story"]
+        mock_get_preferred_issue_types.return_value = issue_types
+
+        self.common_test_create_jira_issue(
+            mock_attach_link, mock_client, mock_update_jira_issue
+        )
+
+        mock_client.add_comment.assert_called_with(
+            self.mock_downstream,
+            f"Some labels look like issue types but were not considered:  {issue_types[1:]}",
         )
 
     @mock.patch(PATH + "_update_jira_issue")
@@ -590,6 +571,83 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         self.assertEqual(response, self.mock_downstream)
         mock_client.add_comment.assert_not_called()
+
+    def test_get_preferred_issue_types(self):
+        """
+        Tests '_get_preferred_issue_types' function
+
+        Scenarios:
+         - configuration has type mappings
+            - first mapping matches
+            - second mapping matches
+            - multiple mappings match
+            - no mapping matches
+         - configuration has a default type
+         - upstream issue has a type
+         - "RFE" in issue title
+         - None of the above.
+        """
+        conf = {
+            "issue_types": {
+                "tag1": "mapped_type_C",  # In reverse-sorted order to test sorting
+                "tag2": "mapped_type_B",
+                "tag3": "mapped_type_A",
+            },
+            "type": "S2J_type",
+        }
+        self.mock_config["sync2jira"]["map"] = {
+            "github": {self.mock_issue.upstream: conf}
+        }
+        self.mock_issue.issue_type = "GH_type"
+        self.mock_issue.tags = ["tag1"]
+        self.mock_issue.title = "RFE: Mock Issue Title"
+
+        def update_state(
+            issue_field: Optional[dict[str, Any]] = None, config: Optional[str] = None
+        ):
+            if issue_field:
+                for k, v in issue_field.items():
+                    self.mock_issue.__setattr__(k, v)
+            if config:
+                del conf[config]
+
+        # List of scenarios:  each entry includes a callable which modifies
+        # either the mock issue or the mock configuration prior to invoking the
+        # CUT and the resulting value which is expected to be returned; the
+        # test iterates over the list, calling each setup function, calling the
+        # CUT, and then comparing the result to the expected value.
+        scenarios = (
+            # The issue label matches the first in the configured type map.
+            (lambda: None, ["mapped_type_C"]),
+            # The issue label matches the second in the configured type map.
+            (
+                lambda: update_state(issue_field={"tags": ["tag2"]}),
+                ["mapped_type_B"],
+            ),
+            # The issue label has multiple matches in the configured type map.
+            (
+                lambda: update_state(issue_field={"tags": ["tag2", "tag1"]}),
+                ["mapped_type_B", "mapped_type_C"],
+            ),
+            # The issue label has no matches in the configured type map.
+            (lambda: update_state(issue_field={"tags": ["fred"]}), ["S2J_type"]),
+            # There is no type map, but the configuration specifies a default type.
+            (lambda: update_state(config="issue_types"), ["S2J_type"]),
+            # No type in the configuration, but the upstream issue has a type.
+            (lambda: update_state(config="type"), ["GH_type"]),
+            # No type from config or upstream, but there is "RFE" in issue title.
+            (lambda: update_state(issue_field={"issue_type": None}), ["Story"]),
+            # Default fallback
+            (
+                lambda: update_state(issue_field={"title": "Plain Issue Title"}),
+                ["Bug"],
+            ),
+        )
+
+        for scenario, (setup_action, expected) in enumerate(scenarios):
+            setup_action()
+            actual = d._get_preferred_issue_types(self.mock_config, self.mock_issue)
+            self.assertEqual(actual, expected, f"In scenario {scenario}")
 
     @mock.patch(PATH + "get_jira_client")
     @mock.patch(PATH + "_get_existing_jira_issue")

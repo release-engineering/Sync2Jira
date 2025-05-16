@@ -167,7 +167,7 @@ def handle_github_message(body, config, is_pr=False):
                 )
                 return None
 
-    if is_pr and "closed_at" not in issue:
+    if is_pr and not issue.get("closed_at"):
         log.debug(
             "%r is a pull request.  Ignoring.", issue.get("html_url", "<missing URL>")
         )
