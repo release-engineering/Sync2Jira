@@ -488,10 +488,10 @@ def _get_preferred_issue_types(config, issue):
     """
     Determine the appropriate issue type to specify when creating the
     downstream (Jira) issue.  In order of preference:
-     - the upstream issue type (if any)
      - the issue type(s) from the mapping in the configuration file (if
         present), selected based on the upstream "tags" (labels)
      - the default issue type configured for the project (if any)
+     - the upstream issue type (if any)
      - "Story" if the issue title contains "RFE"
      - otherwise, "Bug".
 
@@ -512,9 +512,6 @@ def _get_preferred_issue_types(config, issue):
     #     'bug': 'Bug',
     #     'enhancement': 'Story'
     #   }
-    if issue.issue_type:
-        return [issue.issue_type]
-
     cmap = config["sync2jira"].get("map", {})
     conf = cmap.get("github", {}).get(issue.upstream, {})
 
@@ -528,6 +525,9 @@ def _get_preferred_issue_types(config, issue):
 
     if issue_type := conf.get("type"):
         return [issue_type]
+
+    if issue.issue_type:
+        return [issue.issue_type]
 
     if "RFE" in issue.title:
         return ["Story"]
