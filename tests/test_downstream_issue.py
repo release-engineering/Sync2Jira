@@ -576,13 +576,13 @@ class TestDownstreamIssue(unittest.TestCase):
         Tests 'test_get_preferred_issue_types' function
 
         Scenarios:
-         - upstream issue has a type
          - configuration has type mappings
             - first mapping matches
             - second mapping matches
             - multiple mappings match
             - no mapping matches
          - configuration has a default type
+         - upstream issue has a type
          - "RFE" in issue title
          - None of the above.
         """
@@ -603,15 +603,15 @@ class TestDownstreamIssue(unittest.TestCase):
 
         for scenario, expected in enumerate(
             (
-                ["GH_type"],  # 0: upstream issue has a type
-                ["mapped_type_C"],  # 1: first match in the configured type map
-                ["mapped_type_B"],  # 2: second match in the configured type map
+                ["mapped_type_C"],  # 0: first match in the configured type map
+                ["mapped_type_B"],  # 1: second match in the configured type map
                 [
                     "mapped_type_B",
                     "mapped_type_C",
-                ],  # 3: multiple matches in the configured type map
-                ["S2J_type"],  # 4: no matches in the configured type map
-                ["S2J_type"],  # 5: no type map; configuration has a default
+                ],  # 2: multiple matches in the configured type map
+                ["S2J_type"],  # 3: no matches in the configured type map
+                ["S2J_type"],  # 4: no type map; configuration has a default
+                ["GH_type"],  # 5: upstream issue has a type
                 ["Story"],  # 6: no configured default; "RFE" in issue title
                 ["Bug"],  # 7: default fallback
             )
@@ -621,17 +621,17 @@ class TestDownstreamIssue(unittest.TestCase):
 
             # Set up the next scenario
             if scenario == 0:
-                self.mock_issue.issue_type = None
-            elif scenario == 1:
                 self.mock_issue.tags = ["tag2"]
-            elif scenario == 2:
+            elif scenario == 1:
                 self.mock_issue.tags = ["tag2", "tag1"]
-            elif scenario == 3:
+            elif scenario == 2:
                 self.mock_issue.tags = ["fred"]
-            elif scenario == 4:
+            elif scenario == 3:
                 del conf["issue_types"]
-            elif scenario == 5:
+            elif scenario == 4:
                 del conf["type"]
+            elif scenario == 5:
+                self.mock_issue.issue_type = None
             elif scenario == 6:
                 self.mock_issue.title = "Plain Mock Issue Title"
             elif scenario == 7:
