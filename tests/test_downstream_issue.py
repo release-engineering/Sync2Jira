@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Any, Optional
 import unittest
 import unittest.mock as mock
 from unittest.mock import MagicMock
@@ -573,7 +574,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
     def test_get_preferred_issue_types(self):
         """
-        Tests 'test_get_preferred_issue_types' function
+        Tests '_get_preferred_issue_types' function
 
         Scenarios:
          - configuration has type mappings
@@ -601,43 +602,52 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_issue.tags = ["tag1"]
         self.mock_issue.title = "RFE: Mock Issue Title"
 
-        for scenario, expected in enumerate(
-            (
-                ["mapped_type_C"],  # 0: first match in the configured type map
-                ["mapped_type_B"],  # 1: second match in the configured type map
-                [
-                    "mapped_type_B",
-                    "mapped_type_C",
-                ],  # 2: multiple matches in the configured type map
-                ["S2J_type"],  # 3: no matches in the configured type map
-                ["S2J_type"],  # 4: no type map; configuration has a default
-                ["GH_type"],  # 5: upstream issue has a type
-                ["Story"],  # 6: no configured default; "RFE" in issue title
-                ["Bug"],  # 7: default fallback
-            )
+        def update_state(
+            issue_field: Optional[dict[str, Any]] = None, config: Optional[str] = None
         ):
+            if issue_field:
+                for k, v in issue_field.items():
+                    self.mock_issue.__setattr__(k, v)
+            if config:
+                del conf[config]
+
+        # List of scenarios:  each entry includes a callable which modifies
+        # either the mock issue or the mock configuration prior to invoking the
+        # CUT and the resulting value which is expected to be returned; the
+        # test iterates over the list, calling each setup function, calling the
+        # CUT, and then comparing the result to the expected value.
+        scenarios = (
+            # The issue label matches the first in the configured type map.
+            (lambda: None, ["mapped_type_C"]),
+            # The issue label matches the second in the configured type map.
+            (
+                lambda: update_state(issue_field={"tags": ["tag2"]}),
+                ["mapped_type_B"],
+            ),
+            # The issue label has multiple matches in the configured type map.
+            (
+                lambda: update_state(issue_field={"tags": ["tag2", "tag1"]}),
+                ["mapped_type_B", "mapped_type_C"],
+            ),
+            # The issue label has no matches in the configured type map.
+            (lambda: update_state(issue_field={"tags": ["fred"]}), ["S2J_type"]),
+            # There is no type map, but the configuration specifies a default type.
+            (lambda: update_state(config="issue_types"), ["S2J_type"]),
+            # No type in the configuration, but the upstream issue has a type.
+            (lambda: update_state(config="type"), ["GH_type"]),
+            # No type from config or upstream, but there is "RFE" in issue title.
+            (lambda: update_state(issue_field={"issue_type": None}), ["Story"]),
+            # Default fallback
+            (
+                lambda: update_state(issue_field={"title": "Plain Issue Title"}),
+                ["Bug"],
+            ),
+        )
+
+        for scenario, (setup_action, expected) in enumerate(scenarios):
+            setup_action()
             actual = d._get_preferred_issue_types(self.mock_config, self.mock_issue)
             self.assertEqual(actual, expected, f"In scenario {scenario}")
-
-            # Set up the next scenario
-            if scenario == 0:
-                self.mock_issue.tags = ["tag2"]
-            elif scenario == 1:
-                self.mock_issue.tags = ["tag2", "tag1"]
-            elif scenario == 2:
-                self.mock_issue.tags = ["fred"]
-            elif scenario == 3:
-                del conf["issue_types"]
-            elif scenario == 4:
-                del conf["type"]
-            elif scenario == 5:
-                self.mock_issue.issue_type = None
-            elif scenario == 6:
-                self.mock_issue.title = "Plain Mock Issue Title"
-            elif scenario == 7:
-                pass  # The test should be over, now.
-            else:
-                self.fail(f"Test bug:  unexpected scenario {scenario}")
 
     @mock.patch(PATH + "get_jira_client")
     @mock.patch(PATH + "_get_existing_jira_issue")
