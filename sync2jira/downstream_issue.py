@@ -516,11 +516,9 @@ def _get_preferred_issue_types(config, issue):
     conf = cmap.get("github", {}).get(issue.upstream, {})
 
     if issue_types := conf.get("issue_types"):
-        type_list = [
-            issue_type for tag, issue_type in issue_types.items() if tag in issue.tags
-        ]
-        type_list.sort()
+        type_list = [v for k, v in issue_types.items() if k in issue.tags]
         if type_list:
+            type_list.sort()
             return type_list
 
     if issue_type := conf.get("type"):
