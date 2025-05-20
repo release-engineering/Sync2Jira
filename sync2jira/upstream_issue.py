@@ -327,7 +327,7 @@ def reformat_github_common(item, github_client):
     # Search for the user
     reporter = github_client.get_user(item["user"]["login"])
     # Update the reporter field in the message (to match Pagure format)
-    if reporter.name:
+    if reporter.name and reporter.name != "None":
         item["user"]["fullname"] = reporter.name
     else:
         item["user"]["fullname"] = item["user"]["login"]
@@ -336,7 +336,8 @@ def reformat_github_common(item, github_client):
     assignees = []
     for person in item.get("assignees", []):
         assignee = github_client.get_user(person["login"])
-        assignees.append({"fullname": assignee.name})
+        if assignee.name and assignee.name != "None":
+            assignees.append({"fullname": assignee.name})
     # Update the assignee field in the message (to match Pagure format)
     item["assignees"] = assignees
 
