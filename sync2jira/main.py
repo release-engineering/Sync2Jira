@@ -311,8 +311,10 @@ def handle_msg(body, suffix, config):
         # is actually for a PR
         if "pull_request" in body["issue"]:
             if body["action"] == "deleted":
-                # FIXME:  What _should_ we be doing in this case?  Calling pr_handlers[]()??
-                log.info("Not handling PR 'action' == 'deleted'")
+                # I think this gets triggered when someone deletes a comment
+                # from a PR.  Since we don't capture PR comments (only Issue
+                # comments), we don't need to react if one is deleted.
+                log.debug("Not handling PR 'action' == 'deleted'")
                 return
             # Handle this PR update as though it were an Issue, if that's
             # acceptable to the configuration.
