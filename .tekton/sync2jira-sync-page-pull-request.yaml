@@ -30,7 +30,8 @@ spec:
     value: Dockerfile.sync-page
   pipelineRef:
     name: build-pipeline
-  taskRunTemplate: {}
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-sync2jira-sync-page
   workspaces:
   - name: git-auth
     secret:
