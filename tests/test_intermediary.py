@@ -41,6 +41,7 @@ class TestIntermediary(unittest.TestCase):
             "date_created": "mock_date",
             "number": "1",
             "storypoints": "mock_storypoints",
+            "type": None,
         }
 
         self.mock_github_pr = {
@@ -107,6 +108,7 @@ class TestIntermediary(unittest.TestCase):
         self.assertEqual(response.status, "Open")
         self.assertEqual(response.downstream, {"mock_downstream": "mock_key"})
         self.assertEqual(response.storypoints, "mock_storypoints")
+        self.assertEqual(response.issue_type, None)
 
     def test_from_github_open_without_priority(self):
         """
@@ -169,6 +171,30 @@ class TestIntermediary(unittest.TestCase):
         self.assertEqual(response.status, "Closed")
         self.assertEqual(response.downstream, {"mock_downstream": "mock_key"})
         self.assertEqual(response.storypoints, "mock_storypoints")
+
+    def test_from_github_with_type(self):
+        """
+        This tests the 'from_github' function under the Issue class with
+        various values in the 'type' field
+        """
+        for issue_type, expected in (
+            (None, None),
+            ({}, None),
+            ({"name": None}, None),
+            ({"name": "issue_type_name"}, "issue_type_name"),
+            ({"fred": 1}, None),
+        ):
+            # Set up return values
+            self.mock_github_issue["type"] = issue_type
+
+            # Call the function
+            response = i.Issue.from_github(
+                upstream="github", issue=self.mock_github_issue, config=self.mock_config
+            )
+
+            # Assert that we made the calls correctly
+            self.checkResponseFields(response)
+            self.assertEqual(expected, response.issue_type)
 
     def test_mapping_github(self):
         """

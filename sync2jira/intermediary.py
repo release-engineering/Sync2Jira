@@ -38,9 +38,10 @@ class Issue(object):
         reporter,
         assignee,
         status,
-        id,
+        id_,
         storypoints,
         upstream_id,
+        issue_type,
         downstream=None,
     ):
         self.source = source
@@ -66,8 +67,9 @@ class Issue(object):
         self.reporter = reporter
         self.assignee = assignee
         self.status = status
-        self.id = str(id)
+        self.id = str(id_)
         self.upstream_id = upstream_id
+        self.issue_type = issue_type
         if not downstream:
             self.downstream = config["sync2jira"]["map"][self.source][upstream]
         else:
@@ -84,20 +86,9 @@ class Issue(object):
 
     @classmethod
     def from_github(cls, upstream, issue, config):
-        """Helper function to create intermediary object."""
+        """Helper function to create an intermediary Issue object."""
         upstream_source = "github"
-        comments = []
-        for comment in issue["comments"]:
-            comments.append(
-                {
-                    "author": comment["author"],
-                    "name": comment["name"],
-                    "body": trim_string(comment["body"]),
-                    "id": comment["id"],
-                    "date_created": comment["date_created"],
-                    "changed": None,
-                }
-            )
+        comments = reformat_github_comments(issue)
 
         # Reformat the state field
         if issue["state"]:
@@ -105,6 +96,11 @@ class Issue(object):
                 issue["state"] = "Open"
             elif issue["state"] == "closed":
                 issue["state"] = "Closed"
+
+        # Get the issue type if any
+        issue_type = issue.get("type")
+        if isinstance(issue_type, dict):
+            issue_type = issue_type.get("name")
 
         # Perform any mapping
         mapping = config["sync2jira"]["map"][upstream_source][upstream].get(
@@ -129,9 +125,10 @@ class Issue(object):
             reporter=issue["user"],
             assignee=issue["assignees"],
             status=issue["state"],
-            id=issue["id"],
+            id_=issue["id"],
             storypoints=issue.get("storypoints"),
             upstream_id=issue["number"],
+            issue_type=issue_type,
         )
 
     def __repr__(self):
@@ -155,7 +152,7 @@ class PR(object):
         reporter,
         assignee,
         status,
-        id,
+        id_,
         suffix,
         match,
         downstream=None,
@@ -188,7 +185,7 @@ class PR(object):
         self.reporter = reporter
         self.assignee = assignee
         self.status = status
-        self.id = str(id)
+        self.id = str(id_)
         self.suffix = suffix
         self.match = match
         # self.upstream_id = upstream_id
@@ -205,23 +202,12 @@ class PR(object):
 
     @classmethod
     def from_github(cls, upstream, pr, suffix, config):
-        """Helper function to create intermediary object."""
+        """Helper function to create an intermediary PR object."""
         # Set our upstream source
         upstream_source = "github"
 
         # Format our comments
-        comments = []
-        for comment in pr["comments"]:
-            comments.append(
-                {
-                    "author": comment["author"],
-                    "name": comment["name"],
-                    "body": trim_string(comment["body"]),
-                    "id": comment["id"],
-                    "date_created": comment["date_created"],
-                    "changed": None,
-                }
-            )
+        comments = reformat_github_comments(pr)
 
         # Build our URL
         url = pr["html_url"]
@@ -256,11 +242,25 @@ class PR(object):
             assignee=pr["assignee"],
             # GitHub PRs do not have status
             status=None,
-            id=pr["number"],
+            id_=pr["number"],
             # upstream_id=issue['number'],
             suffix=suffix,
             match=match,
         )
+
+
+def reformat_github_comments(issue):
+    return [
+        {
+            "author": comment["author"],
+            "name": comment["name"],
+            "body": trim_string(comment["body"]),
+            "id": comment["id"],
+            "date_created": comment["date_created"],
+            "changed": None,
+        }
+        for comment in issue["comments"]
+    ]
 
 
 def map_fixVersion(mapping, issue):
@@ -315,7 +315,7 @@ def matcher(content: Optional[str], comments: list[dict[str, str]]) -> str:
 
 def trim_string(content):
     """
-    Helper function to trim a string to ensure it is not over 50000 char
+    Helper function to trim a string to ensure it is not over 50,000 char
     Ref: https://github.com/release-engineering/Sync2Jira/issues/123
 
     :param String content: Comment content
