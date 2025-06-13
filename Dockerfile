@@ -47,10 +47,13 @@ RUN mkdir -p /usr/local/src/sync2jira
 COPY . /usr/local/src/sync2jira
 
 # Install deps
-RUN pip install -r /usr/local/src/sync2jira/requirements.txt
+RUN pip3 install -r /usr/local/src/sync2jira/requirements.txt
+
+# Grab the latest pandoc binary
+RUN python3 -c 'from pathlib import Path; import pypandoc; from pypandoc.pandoc_download import download_pandoc; download_pandoc(targetfolder=Path(pypandoc.get_pandoc_path()).parent)'
 
 # Install Sync2Jira
-RUN  pip3 install --no-deps -v /usr/local/src/sync2jira
+RUN pip3 install --no-deps -v /usr/local/src/sync2jira
 
 USER 1001
 
