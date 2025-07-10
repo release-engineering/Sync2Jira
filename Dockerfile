@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/ubi:9.6-1749542372
+FROM registry.access.redhat.com/ubi9/ubi:9.6-1752069608@sha256:e5ab898b4f3e91e31b4d202e92b4ca409ac18c2de77c4813807b3761332bf556
 
 ARG SYNC2JIRA_GIT_REPO=https://github.com/release-engineering/Sync2Jira.git
 ARG SYNC2JIRA_GIT_REF=master
@@ -47,10 +47,13 @@ RUN mkdir -p /usr/local/src/sync2jira
 COPY . /usr/local/src/sync2jira
 
 # Install deps
-RUN pip install -r /usr/local/src/sync2jira/requirements.txt
+RUN pip3 install -r /usr/local/src/sync2jira/requirements.txt
+
+# Grab the latest pandoc binary
+RUN python3 -c 'from pathlib import Path; import pypandoc; from pypandoc.pandoc_download import download_pandoc; download_pandoc(targetfolder=Path(pypandoc.get_pandoc_path()).parent)'
 
 # Install Sync2Jira
-RUN  pip3 install --no-deps -v /usr/local/src/sync2jira
+RUN pip3 install --no-deps -v /usr/local/src/sync2jira
 
 USER 1001
 
