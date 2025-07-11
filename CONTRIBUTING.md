@@ -20,12 +20,15 @@ Thank you for your interest in contributing to Sync2Jira! This document provides
 
 Before contributing, ensure you have:
 
-- Python 3.9 or higher
+- Python 3.12 or higher
 - Git
 - Access to a JIRA instance for testing (optional but recommended)
 - GitHub API token for testing
 
-### Quick Setup
+
+## Development Environment
+
+## Cloning the repo
 
 ```bash
 # Fork the repository on GitHub
@@ -36,15 +39,8 @@ cd Sync2Jira
 # Set up the upstream remote
 git remote add upstream https://github.com/release-engineering/Sync2Jira.git
 
-# Install in development mode
-pip install -e .
 
-# Install development dependencies
-pip install -r test-requirements.txt
 ```
-
-## Development Environment
-
 ### Setting up Your Environment
 
 1. **Create a virtual environment** (recommended):
@@ -59,11 +55,6 @@ pip install -r test-requirements.txt
    pip install -r test-requirements.txt
    ```
 
-3. **Install pre-commit hooks** (optional but recommended):
-   ```bash
-   pip install pre-commit
-   pre-commit install
-   ```
 
 ### Configuration for Development
 
@@ -106,7 +97,6 @@ config = {
 
 We follow PEP 8 with some project-specific conventions:
 
-- **Maximum line length**: 140 characters
 - **Import formatting**: Use `isort` with the black profile
 - **Code formatting**: Use `black` for consistent formatting
 - **Docstrings**: Use Google-style docstrings for all functions and classes
@@ -117,32 +107,17 @@ Run these tools before submitting your changes:
 
 ```bash
 # Format code
-tox -e black-format
-tox -e isort-format
+tox
 
-# Check formatting and style
-tox -e black
-tox -e isort
-tox -e lint
-
-# Run all checks
-tox -e py39,lint,black,isort
 ```
 
 ### Example Function Documentation
 
 ```python
-def sync_with_jira(issue, config):
+def sync_with_jira(issue: sync2jira.intermediary.Issue, config:dict[str, Any]) -> None:
     """
     Attempts to sync an upstream issue with JIRA.
-
-    Args:
-        issue (sync2jira.intermediary.Issue): Issue object to sync
-        config (Dict): Configuration dictionary containing JIRA settings
-
-    Returns:
-        None
-
+    
     Raises:
         JIRAError: If JIRA API call fails
         ValueError: If configuration is invalid
@@ -222,7 +197,9 @@ class TestDownstreamIssue(unittest.TestCase):
 
 ### Test Coverage
 
-- Maintain test coverage above 80%
+- Maintain test coverage above 90%
+- A PR should should not be merged if it decreases the level of test coverage.
+- New code submissions should be accompanied by unit tests which exercise, at a minimum, all non-fatal paths through it -- that is, all "success" paths as well as all paths which successfully recover from errors
 - Add tests for new features and bug fixes
 - Update tests when modifying existing functionality
 
@@ -247,7 +224,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
 4. **Commit your changes**:
    ```bash
-   git add .
+   git add [filename]
    git commit -m "Add feature: brief description"
    ```
 
@@ -259,7 +236,7 @@ class TestDownstreamIssue(unittest.TestCase):
 6. **Create a Pull Request**:
    - Use the GitHub web interface
    - Provide a clear description of changes
-   - Reference any related issues
+   - Feel free to reference [Github automation](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/using-keywords-in-issues-and-pull-requests#linking-a-pull-request-to-an-issue)
 
 ### Commit Message Guidelines
 
@@ -278,15 +255,27 @@ Fixes #123
 Update documentation for new configuration options
 ```
 
-### Pull Request Requirements
 
-Before your PR can be merged, ensure:
+#### Pull Request Etiquette
 
-- [ ] All tests pass
-- [ ] Code follows style guidelines
-- [ ] Documentation is updated (if applicable)
-- [ ] Commit messages are clear and descriptive
-- [ ] No merge conflicts with the main branch
+When working with pull requests, please follow these guidelines to ensure a smooth review process:
+
+**History Management:**
+- **Don't rewrite history:** Once a PR is open for review, you may add commits to the branch and you may rebase the entire branch, but do not modify the existing commits in the branch -- do not edit them or squash them together -- rewriting the history makes it difficult to do incremental reviews; if you need to rework the commits, do this before opening the PR for review (after the review is complete, the branch can be squashed automatically when it is merged if this is appropriate).
+
+**Comment Resolution:**
+- The author of a comment thread (i.e., the reviewer) should be the one to mark it as resolved -- this makes it clear whether the PR author's response actually resolved the commenter's concern. Note, there are two exceptions to this:
+  - If the comment uses the GH "suggestion" mechanism, the comment will automatically be marked resolved if the suggestion is accepted (it is assumed that accepting the commenter's solution resolves the commenter's whole concern).
+  - The commenter may not have permission to mark the comment as resolved (which I think is a UI bug, but...), in which case they should respond that the thread can closed.
+
+**Comment Organization:**
+- Avoid identifying multiple (unrelated) concerns in a single comment -- open separate conversations for separate concerns (so that they can be resolved separately, and so that they don't get lost in each other).
+
+**Response Guidelines:**
+- If the PR author agrees or otherwise intends to make a change based on a reviewer's comment, s/he does not need to reply to the comment (s/he may do so if it adds value, but consider using the GH reaction emojis instead, as these cause less "noise") -- the reviewer will see the change in the code when s/he next reviews; however, if the PR author disagrees or declines to make a change as a result of the comment, s/he should respond to the comment with the reason(s) or justification for declining -- the comment author should resolve the conversation or offer a response. A PR should not be merged with unresolved conversations.
+
+**PR Structure:**
+- Take care in how you structure your change. Ideally, a PR should consist of a single, focused, coherent change. Unrelated changes should likely be submitted as separate PRs. However, there is an economy of scale for reviewers, such that it is better to present a modest number of small changes as a single PR rather than as a series of separate, tiny PRs, but, be aware that, if any of the changes prove controversial, it will hold up the whole PR. For large changes, consider splitting them up into multiple PRs. Otherwise, large PRs should be structured as a series of commits where each commit represents a clear step toward the completed change. Commits containing tangential changes or dead ends should be squashed before opening the PR; oversized or unfocused commits should be split into multiple commits (see rebase -i and add -p for help with this).
 
 ## Adding New Repositories
 
@@ -360,14 +349,14 @@ Understanding the architecture helps when contributing:
 ### Data Flow
 
 ```
-GitHub Event → Upstream Handler → Intermediary Object → Downstream Handler → JIRA Issue
+GitHub Event → Webhook → Fedora Message Bus → Sync2Jira → Upstream Handler → Intermediary Object → Downstream Handler → JIRA Issue
 ```
 
 ### Configuration Processing
 
 1. Load configuration from `fedmsg.d/sync2jira.py`
 2. Validate required fields and mappings
-3. Set up JIRA clients and GitHub authentication
+3. Set up JIRA client and GitHub authentication
 4. Process repository mappings and filters
 
 ## Debugging
@@ -385,43 +374,9 @@ config = {
 }
 ```
 
-### Common Debugging Scenarios
-
-1. **Issue not syncing**:
-   - Check repository mapping in configuration
-   - Verify filters aren't excluding the issue
-   - Check JIRA project permissions
-
-2. **JIRA connection issues**:
-   - Verify JIRA URL and credentials
-   - Check network connectivity
-   - Validate JIRA project exists
-
-3. **GitHub API issues**:
-   - Verify token has correct permissions
-   - Check API rate limits
-   - Ensure repository is accessible
-
-### Logging
-
-The service uses Python's logging module:
-
-```python
-import logging
-
-log = logging.getLogger("sync2jira")
-log.info("Information message")
-log.error("Error message")
-log.debug("Debug message")  # Only shown in debug mode
-```
 
 ## Release Process
 
-### Version Management
-
-- Version is defined in `sync2jira/__init__.py`
-- Follow semantic versioning (MAJOR.MINOR.PATCH)
-- Update version for releases
 
 ### Documentation Updates
 
@@ -439,7 +394,7 @@ log.debug("Debug message")  # Only shown in debug mode
 
 - **Documentation**: [https://sync2jira.readthedocs.io](https://sync2jira.readthedocs.io)
 - **Issues**: [GitHub Issues](https://github.com/release-engineering/Sync2Jira/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/release-engineering/Sync2Jira/discussions)
+
 
 ## Code of Conduct
 
