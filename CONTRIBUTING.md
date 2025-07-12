@@ -282,44 +282,6 @@ When working with pull requests, please follow these guidelines to ensure a smoo
 **PR Structure:**
 - Take care in how you structure your change. Ideally, a PR should consist of a single, focused, coherent change. Unrelated changes should likely be submitted as separate PRs. However, there is an economy of scale for reviewers, such that it is better to present a modest number of small changes as a single PR rather than as a series of separate, tiny PRs, but, be aware that, if any of the changes prove controversial, it will hold up the whole PR. For large changes, consider splitting them up into multiple PRs. Otherwise, large PRs should be structured as a series of commits where each commit represents a clear step toward the completed change. Commits containing tangential changes or dead ends should be squashed before opening the PR; oversized or unfocused commits should be split into multiple commits (see the `git rebase -i` and `git add -p` commands for help with this).
 
-## Adding New Repositories
-
-If you want to add support for a new upstream repository type (beyond GitHub), follow these steps:
-
-1. **Add upstream handler functions** in `sync2jira/upstream_issue.py` and `sync2jira/upstream_pr.py`:
-   ```python
-   def handle_NEWREPO_message(msg, config):
-       """Handle messages from new repository type"""
-       pass
-
-   def NEWREPO_issues(upstream, config):
-       """Generator for all issues from new repository type"""
-       pass
-   ```
-
-2. **Update the main handler** in `sync2jira/main.py`:
-   ```python
-   # Add to issue_handlers and pr_handlers dictionaries
-   issue_handlers = {
-       # ... existing handlers
-       "newrepo.issue.opened": handle_NEWREPO_message,
-   }
-   ```
-
-3. **Update initialization functions** in `sync2jira/main.py`:
-   ```python
-   def initialize_issues(config, testing=False, repo_name=None):
-       # Add section for new repository type
-       for upstream in mapping.get("newrepo", {}).keys():
-           # Implementation
-   ```
-
-4. **Add tests** for the new repository type
-
-5. **Update documentation** with configuration examples
-
-See the [Adding New Repos Guide](https://sync2jira.readthedocs.io/en/master/adding-new-repo-guide.html) for detailed instructions.
-
 ## Architecture Overview
 
 Understanding the architecture helps when contributing:
