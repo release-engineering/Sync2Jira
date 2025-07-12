@@ -2,6 +2,7 @@
 
 [![Documentation Status](https://readthedocs.org/projects/sync2jira/badge/?version=master)](https://sync2jira.readthedocs.io/en/master/?badge=master)
 [![Docker Repository on Quay](https://quay.io/repository/redhat-aqe/sync2jira/status "Docker Repository on Quay")](https://quay.io/repository/redhat-aqe/sync2jira)
+[![Coverage Status](https://coveralls.io/repos/github/release-engineering/Sync2Jira/badge.svg?branch=main)](https://coveralls.io/github/release-engineering/Sync2Jira?branch=main)
 ![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)
 
 ## Overview
@@ -13,7 +14,7 @@ Sync2Jira is a service that listens to activity on upstream GitHub repositories 
 - **Real-time Synchronization**: Listens to fedmsg events from GitHub for immediate updates
 - **Sync**: Supports both issues and pull requests
 - **Flexible Configuration**: Map multiple GitHub repositories to different JIRA projects
-- **Custom Field Support**: Sync labels, assignees, milestones,custom fields and GitHub repo data (priority, story points)
+- **Custom Field Support**: Sync labels, assignees, milestones and custom fields such as priority and story points
 - **Batch Initialization**: Initial sync of all existing issues and PRs
 - **Manual Sync Interface**: Web UI for on-demand repository synchronization
 - **Comprehensive Filtering**: Filter by labels, milestones, and other criteria
@@ -40,7 +41,7 @@ Sync2Jira is a service that listens to activity on upstream GitHub repositories 
 ### Prerequisites
 
 - Python 3.9+
-- Access to a JIRA with API tokens
+- API access (via Personal Access Token) to a Jira Data Center instance
 - GitHub API token
 - Fedora messaging environment (for production)
 
@@ -52,9 +53,10 @@ docker pull quay.io/redhat-aqe/sync2jira:latest
 
 # Run with your configuration
 docker run -v /path/to/your/config:/etc/fedmsg.d/ \
+           -p 5000:5000 \
            -e GITHUB_TOKEN=your_token \
            -e JIRA_TOKEN=your_jira_token \
-           quay.io/redhat-aqe/sync2jira:latest
+           quay.io/redhat-aqe/sync2jira:sync-page
 ```
 
 ### From Source
@@ -67,7 +69,7 @@ cd Sync2Jira
 # Install dependencies
 pip install -r requirements.txt
 
-#install package 
+# Install package
 pip install .
 
 # Run the service
@@ -179,26 +181,6 @@ Comprehensive documentation is available at [sync2jira.readthedocs.io](https://s
 - [Configuration Reference](https://sync2jira.readthedocs.io/en/master/config-file.html)
 - [Sync Page Usage](https://sync2jira.readthedocs.io/en/master/sync_page.html)
 
-
-## Troubleshooting
-
-### Common Issues
-
-1. **API Rate Limits**: The service automatically handles GitHub API rate limits by sleeping and retrying
-2. **JIRA Connection Issues**: Check your JIRA server URL and authentication tokens
-3. **Missing Issues**: Verify your fedmsg configuration and repository mappings
-4. **Duplicate Issues**: The service includes duplicate detection and prevention
-
-### Logging
-
-Enable debug logging by setting the `debug` option in your configuration:
-
-```python
-'sync2jira': {
-    'debug': True,
-    # ... other options
-}
-```
 
 ## License
 

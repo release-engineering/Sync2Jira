@@ -51,8 +51,7 @@ git remote add upstream https://github.com/release-engineering/Sync2Jira.git
 
 2. **Install dependencies**:
    ```bash
-   pip install -r requirements.txt
-   pip install -r test-requirements.txt
+   pip install -e .
    ```
 
 
@@ -107,7 +106,13 @@ Run these tools before submitting your changes:
 
 ```bash
 # Format code
-tox
+tox -e black-format
+tox -e isort-format
+
+# Check formatting and style
+tox -e black
+tox -e isort
+tox -e lint
 
 ```
 
@@ -224,7 +229,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
 4. **Commit your changes**:
    ```bash
-   git add [filename]
+   git add [filename(s)...]
    git commit -m "Add feature: brief description"
    ```
 
@@ -236,7 +241,7 @@ class TestDownstreamIssue(unittest.TestCase):
 6. **Create a Pull Request**:
    - Use the GitHub web interface
    - Provide a clear description of changes
-   - Feel free to reference [Github automation](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/using-keywords-in-issues-and-pull-requests#linking-a-pull-request-to-an-issue)
+   - Reference related Issues and/or PRs in the description, and feel free to use [Github keywords](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/using-keywords-in-issues-and-pull-requests#linking-a-pull-request-to-an-issue) to trigger closure of the issue.
 
 ### Commit Message Guidelines
 
@@ -266,7 +271,7 @@ When working with pull requests, please follow these guidelines to ensure a smoo
 **Comment Resolution:**
 - The author of a comment thread (i.e., the reviewer) should be the one to mark it as resolved -- this makes it clear whether the PR author's response actually resolved the commenter's concern. Note, there are two exceptions to this:
   - If the comment uses the GH "suggestion" mechanism, the comment will automatically be marked resolved if the suggestion is accepted (it is assumed that accepting the commenter's solution resolves the commenter's whole concern).
-  - The commenter may not have permission to mark the comment as resolved (which I think is a UI bug, but...), in which case they should respond that the thread can closed.
+  - The commenter may not have permission to mark the comment as resolved, in which case the commenter should respond and indicate that the thread can be closed (and then it can be closed by someone with write-access to the repo).
 
 **Comment Organization:**
 - Avoid identifying multiple (unrelated) concerns in a single comment -- open separate conversations for separate concerns (so that they can be resolved separately, and so that they don't get lost in each other).
@@ -275,7 +280,7 @@ When working with pull requests, please follow these guidelines to ensure a smoo
 - If the PR author agrees or otherwise intends to make a change based on a reviewer's comment, s/he does not need to reply to the comment (s/he may do so if it adds value, but consider using the GH reaction emojis instead, as these cause less "noise") -- the reviewer will see the change in the code when s/he next reviews; however, if the PR author disagrees or declines to make a change as a result of the comment, s/he should respond to the comment with the reason(s) or justification for declining -- the comment author should resolve the conversation or offer a response. A PR should not be merged with unresolved conversations.
 
 **PR Structure:**
-- Take care in how you structure your change. Ideally, a PR should consist of a single, focused, coherent change. Unrelated changes should likely be submitted as separate PRs. However, there is an economy of scale for reviewers, such that it is better to present a modest number of small changes as a single PR rather than as a series of separate, tiny PRs, but, be aware that, if any of the changes prove controversial, it will hold up the whole PR. For large changes, consider splitting them up into multiple PRs. Otherwise, large PRs should be structured as a series of commits where each commit represents a clear step toward the completed change. Commits containing tangential changes or dead ends should be squashed before opening the PR; oversized or unfocused commits should be split into multiple commits (see rebase -i and add -p for help with this).
+- Take care in how you structure your change. Ideally, a PR should consist of a single, focused, coherent change. Unrelated changes should likely be submitted as separate PRs. However, there is an economy of scale for reviewers, such that it is better to present a modest number of small changes as a single PR rather than as a series of separate, tiny PRs, but, be aware that, if any of the changes prove controversial, it will hold up the whole PR. For large changes, consider splitting them up into multiple PRs. Otherwise, large PRs should be structured as a series of commits where each commit represents a clear step toward the completed change. Commits containing tangential changes or dead ends should be squashed before opening the PR; oversized or unfocused commits should be split into multiple commits (see the `git rebase -i` and `git add -p` commands for help with this).
 
 ## Adding New Repositories
 
@@ -369,6 +374,8 @@ Enable debug logging in your configuration:
 config = {
     'sync2jira': {
         'debug': True,
+        'testing': True,    # Enable dry-run mode
+        'develop': True,    # Enable development mode
         # ... other options
     }
 }
