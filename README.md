@@ -1,7 +1,6 @@
 # Sync2Jira
 
 [![Documentation Status](https://readthedocs.org/projects/sync2jira/badge/?version=master)](https://sync2jira.readthedocs.io/en/master/?badge=master)
-[![Docker Repository on Quay](https://quay.io/repository/redhat-aqe/sync2jira/status "Docker Repository on Quay")](https://quay.io/repository/redhat-aqe/sync2jira)
 [![Coverage Status](https://coveralls.io/repos/github/release-engineering/Sync2Jira/badge.svg?branch=main)](https://coveralls.io/github/release-engineering/Sync2Jira?branch=main)
 ![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)
 
@@ -48,16 +47,22 @@ Sync2Jira is a service that listens to activity on upstream GitHub repositories 
 ### Using Docker
 
 ```bash
-# Pull the latest image
-docker pull quay.io/redhat-aqe/sync2jira:latest
-
-# Run with your configuration
+# Basic usage - run the sync service
 docker run -v /path/to/your/config:/etc/fedmsg.d/ \
-           -p 5000:5000 \
            -e GITHUB_TOKEN=your_token \
            -e JIRA_TOKEN=your_jira_token \
-           quay.io/redhat-aqe/sync2jira:sync-page
+           quay.io/redhat-services-prod/sync2jira/sync2jira:latest
+
+# With initialization (sync all existing issues)
+docker run -v /path/to/your/config:/etc/fedmsg.d/ \
+           -e GITHUB_TOKEN=your_token \
+           -e JIRA_TOKEN=your_jira_token \
+           -e INITIALIZE=1 \
+           quay.io/redhat-services-prod/sync2jira/sync2jira:latest
+           
 ```
+
+**Note**: The `-v /path/to/your/config:/etc/fedmsg.d/` option mounts your local configuration directory inside the container, allowing the containerized application to use your host system's configuration files.
 
 ### From Source
 
@@ -146,6 +151,19 @@ config = {
 | `admins` | List of admin users for notifications | `[]` |
 
 ## Usage
+
+### Container Deployment
+
+**Sync Page UI**
+
+```bash
+# Run the web interface for manual synchronization
+docker run -v /path/to/your/config:/etc/fedmsg.d/ \
+           -p 5000:5000 \
+           -e GITHUB_TOKEN=your_token \
+           -e JIRA_TOKEN=your_jira_token \
+           quay.io/redhat-aqe/sync2jira:sync-page
+```
 
 ### Manual Sync Interface
 

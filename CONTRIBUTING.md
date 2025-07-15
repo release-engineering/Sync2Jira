@@ -102,19 +102,8 @@ We follow PEP 8 with some project-specific conventions:
 
 ### Code Quality Tools
 
-Run these tools before submitting your changes:
-
-```bash
-# Format code
-tox -e black-format
-tox -e isort-format
-
-# Check formatting and style
-tox -e black
-tox -e isort
-tox -e lint
-
-```
+Before submitting your changes, ensure that the `tox` command passes when run with the default environments (i.e., with no arguments).
+As a convenience, you can run the environments individually (see `tox.ini`).  Also, you can run `tox -e black-format` and `tox -e isort-format` to format your code.
 
 ### Example Function Documentation
 
@@ -202,10 +191,10 @@ class TestDownstreamIssue(unittest.TestCase):
 
 ### Test Coverage
 
-- Maintain test coverage above 90%
-- A PR should should not be merged if it decreases the level of test coverage.
-- New code submissions should be accompanied by unit tests which exercise, at a minimum, all non-fatal paths through it -- that is, all "success" paths as well as all paths which successfully recover from errors
-- Add tests for new features and bug fixes
+- **No coverage regression**: A PR should not be merged if it decreases the level of test coverage
+- **New code requires tests**: New code submissions should be accompanied by unit tests which exercise, at a minimum, all non-fatal paths through it -- that is, all "success" paths as well as all paths which successfully recover from errors
+- **Bug fixes require tests**: PRs containing bug fixes should include at least one test which demonstrates that the bug is fixed
+- **Continuous improvement**: Each PR should ideally improve the overall test coverage, moving us toward comprehensive coverage
 - Update tests when modifying existing functionality
 
 ## Submitting Changes
