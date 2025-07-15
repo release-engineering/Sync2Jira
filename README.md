@@ -44,26 +44,6 @@ Sync2Jira is a service that listens to activity on upstream GitHub repositories 
 - GitHub API token
 - Fedora messaging environment (for production)
 
-### Using Docker
-
-```bash
-# Basic usage - run the sync service
-docker run -v /path/to/your/config:/etc/fedmsg.d/ \
-           -e GITHUB_TOKEN=your_token \
-           -e JIRA_TOKEN=your_jira_token \
-           quay.io/redhat-services-prod/sync2jira/sync2jira:latest
-
-# With initialization (sync all existing issues)
-docker run -v /path/to/your/config:/etc/fedmsg.d/ \
-           -e GITHUB_TOKEN=your_token \
-           -e JIRA_TOKEN=your_jira_token \
-           -e INITIALIZE=1 \
-           quay.io/redhat-services-prod/sync2jira/sync2jira:latest
-           
-```
-
-**Note**: The `-v /path/to/your/config:/etc/fedmsg.d/` option mounts your local configuration directory inside the container, allowing the containerized application to use your host system's configuration files.
-
 ### From Source
 
 ```bash
@@ -87,6 +67,8 @@ INITIALIZE=1 sync2jira
 # Set testing: True in config file
 sync2jira
 ```
+
+**Note**: Container images are also available as an alternative to native installation. See the [Usage](#usage) section for container deployment instructions.
 
 ## Configuration
 
@@ -152,9 +134,58 @@ config = {
 
 ## Usage
 
-### Container Deployment
+### Sync2Jira Service
 
-**Sync Page UI**
+The main synchronization service that listens for GitHub events and creates/updates JIRA issues.
+
+#### Native Installation
+
+```bash
+# Run the service
+sync2jira
+
+# With initialization (sync all existing issues)
+INITIALIZE=1 sync2jira
+
+# Testing mode (dry run)
+# Set testing: True in config file
+sync2jira
+```
+
+#### Container Deployment
+
+```bash
+# Basic usage - run the sync service
+docker run -v /path/to/your/config:/etc/fedmsg.d/ \
+           -e GITHUB_TOKEN=your_token \
+           -e JIRA_TOKEN=your_jira_token \
+           quay.io/redhat-services-prod/sync2jira/sync2jira:latest
+
+# With initialization (sync all existing issues)
+docker run -v /path/to/your/config:/etc/fedmsg.d/ \
+           -e GITHUB_TOKEN=your_token \
+           -e JIRA_TOKEN=your_jira_token \
+           -e INITIALIZE=1 \
+           quay.io/redhat-services-prod/sync2jira/sync2jira:latest
+```
+
+**Note**: The `-v /path/to/your/config:/etc/fedmsg.d/` option mounts your local configuration directory inside the container, allowing the containerized application to use your host system's configuration files.
+
+### Sync Page UI
+
+A web interface for manually triggering synchronization of specific repositories when needed.
+
+#### Native Installation
+
+```bash
+# Navigate to the sync-page directory
+cd sync-page
+
+# Run the Flask application
+python event-handler.py
+```
+
+#### Container Deployment
 
 ```bash
 # Run the web interface for manual synchronization
@@ -165,31 +196,21 @@ docker run -v /path/to/your/config:/etc/fedmsg.d/ \
            quay.io/redhat-aqe/sync2jira:sync-page
 ```
 
-### Manual Sync Interface
-
-The sync page is a separate web application that provides a UI for manually triggering synchronization.
-
-**Running the sync page locally:**
-```bash
-# Navigate to the sync-page directory
-cd sync-page
-
-# Run the Flask application
-python event-handler.py
-```
-
 **Access the interface:**
 - Local development: `http://localhost:5000` (or whatever port Flask shows)
 - Production: Configure according to your deployment environment
 
-
 ### Environment Variables
 
-- `INITIALIZE`: Set to `1` to perform initial sync of all issues
-- `FEDORA_MESSAGING_QUEUE`: Custom message queue name
+The following environment variables can be used to configure both tools:
+
+**Common Variables (used by both sync2jira and sync-page):**
 - `GITHUB_TOKEN`: GitHub API token (can override config)
 - `JIRA_TOKEN`: JIRA API token (can override config)
 
+**Sync2Jira Service Only:**
+- `INITIALIZE`: Set to `1` to perform initial sync of all issues
+- `FEDORA_MESSAGING_QUEUE`: Custom message queue name
 
 ## Documentation
 
