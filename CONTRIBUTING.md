@@ -181,14 +181,6 @@ class TestDownstreamIssue(unittest.TestCase):
         # Test implementation
         pass
 ```
-
-#### Integration Tests
-
-- Integration tests are in `tests/integration_tests/`
-- These tests require real JIRA and GitHub instances
-- Use environment variables for credentials
-- Integration tests are excluded from regular test runs
-
 ### Test Coverage
 
 - **No coverage regression**: A PR should not be merged if it decreases the level of test coverage
