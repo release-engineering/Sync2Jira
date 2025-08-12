@@ -111,6 +111,24 @@ class TestDownstreamPR(unittest.TestCase):
 
     @mock.patch(PATH + "update_jira_issue")
     @mock.patch(PATH + "d_issue")
+    def test_sync_with_jira_no_match(self, mock_d_issue, mock_update_jira_issue):
+        """
+        This function tests 'sync_with_jira' when the PR contains no matched issue.
+        """
+        # Set up return values
+        mock_d_issue.get_jira_client.return_value = self.mock_client
+        self.mock_pr.jira_key = None
+
+        # Call the function
+        d.sync_with_jira(self.mock_pr, self.mock_config)
+
+        # Assert everything was called correctly
+        mock_d_issue.get_jira_client.assert_called_with(self.mock_pr, self.mock_config)
+        self.mock_client.search_issues.assert_not_called()
+        mock_update_jira_issue.assert_not_called()
+
+    @mock.patch(PATH + "update_jira_issue")
+    @mock.patch(PATH + "d_issue")
     def test_sync_with_jira_no_issues_found(self, mock_d_issue, mock_update_jira_issue):
         """
         This function tests 'sync_with_jira' where no issues are found
