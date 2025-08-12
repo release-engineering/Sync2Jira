@@ -213,24 +213,24 @@ def update_jira(client, config, pr):
 
     # Find our JIRA issue if one exists
     if isinstance(pr, Issue):
+        # Instances of the `PR` type already have an initialized `jira_key`
+        # attribute; since what we have here is actually an `Issue`, we need to
+        # add it.
         pr.jira_key = matcher(pr.content, pr.comments)
 
-    query = f"Key = {pr.jira_key}"
-    try:
-        response: ResultList[JIRAIssue] = client.search_issues(query)
-        # Throw error and return if nothing could be found
-        if len(response) == 0 or len(response) > 1:
-            log.warning(f"No JIRA issue could be found for {pr.title}")
-            return
-    except JIRAError:
-        # If no issue exists, it will throw a JIRA error
-        log.warning(f"No JIRA issue exists for PR: {pr.title}. Query: {query}")
+    if not pr.jira_key:
+        log.info("No JIRA key found in PR, skipping.")
         return
 
-    # Existing JIRA issue is the only one in the query
-    existing = response[0]
-
-    # Else start syncing relevant information
-    log.info(f"Syncing PR {pr.title}")
-    update_jira_issue(existing, pr, client)
-    log.info(f"Done syncing PR {pr.title}")
+    response: ResultList[JIRAIssue] = client.search_issues(f"Key = {pr.jira_key}")
+    if len(response) == 1:
+        # Syncing relevant information
+        log.info(f"Syncing PR {pr.url}")
+        update_jira_issue(response[0], pr, client)
+        log.info(f"Done syncing PR {pr.url}")
+    elif len(response) == 0:
+        log.info(f"No issue found for referenced key, {pr.jira_key}")
+    else:
+        log.warning(
+            f"Unexpectedly received {len(response)} matches for JIRA issue {pr.jira_key}"
+        )
