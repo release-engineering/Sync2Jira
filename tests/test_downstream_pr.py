@@ -58,10 +58,7 @@ class TestDownstreamPR(unittest.TestCase):
 
     @mock.patch(PATH + "update_jira_issue")
     @mock.patch(PATH + "d_issue")
-    @mock.patch(PATH + "update_transition")
-    def test_sync_with_jira_link(
-        self, mock_update_transition, mock_d_issue, mock_update_jira_issue
-    ):
+    def test_sync_with_jira_link(self, mock_d_issue, mock_update_jira_issue):
         """
         This function tests 'sync_with_jira'
         """
@@ -77,16 +74,10 @@ class TestDownstreamPR(unittest.TestCase):
         )
         self.mock_client.search_issues.assert_called_with("Key = JIRA-1234")
         mock_d_issue.get_jira_client.assert_called_with(self.mock_pr, self.mock_config)
-        mock_update_transition.mock.asset_called_with(
-            self.mock_client, "mock_existing", self.mock_pr, "link_transition"
-        )
 
     @mock.patch(PATH + "update_jira_issue")
     @mock.patch(PATH + "d_issue")
-    @mock.patch(PATH + "update_transition")
-    def test_sync_with_jira_merged(
-        self, mock_update_transition, mock_d_issue, mock_update_jira_issue
-    ):
+    def test_sync_with_jira_merged(self, mock_d_issue, mock_update_jira_issue):
         """
         This function tests 'sync_with_jira'
         """
@@ -105,9 +96,6 @@ class TestDownstreamPR(unittest.TestCase):
         )
         mock_client.search_issues.assert_called_with("Key = JIRA-1234")
         mock_d_issue.get_jira_client.assert_called_with(self.mock_pr, self.mock_config)
-        mock_update_transition.mock.asset_called_with(
-            mock_client, "mock_existing", self.mock_pr, "merged_transition"
-        )
 
     @mock.patch(PATH + "update_jira_issue")
     @mock.patch(PATH + "d_issue")
