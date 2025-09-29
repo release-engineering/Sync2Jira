@@ -45,7 +45,9 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Mock sync2jira.intermediary.Issue
         self.mock_issue = MagicMock()
-        self.mock_issue.assignee = [{"fullname": "mock_user"}]
+        self.mock_issue.assignee = [
+            {"fullname": "mock_user", "login": "mock_user_login"}
+        ]
         self.mock_issue.downstream = {
             "project": "mock_project",
             "custom_fields": {"somecustumfield": "somecustumvalue"},
@@ -72,7 +74,9 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_issue.tags = ["tag1", "tag2"]
         self.mock_issue.fixVersion = ["fixVersion3", "fixVersion4"]
         self.mock_issue.fixVersion = ["fixVersion3", "fixVersion4"]
-        self.mock_issue.assignee = [{"fullname": "mock_assignee"}]
+        self.mock_issue.assignee = [
+            {"fullname": "mock_assignee", "login": "mock_assignee_login"}
+        ]
         self.mock_issue.status = "Open"
         self.mock_issue.id = "1234"
         self.mock_issue.storypoints = 2
@@ -221,8 +225,9 @@ class TestDownstreamIssue(unittest.TestCase):
         }
         client_obj.add_remote_link.assert_called_once_with(downstream.id, remote)
 
+    @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
-    def test_assign_user(self, mock_client):
+    def test_assign_user(self, mock_client, mock_rover_lookup):
         """
         Test `assign_user()` when the downstream user matches the upstream user.
         """
@@ -232,6 +237,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user.key = "mock_user_key"
         mock_client.search_assignable_users_for_issues.return_value = [mock_user]
         mock_client.assign_issue.return_value = True
+        mock_rover_lookup.return_value = ["mock_user@redhat.com"]
 
         # Call the assign user function
         d.assign_user(
@@ -243,11 +249,12 @@ class TestDownstreamIssue(unittest.TestCase):
             {"assignee": {"name": mock_user.name}}
         )
         mock_client.search_assignable_users_for_issues.assert_called_with(
-            "mock_assignee", issueKey=self.mock_downstream.key
+            query="mock_user@redhat.com", issueKey=self.mock_downstream.key
         )
 
+    @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
-    def test_assign_user_diacritics(self, mock_client):
+    def test_assign_user_diacritics(self, mock_client, mock_rover_lookup):
         """
         Test `assign_user()` when the downstream user matches the upstream user
         only when the diacritic characters are replaced.
@@ -258,7 +265,10 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user.key = "mock_user_key"
         mock_client.search_assignable_users_for_issues.return_value = [mock_user]
         mock_client.assign_issue.return_value = True
-        self.mock_issue.assignee = [{"fullname": "ḿòćḱ_ášśìǵńèé"}]
+        mock_rover_lookup.return_value = ["mock_user@redhat.com"]
+        self.mock_issue.assignee = [
+            {"fullname": "ḿòćḱ_ášśìǵńèé", "login": "mock_user_diacritics"}
+        ]
         # Call the assign user function
         d.assign_user(
             issue=self.mock_issue, downstream=self.mock_downstream, client=mock_client
@@ -269,11 +279,12 @@ class TestDownstreamIssue(unittest.TestCase):
             {"assignee": {"name": mock_user.name}}
         )
         mock_client.search_assignable_users_for_issues.assert_called_with(
-            "mock_assignee", issueKey=self.mock_downstream.key
+            query="mock_user@redhat.com", issueKey=self.mock_downstream.key
         )
 
+    @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
-    def test_assign_user_multiple(self, mock_client):
+    def test_assign_user_multiple(self, mock_client, mock_rover_lookup):
         """
         Test `assign_user()` when the upstream assignee field contains a list
         in which most entries aren't useful.
@@ -290,13 +301,14 @@ class TestDownstreamIssue(unittest.TestCase):
             mock_user2,
         ]
         mock_client.assign_issue.return_value = True
+        mock_rover_lookup.return_value = ["mock_user@redhat.com"]
         self.mock_issue.assignee = [
-            {"fullname": None},
-            {"fullname": ""},
-            {"fullname": "not_a_match"},
-            {"fullname": "ḿòćḱ_ášśìǵńèé"},
+            {"fullname": None, "login": "login1"},
+            {"fullname": "", "login": "login2"},
+            {"fullname": "not_a_match", "login": "login3"},
+            {"fullname": "ḿòćḱ_ášśìǵńèé", "login": "login4"},
             # Should not match this next -- should match the previous.
-            {"fullname": "mock_assignee2"},
+            {"fullname": "mock_assignee2", "login": "login5"},
         ]
 
         # Call the assign user function
@@ -309,11 +321,12 @@ class TestDownstreamIssue(unittest.TestCase):
             {"assignee": {"name": mock_user.name}}
         )
         mock_client.search_assignable_users_for_issues.assert_called_with(
-            "mock_assignee", issueKey=self.mock_downstream.key
+            query="mock_user@redhat.com", issueKey=self.mock_downstream.key
         )
 
+    @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
-    def test_assign_user_with_owner(self, mock_client):
+    def test_assign_user_with_owner_no_upstream(self, mock_client, mock_rover_lookup):
         """
         Test `assign_user()` to show that, when no downstream user is
         available, the issue is assigned to the configured owner.
@@ -324,6 +337,31 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user.key = "mock_user_key"
         mock_client.search_assignable_users_for_issues.return_value = []
         mock_client.assign_issue.return_value = True
+        mock_rover_lookup.return_value = []
+
+        # Call the assign user function
+        d.assign_user(
+            issue=self.mock_issue, downstream=self.mock_downstream, client=mock_client
+        )
+
+        # Assert that all calls mocked were called properly
+        mock_client.assign_issue.assert_called_with(1234, "mock_owner")
+        mock_client.search_assignable_users_for_issues.assert_not_called()
+
+    @mock.patch("Rover_Lookup.github_username_to_emails")
+    @mock.patch("jira.client.JIRA")
+    def test_assign_user_with_owner_no_match(self, mock_client, mock_rover_lookup):
+        """
+        Test `assign_user()` to show that, when no downstream user is
+        available, the issue is assigned to the configured owner.
+        """
+        # Set up return values
+        mock_user = MagicMock()
+        mock_user.displayName = "mock_assignee"
+        mock_user.key = "mock_user_key"
+        mock_client.search_assignable_users_for_issues.return_value = []
+        mock_client.assign_issue.return_value = True
+        mock_rover_lookup.return_value = ["no_match@redhat.com"]
 
         # Call the assign user function
         d.assign_user(
@@ -333,11 +371,12 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert that all calls mocked were called properly
         mock_client.assign_issue.assert_called_with(1234, "mock_owner")
         mock_client.search_assignable_users_for_issues.assert_called_with(
-            "mock_assignee", issueKey=self.mock_downstream.key
+            query="no_match@redhat.com", issueKey=self.mock_downstream.key
         )
 
+    @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
-    def test_assign_user_without_owner(self, mock_client):
+    def test_assign_user_without_owner(self, mock_client, mock_rover_lookup):
         """
         Test `assign_user()` when no downstream user is available and there is
         no configured owner for the project.
@@ -348,6 +387,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user.key = "mock_user_key"
         mock_client.search_assignable_users_for_issues.return_value = []
         mock_client.assign_issue.return_value = True
+        mock_rover_lookup.return_value = []
         self.mock_issue.downstream.pop("owner")
 
         # Call the assign user function
@@ -357,9 +397,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert that all calls mocked were called properly
         mock_client.assign_issue.assert_not_called()
-        mock_client.search_assignable_users_for_issues.assert_called_with(
-            "mock_assignee", issueKey=self.mock_downstream.key
-        )
+        mock_client.search_assignable_users_for_issues.assert_not_called()
 
     @mock.patch(PATH + "match_user")
     @mock.patch("jira.client.JIRA")

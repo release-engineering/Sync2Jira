@@ -117,7 +117,7 @@ class TestUpstreamPR(unittest.TestCase):
                 ],
                 "number": "mock_number",
                 "user": {"login": "mock_login", "fullname": "mock_name"},
-                "assignees": [{"fullname": "mock_name"}],
+                "assignees": [{"login": "mock_login", "fullname": "mock_name"}],
                 "milestone": "mock_milestone",
             },
             "mock_suffix",
@@ -192,7 +192,9 @@ class TestUpstreamPR(unittest.TestCase):
                 ],
                 "number": "1234",
                 "user": {"login": "mock_login", "fullname": "mock_name"},
-                "assignees": [{"fullname": "mock_name"}],
+                "assignees": [
+                    {"login": "mock_assignee_login", "fullname": "mock_name"}
+                ],
                 "labels": ["some_label"],
                 "milestone": "mock_milestone",
             },
