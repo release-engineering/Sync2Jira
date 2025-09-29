@@ -9,3 +9,4 @@ urllib3
 jinja2
 flask
 webhook-to-fedora-messaging-messages
+ldap3>=2.9.0

@@ -133,7 +133,9 @@ class TestUpstreamIssue(unittest.TestCase):
                         "id": "mock_id",
                     }
                 ],
-                "assignees": [{"fullname": "mock_name"}],
+                "assignees": [
+                    {"login": "mock_assignee_login", "fullname": "mock_name"}
+                ],
                 "user": {"login": "mock_login", "fullname": "mock_name"},
                 "milestone": "mock_milestone",
             },
@@ -234,7 +236,9 @@ class TestUpstreamIssue(unittest.TestCase):
                         "id": "mock_id",
                     }
                 ],
-                "assignees": [{"fullname": "mock_name"}],
+                "assignees": [
+                    {"login": "mock_assignee_login", "fullname": "mock_name"}
+                ],
                 "user": {"login": "mock_login", "fullname": "mock_name"},
                 "milestone": "mock_milestone",
                 "storypoints": 2,
@@ -350,7 +354,9 @@ class TestUpstreamIssue(unittest.TestCase):
                         "id": "mock_id",
                     }
                 ],
-                "assignees": [{"fullname": "mock_name"}],
+                "assignees": [
+                    {"login": "mock_assignee_login", "fullname": "mock_name"}
+                ],
                 "user": {"login": "mock_login", "fullname": "mock_name"},
                 "milestone": "mock_milestone",
                 "storypoints": None,
@@ -411,7 +417,9 @@ class TestUpstreamIssue(unittest.TestCase):
                 "labels": ["some_label"],
                 "number": "1234",
                 "comments": [],
-                "assignees": [{"fullname": "mock_name"}],
+                "assignees": [
+                    {"login": "mock_assignee_login", "fullname": "mock_name"}
+                ],
                 "user": {"login": "mock_login", "fullname": "mock_name"},
                 "milestone": "mock_milestone",
             },
@@ -569,7 +577,7 @@ class TestUpstreamIssue(unittest.TestCase):
                 "labels": ["custom_tag"],
                 "number": "mock_number",
                 "comments": [],
-                "assignees": [{"fullname": "mock_name"}],
+                "assignees": [{"login": "mock_login", "fullname": "mock_name"}],
                 "filter1": "filter1",
                 "user": {"login": "mock_login", "fullname": "mock_name"},
                 "milestone": "mock_milestone",
@@ -616,7 +624,7 @@ class TestUpstreamIssue(unittest.TestCase):
                         "id": "mock_id",
                     }
                 ],
-                "assignees": [{"fullname": "mock_name"}],
+                "assignees": [{"login": "mock_login", "fullname": "mock_name"}],
                 "filter1": "filter1",
                 "user": {"login": "mock_login", "fullname": "mock_name"},
                 "milestone": "mock_milestone",
