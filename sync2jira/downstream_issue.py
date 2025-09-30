@@ -29,6 +29,7 @@ from jira import JIRAError
 import jira.client
 import pypandoc
 
+import Rover_Lookup
 from sync2jira.intermediary import Issue, PR
 
 # The date the service was upgraded
@@ -368,20 +369,26 @@ def _upgrade_jira_issue(client, downstream, issue, config):
     attach_link(client, downstream, remote_link)
 
 
-def match_user(name: str, client: jira.client, downstream: jira.Issue) -> Optional[str]:
+def match_user(
+    emails: list[str], client: jira.client, downstream: jira.Issue
+) -> Optional[str]:
     """Match an upstream user to an assignable downstream user and return the
     downstream username; return None on failure.
     """
 
-    # Get a list from Jira of users that match the supplied name and are
-    # suitable for assignment to this issue.
-    users = client.search_assignable_users_for_issues(name, issueKey=downstream.key)
+    for email in emails:
+        # Get a list from Jira of users that match the supplied email address
+        # and that are suitable for assignment to this issue.
+        users = client.search_assignable_users_for_issues(
+            query=email, issueKey=downstream.key
+        )
 
-    # Loop through the query results and return the username for the user which
-    # matches the fullname.
-    for user in users:
-        if user.displayName == name:
-            return user.name
+        if not users:
+            continue
+        if len(users) > 1:
+            log.warning("Found multiple Jira users for %r", email)
+        return users[0].name  # TODO:  We should probably return the ID here, instead.
+
     return None
 
 
@@ -408,22 +415,18 @@ def assign_user(
     # GitHub), assign the issue to the first user (i.e., issue.assignee[0])
     # whose name is present and matches an acceptable Jira user.
 
-    # See if any of the upstream users has full names available. Not all do.
+    # See if any of the upstream assignees has a downstream email address.
     for assignee in issue.assignee:
-        if assignee["fullname"]:
-            fullname = assignee["fullname"]
+        emails = Rover_Lookup.github_username_to_emails(assignee["login"])
+        if not emails:
+            continue
 
-            # Try to match the upstream name to a downstream assignee.
-            match_name = match_user(fullname, client, downstream)
-            if not match_name:
-                # We didn't find a match; try again using a simplified
-                # character set, in case the downstream name is using ASCII
-                # instead of LATIN-1.
-                match_name = match_user(remove_diacritics(fullname), client, downstream)
-            if match_name:
-                # Assign the downstream issue to the matched user
-                downstream.update({"assignee": {"name": match_name}})
-                return
+        # Try to match the upstream assignee's emails to a Jira user
+        match_name = match_user(emails, client, downstream)
+        if match_name:
+            # Assign the downstream issue to the matched user
+            downstream.update({"assignee": {"name": match_name}})
+            return
 
     if issue.assignee:
         log.warning(
