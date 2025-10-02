@@ -41,12 +41,17 @@ def format_comment(pr, pr_suffix, client):
     :rtype: String
     """
     # Find the pr.reporters JIRA username
-    ret = client.search_users(pr.reporter)
+    try:
+        ret = client.search_users(pr.reporter)
+    except Exception as ex:
+        print("search users failed")
+        ret=[]
     # Loop through ret till we find a match
-    for user in ret:
-        if user.displayName == pr.reporter:
-            reporter = f"[~{user.key}]"
-            break
+    if len(ret)>0:
+        for user in ret:
+            if user.displayName == pr.reporter:
+                reporter = f"[~{user.key}]"
+                break
     else:
         reporter = pr.reporter
 

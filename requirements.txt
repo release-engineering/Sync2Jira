@@ -1,4 +1,4 @@
-jira
+jira==3.10.5
 requests
 requests_kerberos
 fedmsg
@@ -8,4 +8,5 @@ pypandoc_binary
 urllib3
 jinja2
 flask
+snowflake
 webhook-to-fedora-messaging-messages
