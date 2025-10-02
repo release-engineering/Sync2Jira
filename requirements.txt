@@ -10,3 +10,4 @@ jinja2
 flask
 snowflake
 webhook-to-fedora-messaging-messages
+ldap3>=2.9.0

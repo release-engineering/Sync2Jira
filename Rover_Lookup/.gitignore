@@ -1,0 +1,47 @@
+# Python
+build/
+develop-eggs/
+dist/
+downloads/
+*.egg
+*.egg-info/
+eggs/
+.eggs/
+.installed.cfg
+lib/
+lib64/
+MANIFEST
+parts/
+*__pycache__*/
+*.py[cod]
+*$py.class
+.Python
+sdist/
+*.so
+var/
+wheels/
+
+# Testing
+.coverage
+coverage
+htmlcov/
+.nox/
+.pytest_cache/
+.tox*/
+
+# IDEs
+.idea/
+*.swo
+*.swp
+.vscode/
+.vscodesettings.json
+
+# OS
+.DS_Store
+.env
+*.pem
+Thumbs.db
+*venv/
+
+# Logs
+*.log

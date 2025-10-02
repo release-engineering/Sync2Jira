@@ -337,8 +337,10 @@ def reformat_github_common(item, github_client):
     assignees = []
     for person in item.get("assignees", []):
         assignee = github_client.get_user(person["login"])
+        entry = {"login": person["login"]}
         if assignee.name and assignee.name != "None":
-            assignees.append({"fullname": assignee.name})
+            entry["fullname"] = assignee.name
+        assignees.append(entry)
     # Update the assignee field in the message (to match Pagure format)
     item["assignees"] = assignees
 
