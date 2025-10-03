@@ -193,7 +193,7 @@ def github_issues(upstream, config):
     token = config["sync2jira"].get("github_token")
     headers = {"Authorization": "token " + token} if token else {}
     github_client = Github(token, retry=5)
-    github_items=generate_github_items("issues", upstream, config)
+    github_items = generate_github_items("issues", upstream, config)
     for issue in github_items:
         if "pull_request" in issue or "/pull/" in issue.get("html_url", ""):
             # We don't want to copy these around

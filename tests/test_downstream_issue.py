@@ -1293,21 +1293,24 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_check_comments_for_duplicates.return_value = True
         mock_find_username.return_value = "mock_username"
 
-        # Call the function
-        response = d._matching_jira_issue_query(
-            client=mock_client, issue=self.mock_issue, config=self.mock_config
-        )
+        # Mock the Snowflake query function
+        with mock.patch(
+            "sync2jira.downstream_issue.execute_snowflake_query"
+        ) as mock_snowflake:
+            mock_snowflake.return_value = [("SYNC2JIRA-123",)]  # Mock Snowflake results
 
-        # Assert everything was called correctly
-        self.assertEqual(response, [mock_downstream_issue])
-        mock_client.search_issues.assert_called_with(
-            'issueFunction in linkedIssuesOfRemote("Upstream issue")'
-            ' and issueFunction in linkedIssuesOfRemote("mock_url")'
-        )
-        mock_check_comments_for_duplicates.assert_called_with(
-            mock_client, mock_downstream_issue, "mock_username"
-        )
-        mock_find_username.assert_called_with(self.mock_issue, self.mock_config)
+            # Call the function
+            response = d._matching_jira_issue_query(
+                client=mock_client, issue=self.mock_issue, config=self.mock_config
+            )
+
+            # Assert everything was called correctly
+            self.assertEqual(response, [mock_downstream_issue])
+            mock_client.search_issues.assert_called_with("key in (SYNC2JIRA-123)")
+            mock_check_comments_for_duplicates.assert_called_with(
+                mock_client, mock_downstream_issue, "mock_username"
+            )
+            mock_find_username.assert_called_with(self.mock_issue, self.mock_config)
 
     def test_find_username(self):
         """
@@ -1447,32 +1450,41 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         This function tests 'check_jira_status' where we return false
         """
-        # Set up return values
-        mock_jira_client = MagicMock()
-        mock_jira_client.search_issues.return_value = []
+        # Mock the Snowflake query function instead of JIRA search
+        with mock.patch(
+            "sync2jira.downstream_issue.execute_snowflake_query"
+        ) as mock_snowflake:
+            mock_snowflake.return_value = []  # Empty results from Snowflake
 
-        # Call the function
-        response = d.check_jira_status(mock_jira_client)
+            # Set up mock jira client
+            mock_jira_client = MagicMock()
 
-        # Assert everything was called correctly
-        self.assertEqual(response, False)
-        mock_jira_client.search_issues.assert_called_with(
-            "issueFunction in linkedIssuesOfRemote('*')"
-        )
+            # Call the function
+            response = d.check_jira_status(mock_jira_client)
+
+            # Assert everything was called correctly
+            self.assertEqual(response, False)
 
     def test_check_jira_status_true(self):
         """
-        This function tests 'check_jira_status' where we return false
+        This function tests 'check_jira_status' where we return true
         """
-        # Set up return values
-        mock_jira_client = MagicMock()
-        mock_jira_client.search_issues.return_value = ["some", "values"]
+        # Mock the Snowflake query function instead of JIRA search
+        with mock.patch(
+            "sync2jira.downstream_issue.execute_snowflake_query"
+        ) as mock_snowflake:
+            mock_snowflake.return_value = [
+                "some_result"
+            ]  # Non-empty results from Snowflake
 
-        # Call the function
-        response = d.check_jira_status(mock_jira_client)
+            # Set up mock jira client
+            mock_jira_client = MagicMock()
 
-        # Assert everything was called correctly
-        self.assertEqual(response, True)
+            # Call the function
+            response = d.check_jira_status(mock_jira_client)
+
+            # Assert everything was called correctly
+            self.assertEqual(response, True)
         mock_jira_client.search_issues.assert_called_with(
             "issueFunction in linkedIssuesOfRemote('*')"
         )

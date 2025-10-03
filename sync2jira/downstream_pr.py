@@ -44,10 +44,10 @@ def format_comment(pr, pr_suffix, client):
     try:
         ret = client.search_users(pr.reporter)
     except Exception as ex:
-        print("search users failed")
-        ret=[]
+        log.info("Failed to fetch user for the reporter %s with exception %r", pr.reporter, ex)
+        ret = []
     # Loop through ret till we find a match
-    if len(ret)>0:
+    if len(ret) > 0:
         for user in ret:
             if user.displayName == pr.reporter:
                 reporter = f"[~{user.key}]"
