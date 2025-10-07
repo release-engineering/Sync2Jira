@@ -183,8 +183,9 @@ class TestDownstreamIssue(unittest.TestCase):
             "(resolution is null OR resolution = Duplicate)",
         )
 
+    @mock.patch("sync2jira.downstream_issue.execute_snowflake_query")
     @mock.patch("jira.client.JIRA")
-    def test_get_existing_newstyle(self, client):
+    def test_get_existing_newstyle(self, client, mock_snowflake):
         config = self.mock_config
 
         issue = MagicMock()
@@ -195,13 +196,13 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_results_of_query.fields.summary = "A title, a title..."
 
         client.return_value.search_issues.return_value = [mock_results_of_query]
+        mock_snowflake.return_value = [("SYNC2JIRA-123",)]
         result = d._get_existing_jira_issue(jira.client.JIRA(), issue, config)
         # Ensure that we get the mock_result_of_query as a result
         self.assertEqual(result, mock_results_of_query)
 
         client.return_value.search_issues.assert_called_once_with(
-            'issueFunction in linkedIssuesOfRemote("Upstream issue") and '
-            'issueFunction in linkedIssuesOfRemote("http://threebean.org")'
+            "key in (SYNC2JIRA-123)"
         )
 
     @mock.patch("jira.client.JIRA")
@@ -1270,8 +1271,10 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "find_username")
     @mock.patch(PATH + "check_comments_for_duplicate")
     @mock.patch("jira.client.JIRA")
+    @mock.patch("sync2jira.downstream_issue.execute_snowflake_query")
     def test_matching_jira_issue_query(
         self,
+        mock_snowflake,
         mock_client,
         mock_check_comments_for_duplicates,
         mock_find_username,
@@ -1292,25 +1295,21 @@ class TestDownstreamIssue(unittest.TestCase):
         ]
         mock_check_comments_for_duplicates.return_value = True
         mock_find_username.return_value = "mock_username"
+        mock_snowflake.return_value = [("SYNC2JIRA-123",)]
 
-        # Mock the Snowflake query function
-        with mock.patch(
-            "sync2jira.downstream_issue.execute_snowflake_query"
-        ) as mock_snowflake:
-            mock_snowflake.return_value = [("SYNC2JIRA-123",)]  # Mock Snowflake results
 
-            # Call the function
-            response = d._matching_jira_issue_query(
-                client=mock_client, issue=self.mock_issue, config=self.mock_config
-            )
+        # Call the function
+        response = d._matching_jira_issue_query(
+            client=mock_client, issue=self.mock_issue, config=self.mock_config
+        )
 
-            # Assert everything was called correctly
-            self.assertEqual(response, [mock_downstream_issue])
-            mock_client.search_issues.assert_called_with("key in (SYNC2JIRA-123)")
-            mock_check_comments_for_duplicates.assert_called_with(
-                mock_client, mock_downstream_issue, "mock_username"
-            )
-            mock_find_username.assert_called_with(self.mock_issue, self.mock_config)
+        # Assert everything was called correctly
+        self.assertEqual(response, [mock_downstream_issue])
+        mock_client.search_issues.assert_called_with("key in (SYNC2JIRA-123)")
+        mock_check_comments_for_duplicates.assert_called_with(
+            mock_client, mock_downstream_issue, "mock_username"
+        )
+        mock_find_username.assert_called_with(self.mock_issue, self.mock_config)
 
     def test_find_username(self):
         """
@@ -1450,44 +1449,29 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         This function tests 'check_jira_status' where we return false
         """
-        # Mock the Snowflake query function instead of JIRA search
-        with mock.patch(
-            "sync2jira.downstream_issue.execute_snowflake_query"
-        ) as mock_snowflake:
-            mock_snowflake.return_value = []  # Empty results from Snowflake
+        # Set up mock jira client that raises an exception
+        mock_jira_client = MagicMock()
+        mock_jira_client.server_info.side_effect = Exception("Connection failed")
 
-            # Set up mock jira client
-            mock_jira_client = MagicMock()
+        # Call the function
+        response = d.check_jira_status(mock_jira_client)
 
-            # Call the function
-            response = d.check_jira_status(mock_jira_client)
-
-            # Assert everything was called correctly
-            self.assertEqual(response, False)
+        # Assert everything was called correctly
+        self.assertEqual(response, False)
 
     def test_check_jira_status_true(self):
         """
         This function tests 'check_jira_status' where we return true
         """
-        # Mock the Snowflake query function instead of JIRA search
-        with mock.patch(
-            "sync2jira.downstream_issue.execute_snowflake_query"
-        ) as mock_snowflake:
-            mock_snowflake.return_value = [
-                "some_result"
-            ]  # Non-empty results from Snowflake
+        # Set up mock jira client that works normally
+        mock_jira_client = MagicMock()
+        mock_jira_client.server_info.return_value = {"version": "8.0.0"}
 
-            # Set up mock jira client
-            mock_jira_client = MagicMock()
+        # Call the function
+        response = d.check_jira_status(mock_jira_client)
 
-            # Call the function
-            response = d.check_jira_status(mock_jira_client)
-
-            # Assert everything was called correctly
-            self.assertEqual(response, True)
-        mock_jira_client.search_issues.assert_called_with(
-            "issueFunction in linkedIssuesOfRemote('*')"
-        )
+        # Assert everything was called correctly
+        self.assertEqual(response, True)
 
     def test_update_on_close_update(self):
         """

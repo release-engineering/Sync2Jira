@@ -35,9 +35,9 @@ import snowflake.connector
 import Rover_Lookup
 from sync2jira.intermediary import Issue, PR
 
+load_dotenv()
 # The date the service was upgraded
 # This is used to ensure legacy comments are not touched
-load_dotenv()
 UPDATE_DATE = datetime(2019, 7, 9, 18, 18, 36, 480291, tzinfo=timezone.utc)
 
 log = logging.getLogger("sync2jira")
@@ -46,60 +46,55 @@ remote_link_title = "Upstream issue"
 duplicate_issues_subject = "FYI: Duplicate Sync2jira Issues"
 
 jira_cache = {}
-
+SNOWFLAKE_QUERY = """
+SELECT
+    CONCAT(p.PKEY, '-', a.issue_key) AS issue_key,
+    remote_link_url,
+    updated
+FROM
+    (
+        SELECT
+            ji.PROJECT_ID AS project_id,
+            ji.ISSUENUM AS issue_key,
+            rl.URL AS remote_link_url,
+            ji.updated
+        FROM
+            JIRA_DB.MARTS.JIRA_REMOTELINK AS rl
+            INNER JOIN JIRA_DB.MARTS.JIRA_ISSUE AS ji ON ji.ID = rl.ISSUEID
+            {}
+    ) AS a
+    LEFT JOIN JIRA_DB.MARTS.JIRA_PROJECT AS p on a.project_id = p.ID
+"""
 
 def get_snowflake_conn():
     """Get Snowflake connection - lazy initialization"""
-    try:
-        return snowflake.connector.connect(
+    
+    return snowflake.connector.connect(
             account=os.getenv("SNOWFLAKE_ACCOUNT"),
             user=os.getenv("SNOWFLAKE_USER"),
             password=os.getenv("SNOWFLAKE_PAT"),
             role=os.getenv("SNOWFLAKE_ROLE"),
-            warehouse=os.getenv("SNOWFLAKE_WAREHOUSE"),
-            database=os.getenv("SNOWFLAKE_DATABASE"),
-            schema=os.getenv("SNOWFLAKE_SCHEMA"),
+            warehouse=os.getenv("SNOWFLAKE_WAREHOUSE","DEFAULT"),
+            database=os.getenv("SNOWFLAKE_DATABASE","JIRA_DB"),
+            schema=os.getenv("SNOWFLAKE_SCHEMA","PUBLIC"),
         )
-    except Exception:
-        return None
-
+    
 
 def execute_snowflake_query(title, issue):
 
-    snowflake_query = f"""
-    SELECT
-        CONCAT(p.PKEY, '-', a.issue_key) AS issue_key,
-        remote_link_url,
-        updated
-    FROM
-        (
-            SELECT
-                ji.PROJECT_ID AS project_id,
-                ji.ISSUENUM AS issue_key,
-                rl.URL AS remote_link_url,
-                ji.updated
-            FROM
-                JIRA_DB.MARTS.JIRA_REMOTELINK AS rl
-                INNER JOIN JIRA_DB.MARTS.JIRA_ISSUE AS ji ON ji.ID = rl.ISSUEID
-                {f"AND rl.TITLE = '{title}' AND rl.URL = '{issue.url}'" if title != '*' and issue is not None else ""}
-        ) AS a
-        LEFT JOIN JIRA_DB.MARTS.JIRA_PROJECT AS p on a.project_id = p.ID
-    """
+    snowflake_query = ""
+    if issue and title != '*':
+        snowflake_query = SNOWFLAKE_QUERY.format(f"AND rl.TITLE = '{title}' AND rl.URL = '{issue.url}'")
 
     conn = get_snowflake_conn()
-    if not conn:
-        return []  # Return empty if Snowflake not available
-
-    try:
-        # Execute the Snowflake query
-        cursor = conn.cursor()
+    # Execute the Snowflake query
+    with conn as c:
+        cursor = c.cursor()
         cursor.execute(snowflake_query)
         results = cursor.fetchall()
         cursor.close()
-        conn.close()
-        return results
-    except Exception:
-        return []
+    return results
+    
 
 
 def check_jira_status(client):
@@ -112,11 +107,11 @@ def check_jira_status(client):
     :rtype: Bool
     """
     # Search for any issue remote title
-    ret = execute_snowflake_query("*", None)
-    if len(ret) < 1:
-        # If we did not find anything return false
+    try:
+        client.server_info()
+        return True
+    except Exception:
         return False
-    return True
 
 
 def _comment_format(comment):
@@ -198,9 +193,14 @@ def _matching_jira_issue_query(client, issue, config, free=False):
     # Searches for any remote link to the issue.url
 
     # Query the JIRA client and store the results
-    results_of_query: jira.client.ResultList = execute_snowflake_query(
+    results= execute_snowflake_query(
         remote_link_title, issue
     )
+    results_of_query = []
+    if len(results) > 0 and client:
+        issue_keys = [row[0] for row in results]
+        jql = f"key in ({','.join(issue_keys)})"
+        results_of_query = client.search_issues(jql)
     if len(results_of_query) > 1:
         final_results = []
         # TODO: there is pagure-specific code in here that handles the case where a dropped issue's URL is
@@ -249,7 +249,7 @@ def _matching_jira_issue_query(client, issue, config, free=False):
             final_results.append(results_of_query[0])
 
         # Return the final_results
-        log.debug("Found %i results for query with issue %r", len(final_results), issue)
+        log.debug("Found %i results for query with issue %r", len(final_results), issue.url)
         return final_results
     else:
         return results_of_query
@@ -631,10 +631,9 @@ def _create_jira_issue(client, issue, config):
     if config["sync2jira"]["testing"]:
         log.info("Testing flag is true.  Skipping actual creation.")
         return None
-    try:
-        downstream = client.create_issue(**kwargs)
-    except JIRAError as exc:
-        log.error("Error creating issue: %s", exc)
+    
+    downstream = client.create_issue(**kwargs)
+    
 
     # Add values to the Epic link, QA, and EXD-Service fields if present
     if (
