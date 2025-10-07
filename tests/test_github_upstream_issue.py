@@ -3,9 +3,9 @@ import unittest
 import unittest.mock as mock
 from unittest.mock import MagicMock
 
-import sync2jira.upstream_issue as u
+import sync2jira.handler.github_upstream_issue as u
 
-PATH = "sync2jira.upstream_issue."
+PATH = "sync2jira.handler.github_upstream_issue."
 
 
 class TestUpstreamIssue(unittest.TestCase):

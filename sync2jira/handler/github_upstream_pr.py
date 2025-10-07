@@ -21,8 +21,8 @@ import logging
 
 from github import Github, UnknownObjectException
 
+import sync2jira.handler.github_upstream_issue as u_issue
 import sync2jira.intermediary as i
-import sync2jira.upstream_issue as u_issue
 
 log = logging.getLogger("sync2jira")
 

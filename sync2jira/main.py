@@ -36,10 +36,10 @@ from jira import JIRAError
 # Local Modules
 import sync2jira.downstream_issue as d_issue
 import sync2jira.downstream_pr as d_pr
-from sync2jira.intermediary import matcher
+import sync2jira.handler.github as gh_handler
+import sync2jira.handler.github_upstream_issue as u_issue
+import sync2jira.handler.github_upstream_pr as u_pr
 from sync2jira.mailer import send_mail
-import sync2jira.upstream_issue as u_issue
-import sync2jira.upstream_pr as u_pr
 
 # Set up our logging
 FORMAT = "[%(asctime)s] %(levelname)s: %(message)s"
@@ -148,20 +148,18 @@ def callback(msg):
     idx = msg.id
     suffix = ".".join(topic.split(".")[3:])
 
-    if suffix not in issue_handlers and suffix not in pr_handlers:
-        log.info("No handler for %r %r %r", suffix, topic, idx)
-        return
-
-    config = load_config()
-    body = msg.body.get("body") or msg.body
-    try:
-        handle_msg(body, suffix, config)
-    except GithubException as e:
-        log.error("Unexpected GitHub error: %s", e)
-    except JIRAError as e:
-        log.error("Unexpected Jira error: %s", e)
-    except Exception as e:
-        log.exception("Unexpected error.", exc_info=e)
+    handler = gh_handler.get_handler_for(suffix, topic, idx)
+    if handler:
+        config = load_config()
+        body = msg.body.get("body") or msg.body
+        try:
+            handler(body, suffix, config)
+        except GithubException as e:
+            log.error("Unexpected GitHub error: %s", e)
+        except JIRAError as e:
+            log.error("Unexpected Jira error: %s", e)
+        except Exception as e:
+            log.exception("Unexpected error.", exc_info=e)
 
 
 def listen(config):
@@ -188,18 +186,26 @@ def listen(config):
             "arguments": {},
         },
     }
+
+    # The topics that should be delivered to the queue
+    github_topics = [
+        # New style
+        "org.fedoraproject.prod.github.issues",
+        "org.fedoraproject.prod.github.issue_comment",
+        "org.fedoraproject.prod.github.pull_request",
+        # Old style
+        "org.fedoraproject.prod.github.issue.#",
+        "org.fedoraproject.prod.github.pull_request.#",
+    ]
+    gitlab_topics = [
+        # mytodo: add all topics here
+        "org.fedoraproject.prod.gitlab.merge_request",
+    ]
+
     bindings = {
         "exchange": "amq.topic",  # The AMQP exchange to bind our queue to
         "queue": queue,
-        "routing_keys": [  # The topics that should be delivered to the queue
-            # New style
-            "org.fedoraproject.prod.github.issues",
-            "org.fedoraproject.prod.github.issue_comment",
-            "org.fedoraproject.prod.github.pull_request",
-            # Old style
-            "org.fedoraproject.prod.github.issue.#",
-            "org.fedoraproject.prod.github.pull_request.#",
-        ],
+        "routing_keys": github_topics + gitlab_topics,
     }
 
     log.info("Waiting for a relevant fedmsg message to arrive...")
@@ -297,46 +303,6 @@ def initialize_pr(config, testing=False, repo_name=None):
                     report_failure(config)
                     raise
     log.info("Done with GitHub PR initialization.")
-
-
-def handle_msg(body, suffix, config):
-    """
-    Function to handle incoming message
-    :param Dict body: Incoming message body
-    :param String suffix: Incoming suffix
-    :param Dict config: Config dict
-    """
-    if handler := issue_handlers.get(suffix):
-        # GitHub '.issue*' is used for both PR and Issue; check if this update
-        # is actually for a PR
-        if "pull_request" in body["issue"]:
-            if body["action"] == "deleted":
-                # I think this gets triggered when someone deletes a comment
-                # from a PR.  Since we don't capture PR comments (only Issue
-                # comments), we don't need to react if one is deleted.
-                log.debug("Not handling PR 'action' == 'deleted'")
-                return
-            # Handle this PR update as though it were an Issue, if that's
-            # acceptable to the configuration.
-            if not (pr := handler(body, config, is_pr=True)):
-                log.info("Not handling PR issue update -- not configured")
-                return
-            # PRs require additional handling (Issues do not have suffix, and
-            # reporter needs to be reformatted).
-            pr.suffix = suffix
-            pr.reporter = pr.reporter.get("fullname")
-            setattr(pr, "match", matcher(pr.content, pr.comments))
-            d_pr.sync_with_jira(pr, config)
-        else:
-            if issue := handler(body, config):
-                d_issue.sync_with_jira(issue, config)
-            else:
-                log.info("Not handling Issue update -- not configured")
-    elif handler := pr_handlers.get(suffix):
-        if pr := handler(body, config, suffix):
-            d_pr.sync_with_jira(pr, config)
-        else:
-            log.info("Not handling PR update -- not configured")
 
 
 def main(runtime_test=False, runtime_config=None):
