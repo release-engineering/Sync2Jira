@@ -66,25 +66,28 @@ FROM
     LEFT JOIN JIRA_DB.MARTS.JIRA_PROJECT AS p on a.project_id = p.ID
 """
 
+
 def get_snowflake_conn():
     """Get Snowflake connection - lazy initialization"""
-    
+
     return snowflake.connector.connect(
-            account=os.getenv("SNOWFLAKE_ACCOUNT"),
-            user=os.getenv("SNOWFLAKE_USER"),
-            password=os.getenv("SNOWFLAKE_PAT"),
-            role=os.getenv("SNOWFLAKE_ROLE"),
-            warehouse=os.getenv("SNOWFLAKE_WAREHOUSE","DEFAULT"),
-            database=os.getenv("SNOWFLAKE_DATABASE","JIRA_DB"),
-            schema=os.getenv("SNOWFLAKE_SCHEMA","PUBLIC"),
-        )
-    
+        account=os.getenv("SNOWFLAKE_ACCOUNT"),
+        user=os.getenv("SNOWFLAKE_USER"),
+        password=os.getenv("SNOWFLAKE_PAT"),
+        role=os.getenv("SNOWFLAKE_ROLE"),
+        warehouse=os.getenv("SNOWFLAKE_WAREHOUSE", "DEFAULT"),
+        database=os.getenv("SNOWFLAKE_DATABASE", "JIRA_DB"),
+        schema=os.getenv("SNOWFLAKE_SCHEMA", "PUBLIC"),
+    )
+
 
 def execute_snowflake_query(title, issue):
 
     snowflake_query = ""
-    if issue and title != '*':
-        snowflake_query = SNOWFLAKE_QUERY.format(f"AND rl.TITLE = '{title}' AND rl.URL = '{issue.url}'")
+    if issue and title != "*":
+        snowflake_query = SNOWFLAKE_QUERY.format(
+            f"AND rl.TITLE = '{title}' AND rl.URL = '{issue.url}'"
+        )
 
     conn = get_snowflake_conn()
     # Execute the Snowflake query
@@ -94,7 +97,6 @@ def execute_snowflake_query(title, issue):
         results = cursor.fetchall()
         cursor.close()
     return results
-    
 
 
 def check_jira_status(client):
@@ -193,9 +195,7 @@ def _matching_jira_issue_query(client, issue, config, free=False):
     # Searches for any remote link to the issue.url
 
     # Query the JIRA client and store the results
-    results= execute_snowflake_query(
-        remote_link_title, issue
-    )
+    results = execute_snowflake_query(remote_link_title, issue)
     results_of_query = []
     if len(results) > 0 and client:
         issue_keys = [row[0] for row in results]
@@ -249,7 +249,9 @@ def _matching_jira_issue_query(client, issue, config, free=False):
             final_results.append(results_of_query[0])
 
         # Return the final_results
-        log.debug("Found %i results for query with issue %r", len(final_results), issue.url)
+        log.debug(
+            "Found %i results for query with issue %r", len(final_results), issue.url
+        )
         return final_results
     else:
         return results_of_query
@@ -631,9 +633,8 @@ def _create_jira_issue(client, issue, config):
     if config["sync2jira"]["testing"]:
         log.info("Testing flag is true.  Skipping actual creation.")
         return None
-    
+
     downstream = client.create_issue(**kwargs)
-    
 
     # Add values to the Epic link, QA, and EXD-Service fields if present
     if (

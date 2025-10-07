@@ -1297,7 +1297,6 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_find_username.return_value = "mock_username"
         mock_snowflake.return_value = [("SYNC2JIRA-123",)]
 
-
         # Call the function
         response = d._matching_jira_issue_query(
             client=mock_client, issue=self.mock_issue, config=self.mock_config
