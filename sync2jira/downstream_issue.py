@@ -385,9 +385,29 @@ def match_user(
 
         if not users:
             continue
-        if len(users) > 1:
-            log.warning("Found multiple Jira users for %r", email)
-        return users[0].name  # TODO:  We should probably return the ID here, instead.
+
+        if len(users) == 1:
+            # TODO:  We should probably return the ID here, instead.
+            return users[0].name
+
+        limit = 5
+        log.warning(
+            "Found %d Jira users for %r:  %s%s",
+            len(users),
+            email,
+            ", ".join(u.name for u in users[0:limit]),
+            "..." if len(users) > limit else "",
+        )
+        for user in users:
+            # This condition _should_ be true for *all* entries returned, in
+            # which case we'll just return the first entry; however it appears
+            # that sometimes Jira returns _all_ assignable users, so do our own
+            # filtering.
+            if user.emailAddress == email:
+                log.info("Found matching user: %r", user.name)
+                return user.name
+        else:
+            log.warning("Found no Jira user which matches %r", email)
 
     return None
 
@@ -409,6 +429,7 @@ def assign_user(
     if remove_all:
         # Update the issue to have no assignees
         downstream.update(assignee={"name": ""})
+        log.info("Cleared assignment of %s.", downstream.key)
         return
 
     # JIRA only supports one assignee; if we have more than one (i.e., from
@@ -426,6 +447,7 @@ def assign_user(
         if match_name:
             # Assign the downstream issue to the matched user
             downstream.update({"assignee": {"name": match_name}})
+            log.info("Assigned %s to %r", downstream.key, match_name)
             return
 
     if issue.assignee:
@@ -501,7 +523,7 @@ def _get_preferred_issue_types(config, issue):
     In all cases, a list of one item is returned, except when the upstream
     issue has multiple tags which match multiple entries in the configured
     mapping, in which case multiple entries are returned, sorted in ascending
-    lexographical order.
+    lexicographical order.
 
     :param Dict config: Config dict
     :param sync2jira.intermediary.Issue issue: Issue object
@@ -907,7 +929,6 @@ def _update_assignee(client, existing, issue, overwrite):
 
     if update:
         assign_user(client, issue, existing, remove_all=clear)
-        log.info("%s assignee", "Cleared" if clear else "Updated")
 
 
 def _update_jira_labels(issue, labels):
