@@ -63,7 +63,13 @@ def github_username_to_emails(
     try:
         # Create LDAP server connection; if credentials were not provided, the connection
         # will use an anonymous binding.
-        conn = Connection(ldap_server, ldap_bind_dn, ldap_password, auto_bind=True)
+        conn = Connection(
+            ldap_server,
+            ldap_bind_dn,
+            ldap_password,
+            auto_bind=True,
+            raise_exceptions=True,
+        )
     except LDAPException as e:
         msg = f"Error connecting to LDAP server {ldap_server!r}: {str(e)}"
         if "redhat.com" in ldap_server and "invalid server address" in str(e):
@@ -76,8 +82,8 @@ def github_username_to_emails(
         )
         return None
 
-    logger.debug(f"Searching for GitHub username: {github_username}")
-    logger.debug(f"LDAP filter: {ldap_filter}")
+    logger.debug("Searching for GitHub username: %r", github_username)
+    logger.debug("LDAP filter: %r", ldap_filter)
 
     try:
         # Perform the LDAP search
@@ -89,21 +95,23 @@ def github_username_to_emails(
         )
 
         if not success:
-            logger.warning(f"LDAP search failed for GitHub username: {github_username}")
+            logger.info("LDAP search failed for GitHub username: %r", github_username)
             return None
 
         entries = conn.entries
-        logger.debug(f"Found {len(entries)} LDAP entries")
+        logger.debug("Found %d LDAP entries", len(entries))
 
         if not entries:
-            logger.info(f"No LDAP entries found for GitHub username: {github_username}")
+            logger.info(
+                "No LDAP entries found for GitHub username: %r", github_username
+            )
             return []
 
         # Extract email addresses from all entries
         email_addresses = set()  # Use set to automatically handle uniqueness
 
         for entry in entries:
-            logger.debug(f"Processing LDAP entry: {entry.entry_dn}")
+            logger.debug("Processing LDAP entry: %r", entry.entry_dn)
 
             # Check each email field
             for attr_name in attributes:
@@ -124,9 +132,11 @@ def github_username_to_emails(
         result_emails = sorted(list(email_addresses))
 
         logger.debug(
-            f"Found {len(result_emails)} unique email addresses for GitHub username: {github_username}"
+            "Found %d unique email addresses for GitHub username, %r: %s",
+            len(result_emails),
+            github_username,
+            result_emails,
         )
-        logger.debug(f"Email addresses: {result_emails}")
 
         return result_emails
 

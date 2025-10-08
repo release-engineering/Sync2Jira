@@ -292,9 +292,13 @@ class TestDownstreamIssue(unittest.TestCase):
         # Set up return values
         mock_user = MagicMock()
         mock_user.displayName = "mock_assignee"
+        mock_user.name = "mock_assignee_n"
+        mock_user.emailAddress = "wrong_mock_user@redhat.com"
         mock_user.key = "mock_user_key"
         mock_user2 = MagicMock()
         mock_user2.displayName = "mock_assignee2"
+        mock_user2.name = "mock_assignee2_n"
+        mock_user.emailAddress = "mock_user@redhat.com"
         mock_user2.key = "mock_user_key2"
         mock_client.search_assignable_users_for_issues.return_value = [
             mock_user,
