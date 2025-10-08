@@ -61,7 +61,7 @@ FROM
         FROM
             JIRA_DB.MARTS.JIRA_REMOTELINK AS rl
             INNER JOIN JIRA_DB.MARTS.JIRA_ISSUE AS ji ON ji.ID = rl.ISSUEID
-            {}
+            AND rl.TITLE = {} AND rl.URL = {}
     ) AS a
     LEFT JOIN JIRA_DB.MARTS.JIRA_PROJECT AS p on a.project_id = p.ID
 """
@@ -82,18 +82,11 @@ def get_snowflake_conn():
 
 
 def execute_snowflake_query(title, issue):
-
-    snowflake_query = ""
-    if issue and title != "*":
-        snowflake_query = SNOWFLAKE_QUERY.format(
-            f"AND rl.TITLE = '{title}' AND rl.URL = '{issue.url}'"
-        )
-
     conn = get_snowflake_conn()
     # Execute the Snowflake query
     with conn as c:
         cursor = c.cursor()
-        cursor.execute(snowflake_query)
+        cursor.execute(SNOWFLAKE_QUERY.format(title, issue.url))
         results = cursor.fetchall()
         cursor.close()
     return results
@@ -181,7 +174,7 @@ def get_jira_client(issue, config):
     return client
 
 
-def _matching_jira_issue_query(client, issue, config, free=False):
+def _matching_jira_issue_query(client, issue, config):
     """
     API calls that find matching JIRA tickets if any are present.
 
@@ -197,8 +190,8 @@ def _matching_jira_issue_query(client, issue, config, free=False):
     # Query the JIRA client and store the results
     results = execute_snowflake_query(remote_link_title, issue)
     results_of_query = []
-    if len(results) > 0 and client:
-        issue_keys = [row[0] for row in results]
+    if len(results) > 0:
+        issue_keys = (row[0] for row in results)
         jql = f"key in ({','.join(issue_keys)})"
         results_of_query = client.search_issues(jql)
     if len(results_of_query) > 1:
