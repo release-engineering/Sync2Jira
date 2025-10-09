@@ -36,7 +36,7 @@ from jira import JIRAError
 # Local Modules
 import sync2jira.downstream_issue as d_issue
 import sync2jira.downstream_pr as d_pr
-import sync2jira.handler.github as gh_handler
+import sync2jira.handler.base as handlers
 import sync2jira.handler.github_upstream_issue as u_issue
 import sync2jira.handler.github_upstream_pr as u_pr
 from sync2jira.mailer import send_mail
@@ -55,39 +55,6 @@ fedmsg_log.setLevel(50)
 remote_link_title = "Upstream issue"
 failure_email_subject = "Sync2Jira Has Failed!"
 
-# Issue related handlers
-issue_handlers = {
-    # GitHub
-    # New webhook-2fm topics
-    "github.issues": u_issue.handle_github_message,
-    "github.issue_comment": u_issue.handle_github_message,
-    # Old github2fedmsg topics
-    "github.issue.opened": u_issue.handle_github_message,
-    "github.issue.reopened": u_issue.handle_github_message,
-    "github.issue.labeled": u_issue.handle_github_message,
-    "github.issue.assigned": u_issue.handle_github_message,
-    "github.issue.unassigned": u_issue.handle_github_message,
-    "github.issue.closed": u_issue.handle_github_message,
-    "github.issue.comment": u_issue.handle_github_message,
-    "github.issue.unlabeled": u_issue.handle_github_message,
-    "github.issue.milestoned": u_issue.handle_github_message,
-    "github.issue.demilestoned": u_issue.handle_github_message,
-    "github.issue.edited": u_issue.handle_github_message,
-}
-
-# PR related handlers
-pr_handlers = {
-    # GitHub
-    # New webhook-2fm topics
-    "github.pull_request": u_pr.handle_github_message,
-    "github.issue_comment": u_pr.handle_github_message,
-    # Old github2fedmsg topics
-    "github.pull_request.opened": u_pr.handle_github_message,
-    "github.pull_request.edited": u_pr.handle_github_message,
-    "github.issue.comment": u_pr.handle_github_message,
-    "github.pull_request.reopened": u_pr.handle_github_message,
-    "github.pull_request.closed": u_pr.handle_github_message,
-}
 INITIALIZE = os.getenv("INITIALIZE", "0")
 
 
@@ -148,12 +115,13 @@ def callback(msg):
     idx = msg.id
     suffix = ".".join(topic.split(".")[3:])
 
-    handler = gh_handler.get_handler_for(suffix, topic, idx)
+    handler = handlers.get_handler_for(suffix, topic, idx)
     if handler:
         config = load_config()
         body = msg.body.get("body") or msg.body
+        headers = msg.body.get("headers") or msg.headers
         try:
-            handler(body, suffix, config)
+            handler(body, headers, suffix, config)
         except GithubException as e:
             log.error("Unexpected GitHub error: %s", e)
         except JIRAError as e:
@@ -198,8 +166,9 @@ def listen(config):
         "org.fedoraproject.prod.github.pull_request.#",
     ]
     gitlab_topics = [
-        # mytodo: add all topics here
+        "org.fedoraproject.prod.gitlab.issue"
         "org.fedoraproject.prod.gitlab.merge_request",
+        "org.fedoraproject.prod.gitlab.note",
     ]
 
     bindings = {
@@ -256,6 +225,16 @@ def initialize_issues(config, testing=False, repo_name=None):
                     raise
     log.info("Done with GitHub issue initialization.")
 
+    for upstream in mapping.get("gitlab", {}).keys():
+        if "issue" not in mapping.get("github", {}).get(upstream, {}).get("sync", []):
+            continue
+        if repo_name is not None and upstream != repo_name:
+            continue
+
+        # TODO: Fetch all issues from the gitlab instance
+
+    log.info("Done with Gitlab PR initialization.")
+
 
 def initialize_pr(config, testing=False, repo_name=None):
     """
@@ -272,6 +251,7 @@ def initialize_pr(config, testing=False, repo_name=None):
     log.info("Running initialization to sync all PRs from upstream to jira")
     log.info("Testing flag is %r", config["sync2jira"]["testing"])
     mapping = config["sync2jira"]["map"]
+
     for upstream in mapping.get("github", {}).keys():
         if "pullrequest" not in mapping.get("github", {}).get(upstream, {}).get(
             "sync", []
@@ -303,6 +283,18 @@ def initialize_pr(config, testing=False, repo_name=None):
                     report_failure(config)
                     raise
     log.info("Done with GitHub PR initialization.")
+
+    for upstream in mapping.get("gitlab", {}).keys():
+        if "pullrequest" not in mapping.get("gitlab", {}).get(upstream, {}).get(
+            "sync", []
+        ):
+            continue
+        if repo_name is not None and upstream != repo_name:
+            continue
+
+        # TODO: Fetch all PRs from the gitlab instance
+
+    log.info("Done with Gitlab PR initialization.")
 
 
 def main(runtime_test=False, runtime_config=None):

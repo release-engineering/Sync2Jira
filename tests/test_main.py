@@ -10,9 +10,10 @@ HANDLER_PATH = "sync2jira.handler.github."
 
 
 class MockMessage(object):
-    def __init__(self, msg_id, body, topic):
+    def __init__(self, msg_id, body, headers, topic):
         self.id = msg_id
         self.body = body
+        self.headers = headers
         self.topic = topic
 
 
@@ -43,11 +44,13 @@ class TestMain(unittest.TestCase):
         self.old_style_mock_message = MockMessage(
             msg_id="mock_id",
             body=self.mock_message_body,
+            headers={},
             topic=None,
         )
         self.new_style_mock_message = MockMessage(
             msg_id="mock_id",
             body={"body": self.mock_message_body},
+            headers={},
             topic=None,
         )
 
@@ -257,35 +260,44 @@ class TestMain(unittest.TestCase):
         mock_handle_pr_msg.assert_not_called()
         mock_handle_issue_msg.assert_not_called()
 
-    @mock.patch.dict(
-        PATH + "issue_handlers", {"github.issue.comment": lambda msg, c: "dummy_issue"}
-    )
-    @mock.patch(HANDLER_PATH + "u_issue")
     @mock.patch(PATH + "load_config")
-    def test_listen(self, mock_load_config, mock_u_issue):
+    def test_listen(self, mock_load_config):
         """
         Test 'listen' function where everything goes smoothly
         """
         # Set up return values
         mock_load_config.return_value = self.mock_config
-        mock_u_issue.handle_github_message.return_value = None
 
-        # Call the function once with the old style
-        self.old_style_mock_message.topic = "d.d.d.github.issue.comment"
-        m.callback(self.old_style_mock_message)
+        mock_handler = mock.Mock()
+        with mock.patch.dict(
+            HANDLER_PATH + "issue_handlers", {"github.issue.comment": mock_handler}
+        ):
+            # Call the function once with the old style
+            self.old_style_mock_message.topic = "d.d.d.github.issue.comment"
+            m.callback(self.old_style_mock_message)
 
-        # ... and again with the new style
-        self.new_style_mock_message.topic = "d.d.d.github.issue.comment"
-        m.callback(self.new_style_mock_message)
+            # ... and again with the new style
+            self.new_style_mock_message.topic = "d.d.d.github.issue.comment"
+            m.callback(self.new_style_mock_message)
 
-        # Assert everything was called correctly
-        # It should be called twice, once for the old style message and once for the new.
-        mock_u_issue.handle_github_message.assert_has_calls(
-            [
-                mock.call(self.mock_message_body, self.mock_config),
-                mock.call(self.mock_message_body, self.mock_config),
-            ]
-        )
+            # Assert everything was called correctly
+            # It should be called twice, once for the old style message and once for the new.
+            mock_handler.assert_has_calls(
+                [
+                    mock.call(
+                        self.mock_message_body,
+                        {},
+                        "github.issue.comment",
+                        self.mock_config,
+                    ),
+                    mock.call(
+                        self.mock_message_body,
+                        {},
+                        "github.issue.comment",
+                        self.mock_config,
+                    ),
+                ]
+            )
 
     @mock.patch(PATH + "send_mail")
     @mock.patch(PATH + "jinja2")
@@ -347,6 +359,7 @@ class TestMain(unittest.TestCase):
         # Call the function
         gh_handler.handle_issue_msg(
             body=self.mock_message_body,
+            headers={},
             suffix="github.issue.comment",
             config=self.mock_config,
         )
@@ -371,6 +384,7 @@ class TestMain(unittest.TestCase):
         # Call the function
         gh_handler.handle_issue_msg(
             body=self.mock_message_body,
+            headers={},
             suffix="github.issue.comment",
             config=self.mock_config,
         )
@@ -394,6 +408,7 @@ class TestMain(unittest.TestCase):
         # Call the function
         gh_handler.handle_pr_msg(
             body=self.mock_message_body,
+            headers={},
             suffix="github.issue.comment",
             config=self.mock_config,
         )

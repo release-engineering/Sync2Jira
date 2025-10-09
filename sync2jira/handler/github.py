@@ -10,10 +10,11 @@ from sync2jira.intermediary import matcher
 log = logging.getLogger("sync2jira")
 
 
-def handle_issue_msg(body, suffix, config):
+def handle_issue_msg(body, headers, suffix, config):
     """
     Function to handle incoming github issue message
     :param Dict body: Incoming message body
+    :param Dict headers: Incoming message headers
     :param String suffix: Incoming suffix
     :param Dict config: Config dict
     """
@@ -44,10 +45,11 @@ def handle_issue_msg(body, suffix, config):
             log.info("Not handling Issue update -- not configured")
 
 
-def handle_pr_msg(body, suffix, config):
+def handle_pr_msg(body, headers, suffix, config):
     """
     Function to handle incoming github PR message
     :param Dict body: Incoming message body
+    :param Dict headers: Incoming message headers
     :param String suffix: Incoming suffix
     :param Dict config: Config dict
     """
@@ -104,5 +106,5 @@ def get_handler_for(suffix, topic, idx):
         return issue_handlers.get(suffix)
     elif suffix in pr_handlers:
         return pr_handlers.get(suffix)
-    log.info("No handler for %r %r %r", suffix, topic, idx)
+    log.info("No github handler for %r %r %r", suffix, topic, idx)
     return None

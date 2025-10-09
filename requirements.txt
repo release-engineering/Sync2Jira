@@ -5,6 +5,7 @@ fedmsg
 fedora-messaging
 PyGithub
 pypandoc_binary
+python-gitlab
 urllib3
 jinja2
 flask
