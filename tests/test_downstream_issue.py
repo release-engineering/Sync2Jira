@@ -1271,7 +1271,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "find_username")
     @mock.patch(PATH + "check_comments_for_duplicate")
     @mock.patch("jira.client.JIRA")
-    @mock.patch("sync2jira.downstream_issue.execute_snowflake_query")
+    @mock.patch(PATH + "execute_snowflake_query")
     def test_matching_jira_issue_query(
         self,
         mock_snowflake,
@@ -1641,38 +1641,24 @@ class TestDownstreamIssue(unittest.TestCase):
             actual = remove_diacritics(text)
             self.assertEqual(actual, expected)
 
-    @mock.patch("sync2jira.downstream_issue.snowflake.connector.connect")
+    @mock.patch(PATH + "snowflake.connector.connect")
     def test_execute_snowflake_query_real_connection(self, mock_snowflake_connect):
         """
         Test execute_snowflake_query with real Snowflake connection to cover the 10 lines
         that are currently mocked out in other tests.
         """
-        # Set up mock Snowflake connection and cursor
-        mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=None)
-        mock_snowflake_connect.return_value = mock_conn
-
-        # Mock the query results
-        mock_results = [
-            ("SYNC2JIRA-123", "https://github.com/test/repo/issues/1", "2023-01-01")
-        ]
-        mock_cursor.fetchall.return_value = mock_results
-
         # Create a mock issue
         mock_issue = MagicMock()
         mock_issue.url = "https://github.com/test/repo/issues/1"
-
         # Call the function
         result = d.execute_snowflake_query("Test Title", mock_issue)
-
+        mock_cursor = (
+            mock_snowflake_connect.return_value.__enter__.return_value.cursor.return_value
+        )
         # Assert the function was called correctly
         mock_snowflake_connect.assert_called_once()
         mock_cursor.execute.assert_called_once()
         mock_cursor.fetchall.assert_called_once()
         mock_cursor.close.assert_called_once()
-
         # Assert the result
-        self.assertEqual(result, mock_results)
+        self.assertEqual(result, mock_cursor.fetchall.return_value)
