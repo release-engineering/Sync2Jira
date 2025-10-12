@@ -183,7 +183,7 @@ class TestDownstreamIssue(unittest.TestCase):
             "(resolution is null OR resolution = Duplicate)",
         )
 
-    @mock.patch("sync2jira.downstream_issue.execute_snowflake_query")
+    @mock.patch(PATH + "execute_snowflake_query")
     @mock.patch("jira.client.JIRA")
     def test_get_existing_newstyle(self, client, mock_snowflake):
         config = self.mock_config
