@@ -170,7 +170,7 @@ class TestGithubUsernameToEmails:
         mock_connection_class.return_value = mock_conn
         mock_conn.search.return_value = False  # Search failed
 
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.INFO):
             result = github_username_to_emails("test-user")
 
         assert result is None
@@ -269,6 +269,7 @@ class TestGithubUsernameToEmails:
             "cn=bind,dc=custom,dc=com",
             "secret",
             auto_bind=True,
+            raise_exceptions=True,
         )
 
         # Verify custom base DN was used in search
