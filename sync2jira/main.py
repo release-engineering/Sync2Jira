@@ -36,10 +36,10 @@ from jira import JIRAError
 # Local Modules
 import sync2jira.downstream_issue as d_issue
 import sync2jira.downstream_pr as d_pr
-from sync2jira.intermediary import matcher
+import sync2jira.handler.base as handlers
+import sync2jira.handler.github_upstream_issue as u_issue
+import sync2jira.handler.github_upstream_pr as u_pr
 from sync2jira.mailer import send_mail
-import sync2jira.upstream_issue as u_issue
-import sync2jira.upstream_pr as u_pr
 
 # Set up our logging
 FORMAT = "[%(asctime)s] %(levelname)s: %(message)s"
@@ -55,39 +55,6 @@ fedmsg_log.setLevel(50)
 remote_link_title = "Upstream issue"
 failure_email_subject = "Sync2Jira Has Failed!"
 
-# Issue related handlers
-issue_handlers = {
-    # GitHub
-    # New webhook-2fm topics
-    "github.issues": u_issue.handle_github_message,
-    "github.issue_comment": u_issue.handle_github_message,
-    # Old github2fedmsg topics
-    "github.issue.opened": u_issue.handle_github_message,
-    "github.issue.reopened": u_issue.handle_github_message,
-    "github.issue.labeled": u_issue.handle_github_message,
-    "github.issue.assigned": u_issue.handle_github_message,
-    "github.issue.unassigned": u_issue.handle_github_message,
-    "github.issue.closed": u_issue.handle_github_message,
-    "github.issue.comment": u_issue.handle_github_message,
-    "github.issue.unlabeled": u_issue.handle_github_message,
-    "github.issue.milestoned": u_issue.handle_github_message,
-    "github.issue.demilestoned": u_issue.handle_github_message,
-    "github.issue.edited": u_issue.handle_github_message,
-}
-
-# PR related handlers
-pr_handlers = {
-    # GitHub
-    # New webhook-2fm topics
-    "github.pull_request": u_pr.handle_github_message,
-    "github.issue_comment": u_pr.handle_github_message,
-    # Old github2fedmsg topics
-    "github.pull_request.opened": u_pr.handle_github_message,
-    "github.pull_request.edited": u_pr.handle_github_message,
-    "github.issue.comment": u_pr.handle_github_message,
-    "github.pull_request.reopened": u_pr.handle_github_message,
-    "github.pull_request.closed": u_pr.handle_github_message,
-}
 INITIALIZE = os.getenv("INITIALIZE", "0")
 
 
@@ -148,20 +115,19 @@ def callback(msg):
     idx = msg.id
     suffix = ".".join(topic.split(".")[3:])
 
-    if suffix not in issue_handlers and suffix not in pr_handlers:
-        log.info("No handler for %r %r %r", suffix, topic, idx)
-        return
-
-    config = load_config()
-    body = msg.body.get("body") or msg.body
-    try:
-        handle_msg(body, suffix, config)
-    except GithubException as e:
-        log.error("Unexpected GitHub error: %s", e)
-    except JIRAError as e:
-        log.error("Unexpected Jira error: %s", e)
-    except Exception as e:
-        log.exception("Unexpected error.", exc_info=e)
+    handler = handlers.get_handler_for(suffix, topic, idx)
+    if handler:
+        config = load_config()
+        body = msg.body.get("body") or msg.body
+        headers = msg.body.get("headers") or msg.headers
+        try:
+            handler(body, headers, suffix, config)
+        except GithubException as e:
+            log.error("Unexpected GitHub error: %s", e)
+        except JIRAError as e:
+            log.error("Unexpected Jira error: %s", e)
+        except Exception as e:
+            log.exception("Unexpected error.", exc_info=e)
 
 
 def listen(config):
@@ -188,18 +154,27 @@ def listen(config):
             "arguments": {},
         },
     }
+
+    # The topics that should be delivered to the queue
+    github_topics = [
+        # New style
+        "org.fedoraproject.prod.github.issues",
+        "org.fedoraproject.prod.github.issue_comment",
+        "org.fedoraproject.prod.github.pull_request",
+        # Old style
+        "org.fedoraproject.prod.github.issue.#",
+        "org.fedoraproject.prod.github.pull_request.#",
+    ]
+    gitlab_topics = [
+        "org.fedoraproject.prod.gitlab.issue"
+        "org.fedoraproject.prod.gitlab.merge_request",
+        "org.fedoraproject.prod.gitlab.note",
+    ]
+
     bindings = {
         "exchange": "amq.topic",  # The AMQP exchange to bind our queue to
         "queue": queue,
-        "routing_keys": [  # The topics that should be delivered to the queue
-            # New style
-            "org.fedoraproject.prod.github.issues",
-            "org.fedoraproject.prod.github.issue_comment",
-            "org.fedoraproject.prod.github.pull_request",
-            # Old style
-            "org.fedoraproject.prod.github.issue.#",
-            "org.fedoraproject.prod.github.pull_request.#",
-        ],
+        "routing_keys": github_topics + gitlab_topics,
     }
 
     log.info("Waiting for a relevant fedmsg message to arrive...")
@@ -250,6 +225,16 @@ def initialize_issues(config, testing=False, repo_name=None):
                     raise
     log.info("Done with GitHub issue initialization.")
 
+    for upstream in mapping.get("gitlab", {}).keys():
+        if "issue" not in mapping.get("github", {}).get(upstream, {}).get("sync", []):
+            continue
+        if repo_name is not None and upstream != repo_name:
+            continue
+
+        # TODO: Fetch all issues from the gitlab instance
+
+    log.info("Done with Gitlab PR initialization.")
+
 
 def initialize_pr(config, testing=False, repo_name=None):
     """
@@ -266,6 +251,7 @@ def initialize_pr(config, testing=False, repo_name=None):
     log.info("Running initialization to sync all PRs from upstream to jira")
     log.info("Testing flag is %r", config["sync2jira"]["testing"])
     mapping = config["sync2jira"]["map"]
+
     for upstream in mapping.get("github", {}).keys():
         if "pullrequest" not in mapping.get("github", {}).get(upstream, {}).get(
             "sync", []
@@ -298,45 +284,17 @@ def initialize_pr(config, testing=False, repo_name=None):
                     raise
     log.info("Done with GitHub PR initialization.")
 
+    for upstream in mapping.get("gitlab", {}).keys():
+        if "pullrequest" not in mapping.get("gitlab", {}).get(upstream, {}).get(
+            "sync", []
+        ):
+            continue
+        if repo_name is not None and upstream != repo_name:
+            continue
 
-def handle_msg(body, suffix, config):
-    """
-    Function to handle incoming message
-    :param Dict body: Incoming message body
-    :param String suffix: Incoming suffix
-    :param Dict config: Config dict
-    """
-    if handler := issue_handlers.get(suffix):
-        # GitHub '.issue*' is used for both PR and Issue; check if this update
-        # is actually for a PR
-        if "pull_request" in body["issue"]:
-            if body["action"] == "deleted":
-                # I think this gets triggered when someone deletes a comment
-                # from a PR.  Since we don't capture PR comments (only Issue
-                # comments), we don't need to react if one is deleted.
-                log.debug("Not handling PR 'action' == 'deleted'")
-                return
-            # Handle this PR update as though it were an Issue, if that's
-            # acceptable to the configuration.
-            if not (pr := handler(body, config, is_pr=True)):
-                log.info("Not handling PR issue update -- not configured")
-                return
-            # PRs require additional handling (Issues do not have suffix, and
-            # reporter needs to be reformatted).
-            pr.suffix = suffix
-            pr.reporter = pr.reporter.get("fullname")
-            setattr(pr, "match", matcher(pr.content, pr.comments))
-            d_pr.sync_with_jira(pr, config)
-        else:
-            if issue := handler(body, config):
-                d_issue.sync_with_jira(issue, config)
-            else:
-                log.info("Not handling Issue update -- not configured")
-    elif handler := pr_handlers.get(suffix):
-        if pr := handler(body, config, suffix):
-            d_pr.sync_with_jira(pr, config)
-        else:
-            log.info("Not handling PR update -- not configured")
+        # TODO: Fetch all PRs from the gitlab instance
+
+    log.info("Done with Gitlab PR initialization.")
 
 
 def main(runtime_test=False, runtime_config=None):
