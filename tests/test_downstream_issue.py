@@ -1651,7 +1651,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_issue = MagicMock()
         mock_issue.url = "https://github.com/test/repo/issues/1"
         # Call the function
-        result = d.execute_snowflake_query("Test Title", mock_issue)
+        result = d.execute_snowflake_query(mock_issue)
         mock_cursor = (
             mock_snowflake_connect.return_value.__enter__.return_value.cursor.return_value
         )

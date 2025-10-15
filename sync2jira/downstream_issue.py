@@ -61,10 +61,16 @@ FROM
         FROM
             JIRA_DB.MARTS.JIRA_REMOTELINK AS rl
             INNER JOIN JIRA_DB.MARTS.JIRA_ISSUE AS ji ON ji.ID = rl.ISSUEID
-            AND rl.TITLE = {} AND rl.URL = {}
+            AND rl.TITLE = '{remote_link_title}' AND rl.URL = %s
     ) AS a
     LEFT JOIN JIRA_DB.MARTS.JIRA_PROJECT AS p on a.project_id = p.ID
 """
+
+
+# URL validation
+def validate_github_url(url):
+    pattern = r"^https://github\.com/[^/]+/[^/]+/(issues|pull)/\d+$"
+    return bool(re.match(pattern, url))
 
 
 def get_snowflake_conn():
@@ -81,12 +87,15 @@ def get_snowflake_conn():
     )
 
 
-def execute_snowflake_query(title, issue):
+def execute_snowflake_query(issue):
+    if not validate_github_url(issue.url):
+        log.error(f"Invalid GitHub URL format: {issue.url}")
+        return []
     conn = get_snowflake_conn()
     # Execute the Snowflake query
     with conn as c:
         cursor = c.cursor()
-        cursor.execute(SNOWFLAKE_QUERY.format(title, issue.url))
+        cursor.execute(SNOWFLAKE_QUERY, (issue.url,))
         results = cursor.fetchall()
         cursor.close()
     return results
@@ -188,7 +197,7 @@ def _matching_jira_issue_query(client, issue, config):
     # Searches for any remote link to the issue.url
 
     # Query the JIRA client and store the results
-    results = execute_snowflake_query(remote_link_title, issue)
+    results = execute_snowflake_query(issue)
     results_of_query = []
     if len(results) > 0:
         issue_keys = (row[0] for row in results)
