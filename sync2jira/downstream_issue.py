@@ -46,7 +46,7 @@ remote_link_title = "Upstream issue"
 duplicate_issues_subject = "FYI: Duplicate Sync2jira Issues"
 
 jira_cache = {}
-SNOWFLAKE_QUERY = """
+SNOWFLAKE_QUERY = f"""
 SELECT
     CONCAT(p.PKEY, '-', a.issue_key) AS issue_key,
     remote_link_url,
@@ -61,16 +61,18 @@ FROM
         FROM
             JIRA_DB.MARTS.JIRA_REMOTELINK AS rl
             INNER JOIN JIRA_DB.MARTS.JIRA_ISSUE AS ji ON ji.ID = rl.ISSUEID
-            AND rl.TITLE = '{remote_link_title}' AND rl.URL = %s
+            AND rl.TITLE = '{remote_link_title}' AND rl.URL = ?
     ) AS a
     LEFT JOIN JIRA_DB.MARTS.JIRA_PROJECT AS p on a.project_id = p.ID
 """
 
 
-# URL validation
+GH_URL_PATTERN = re.compile(r"https://github\.com/[^/]+/[^/]+/(issues|pull)/\d+")
+
+
 def validate_github_url(url):
-    pattern = r"^https://github\.com/[^/]+/[^/]+/(issues|pull)/\d+$"
-    return bool(re.match(pattern, url))
+    """URL validation"""
+    return bool(GH_URL_PATTERN.fullmatch(url))
 
 
 def get_snowflake_conn():
