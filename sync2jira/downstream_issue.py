@@ -377,11 +377,8 @@ def match_user(
     """
 
     for email in emails:
-        # Get a list from Jira of users that match the supplied email address
-        # and that are suitable for assignment to this issue.
-        users = client.search_assignable_users_for_issues(
-            query=email, issueKey=downstream.key
-        )
+        # Get a list from Jira of users that match the supplied email address.
+        users = client.search_users(user=email)
 
         if not users:
             continue
