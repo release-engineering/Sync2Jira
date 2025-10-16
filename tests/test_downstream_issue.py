@@ -235,7 +235,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user = MagicMock()
         mock_user.displayName = "mock_assignee"
         mock_user.key = "mock_user_key"
-        mock_client.search_assignable_users_for_issues.return_value = [mock_user]
+        mock_client.search_users.return_value = [mock_user]
         mock_client.assign_issue.return_value = True
         mock_rover_lookup.return_value = ["mock_user@redhat.com"]
 
@@ -248,9 +248,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_called_with(
             {"assignee": {"name": mock_user.name}}
         )
-        mock_client.search_assignable_users_for_issues.assert_called_with(
-            query="mock_user@redhat.com", issueKey=self.mock_downstream.key
-        )
+        mock_client.search_users.assert_called_with(user="mock_user@redhat.com")
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
@@ -263,7 +261,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user = MagicMock()
         mock_user.displayName = "mock_assignee"
         mock_user.key = "mock_user_key"
-        mock_client.search_assignable_users_for_issues.return_value = [mock_user]
+        mock_client.search_users.return_value = [mock_user]
         mock_client.assign_issue.return_value = True
         mock_rover_lookup.return_value = ["mock_user@redhat.com"]
         self.mock_issue.assignee = [
@@ -278,9 +276,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_called_with(
             {"assignee": {"name": mock_user.name}}
         )
-        mock_client.search_assignable_users_for_issues.assert_called_with(
-            query="mock_user@redhat.com", issueKey=self.mock_downstream.key
-        )
+        mock_client.search_users.assert_called_with(user="mock_user@redhat.com")
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
@@ -300,7 +296,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user2.name = "mock_assignee2_name"
         mock_user2.emailAddress = "wrong_mock_user@redhat.com"
         mock_user2.key = "mock_user2_key"
-        mock_client.search_assignable_users_for_issues.return_value = [
+        mock_client.search_users.return_value = [
             mock_user,
             mock_user2,
         ]
@@ -333,9 +329,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_called_with(
             {"assignee": {"name": mock_user.name}}
         )
-        mock_client.search_assignable_users_for_issues.assert_called_with(
-            query="mock_user@redhat.com", issueKey=self.mock_downstream.key
-        )
+        mock_client.search_users.assert_called_with(user="mock_user@redhat.com")
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
@@ -348,7 +342,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user = MagicMock()
         mock_user.displayName = "mock_assignee"
         mock_user.key = "mock_user_key"
-        mock_client.search_assignable_users_for_issues.return_value = []
+        mock_client.search_users.return_value = []
         mock_client.assign_issue.return_value = True
         mock_rover_lookup.return_value = []
 
@@ -359,7 +353,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert that all calls mocked were called properly
         mock_client.assign_issue.assert_called_with(1234, "mock_owner")
-        mock_client.search_assignable_users_for_issues.assert_not_called()
+        mock_client.search_users.assert_not_called()
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
@@ -372,7 +366,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user = MagicMock()
         mock_user.displayName = "mock_assignee"
         mock_user.key = "mock_user_key"
-        mock_client.search_assignable_users_for_issues.return_value = []
+        mock_client.search_users.return_value = []
         mock_client.assign_issue.return_value = True
         mock_rover_lookup.return_value = ["no_match@redhat.com"]
 
@@ -383,9 +377,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert that all calls mocked were called properly
         mock_client.assign_issue.assert_called_with(1234, "mock_owner")
-        mock_client.search_assignable_users_for_issues.assert_called_with(
-            query="no_match@redhat.com", issueKey=self.mock_downstream.key
-        )
+        mock_client.search_users.assert_called_with(user="no_match@redhat.com")
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
@@ -398,7 +390,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user = MagicMock()
         mock_user.displayName = "mock_assignee"
         mock_user.key = "mock_user_key"
-        mock_client.search_assignable_users_for_issues.return_value = []
+        mock_client.search_users.return_value = []
         mock_client.assign_issue.return_value = True
         mock_rover_lookup.return_value = []
         self.mock_issue.downstream.pop("owner")
@@ -410,7 +402,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert that all calls mocked were called properly
         mock_client.assign_issue.assert_not_called()
-        mock_client.search_assignable_users_for_issues.assert_not_called()
+        mock_client.search_users.assert_not_called()
 
     @mock.patch(PATH + "match_user")
     @mock.patch("jira.client.JIRA")
@@ -430,7 +422,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert that all calls mocked were called properly
         mock_match_user.assert_not_called()
-        mock_client.search_assignable_users_for_issues.assert_not_called()
+        mock_client.search_users.assert_not_called()
         self.mock_downstream.update.assert_not_called()
         mock_client.assign_issue.assert_not_called()
 
@@ -450,7 +442,7 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert that all calls mocked were called properly
         self.mock_downstream.update.assert_called_with(assignee={"name": ""})
         mock_client.assign_issue.assert_not_called()
-        mock_client.search_assignable_users_for_issues.assert_not_called()
+        mock_client.search_users.assert_not_called()
 
     def common_test_create_jira_issue(
         self, mock_attach_link, mock_client, mock_update_jira_issue
