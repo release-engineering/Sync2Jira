@@ -449,7 +449,7 @@ def assign_user(
         log.warning(
             "Unable to assign %s from upstream assignees %s in %s",
             downstream.key,
-            str([a.get("fullname", "<no-fullname>") for a in issue.assignee]),
+            str([a.get("fullname", a.get("login", "<name>")) for a in issue.assignee]),
             issue.url,
         )
 
@@ -906,15 +906,19 @@ def _update_assignee(client, existing, issue, overwrite):
         existing.fields.assignee, "displayName"
     )
     if overwrite:
-        if ds_exists and us_exists:
+        if not ds_exists:
+            # Let assign_user() figure out what to do.
+            update = True
+        elif us_exists:
             # Overwrite the downstream assignment only if it is different from
             # the upstream one.
             un = issue.assignee[0]["fullname"]
             dn = existing.fields.assignee.displayName
             update = un != dn and remove_diacritics(un) != dn
         else:
-            # Let assign_user() figure out what to do.
-            update = True
+            # Without an upstream owner, update only if the downstream is not
+            # assigned to the project owner.
+            update = issue.downstream.get("owner") != existing.fields.assignee.name
     else:
         # We're not overwriting, so call assign_user() only if the downstream
         # doesn't already have an assignment.
