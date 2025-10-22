@@ -86,6 +86,7 @@ def get_snowflake_conn():
         warehouse=os.getenv("SNOWFLAKE_WAREHOUSE", "DEFAULT"),
         database=os.getenv("SNOWFLAKE_DATABASE", "JIRA_DB"),
         schema=os.getenv("SNOWFLAKE_SCHEMA", "PUBLIC"),
+        paramstyle="qmark",
     )
 
 
