@@ -810,7 +810,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "_update_assignee")
     @mock.patch(PATH + "_update_on_close")
     @mock.patch("jira.client.JIRA")
-    def test_update_jira_issue(
+    def test_update_jira_issue_closed(
         self,
         mock_client,
         mock_update_on_close,
@@ -823,7 +823,65 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_update_title,
     ):
         """
-        This tests '_update_jira_issue' function
+        This tests '_update_jira_issue' function when the issue is closed
+        """
+
+        self.mock_issue.status = "Closed"
+
+        # Call the function
+        d._update_jira_issue(
+            existing=self.mock_downstream,
+            issue=self.mock_issue,
+            client=mock_client,
+            config=self.mock_config,
+        )
+
+        # Assert all calls were made correctly
+        mock_update_comments.assert_called_with(
+            mock_client, self.mock_downstream, self.mock_issue
+        )
+        mock_update_tags.assert_called_with(
+            self.mock_updates, self.mock_downstream, self.mock_issue
+        )
+        mock_update_fixVersion.assert_called_with(
+            self.mock_updates,
+            self.mock_downstream,
+            self.mock_issue,
+            mock_client,
+        )
+        mock_update_assignee.assert_called_once()
+        mock_update_description.assert_called_with(
+            self.mock_downstream, self.mock_issue
+        )
+        mock_update_title.assert_called_with(self.mock_issue, self.mock_downstream)
+        mock_update_transition.assert_called_with(
+            mock_client, self.mock_downstream, self.mock_issue
+        )
+        mock_update_on_close.assert_called_once()
+
+    @mock.patch(PATH + "_update_title")
+    @mock.patch(PATH + "_update_description")
+    @mock.patch(PATH + "_update_comments")
+    @mock.patch(PATH + "_update_tags")
+    @mock.patch(PATH + "_update_fixVersion")
+    @mock.patch(PATH + "_update_transition")
+    @mock.patch(PATH + "_update_assignee")
+    @mock.patch(PATH + "_update_on_close")
+    @mock.patch("jira.client.JIRA")
+    def test_update_jira_issue_open(
+        self,
+        mock_client,
+        mock_update_on_close,
+        mock_update_assignee,
+        mock_update_transition,
+        mock_update_fixVersion,
+        mock_update_tags,
+        mock_update_comments,
+        mock_update_description,
+        mock_update_title,
+    ):
+        """
+        This tests '_update_jira_issue' function when the issue is not closed
         """
         # Call the function
         d._update_jira_issue(
@@ -846,6 +904,7 @@ class TestDownstreamIssue(unittest.TestCase):
             self.mock_issue,
             mock_client,
         )
+        mock_update_assignee.assert_called_once()
         mock_update_description.assert_called_with(
             self.mock_downstream, self.mock_issue
         )
@@ -853,7 +912,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_update_transition.assert_called_with(
             mock_client, self.mock_downstream, self.mock_issue
         )
-        mock_update_on_close.assert_called_once()
+        mock_update_on_close.assert_not_called()
 
     @mock.patch("jira.client.JIRA")
     def test_update_transition_JIRAError(self, mock_client):

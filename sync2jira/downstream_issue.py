@@ -369,9 +369,7 @@ def _upgrade_jira_issue(client, downstream, issue, config):
     attach_link(client, downstream, remote_link)
 
 
-def match_user(
-    emails: list[str], client: jira.client, downstream: jira.Issue
-) -> Optional[str]:
+def match_user(emails: list[str], client: jira.client.JIRA) -> Optional[str]:
     """Match an upstream user to an assignable downstream user and return the
     downstream username; return None on failure.
     """
@@ -410,7 +408,7 @@ def match_user(
 
 
 def assign_user(
-    client: jira.client, issue: Issue, downstream: jira.Issue, remove_all=False
+    client: jira.client.JIRA, issue: Issue, downstream: jira.Issue, remove_all=False
 ):
     """
     Attempts to assign a JIRA issue to the correct
@@ -440,7 +438,7 @@ def assign_user(
             continue
 
         # Try to match the upstream assignee's emails to a Jira user
-        match_name = match_user(emails, client, downstream)
+        match_name = match_user(emails, client)
         if match_name:
             # Assign the downstream issue to the matched user
             downstream.update({"assignee": {"name": match_name}})
@@ -762,8 +760,10 @@ def _update_jira_issue(existing, issue, client, config):
         _update_transition(client, existing, issue)
 
     # Only execute 'on_close' events for listings that opt-in
-    log.info("Attempting to update downstream issue on upstream closed event")
-    _update_on_close(existing, issue, updates)
+    # and when the issue is closed.
+    if issue.status == "Closed":
+        log.info("Attempting to update downstream issue on upstream closed event")
+        _update_on_close(existing, issue, updates)
 
     log.info("Done updating %s!", issue.url)
 
@@ -1133,23 +1133,14 @@ def _update_on_close(existing, issue, updates: list[UPDATE_ENTRY]):
     """
     for item in updates:
         if isinstance(item, dict):
-            if on_close_updates := item.get("on_close"):
+            if new_labels := item.get("on_close", {}).get("apply_labels", []):
                 break
     else:
-        on_close_updates = None
-
-    if not on_close_updates:
         return
 
-    if issue.status != "Closed":
-        return
-
-    if "apply_labels" not in on_close_updates:
-        return
-
-    log.info("Applying 'on_close' labels to downstream Jira issue")
     existing_labels = set(existing.fields.labels)
-    updated_labels = existing_labels.union(set(on_close_updates["apply_labels"]))
+    updated_labels = existing_labels.union(new_labels)
+    log.info("Applying 'on_close' labels %s to downstream Jira issue", updated_labels)
     _update_jira_labels(existing, list(updated_labels))
 
 
