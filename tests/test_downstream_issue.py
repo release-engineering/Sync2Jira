@@ -1548,11 +1548,10 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         # Set up return values
         self.mock_downstream.fields.description = ""
-        self.mock_issue.status = "Closed"
         updates = [{"on_close": {"apply_labels": ["closed-upstream"]}}]
 
         # Call the function
-        d._update_on_close(self.mock_downstream, self.mock_issue, updates)
+        d._update_on_close(self.mock_downstream, updates)
 
         # Assert everything was called correctly
         self.mock_downstream.update.assert_called_with(
@@ -1565,11 +1564,10 @@ class TestDownstreamIssue(unittest.TestCase):
         "apply_labels" configuration but there is no update required.
         """
         # Set up return values
-        self.mock_issue.status = "Closed"
         updates = [{"on_close": {"apply_labels": ["tag4"]}}]
 
         # Call the function
-        d._update_on_close(self.mock_downstream, self.mock_issue, updates)
+        d._update_on_close(self.mock_downstream, updates)
 
         # Assert everything was called correctly
         self.mock_downstream.update.assert_not_called()
@@ -1580,11 +1578,10 @@ class TestDownstreamIssue(unittest.TestCase):
         "apply_labels" configuration.
         """
         # Set up return values
-        self.mock_issue.status = "Closed"
         updates = [{"on_close": {"some_other_action": None}}]
 
         # Call the function
-        d._update_on_close(self.mock_downstream, self.mock_issue, updates)
+        d._update_on_close(self.mock_downstream, updates)
 
         # Assert everything was called correctly
         self.mock_downstream.update.assert_not_called()
@@ -1595,11 +1592,10 @@ class TestDownstreamIssue(unittest.TestCase):
         configuration for close events.
         """
         # Set up return values
-        self.mock_issue.status = "Closed"
         updates = ["description"]
 
         # Call the function
-        d._update_on_close(self.mock_downstream, self.mock_issue, updates)
+        d._update_on_close(self.mock_downstream, updates)
 
         # Assert everything was called correctly
         self.mock_downstream.update.assert_not_called()
