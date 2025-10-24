@@ -126,9 +126,7 @@ The config file is made up of multiple parts
         * Sync fixVersion (downstream milestone), do/don't overwrite downstream fixVersion
     * :code:`{'assignee': {'overwrite': True/False}}`
         * Sync assignee (for Github only the first assignee will sync) do/don't overwrite downstream assignee
-        * Note that the downstream assignee is selected by performing an LDAP query for the upstream user in the
-"Professional Social Media" link in the RoverPeople profiles, so, in order for this feature to work properly, each
-potential assignee needs to ensure that they have added their upstream identity(es) to their Rover profile.
+        * Note that the downstream assignee is selected by performing an LDAP query for the upstream user in the "Professional Social Media" link in the RoverPeople profiles, so, in order for this feature to work properly, each potential assignee needs to ensure that they have added their upstream identity(es) to their Rover profile.
     * :code:`'description'`
         * Sync description
     * :code:`'title'`
