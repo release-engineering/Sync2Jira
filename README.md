@@ -1,6 +1,6 @@
 # Sync2Jira
 
-[![Documentation Status](https://readthedocs.org/projects/sync2jira/badge/?version=master)](https://sync2jira.readthedocs.io/en/master/?badge=master)
+[![Documentation Status](https://readthedocs.org/projects/sync2jira/badge/?version=main)](https://sync2jira.readthedocs.io/en/main/?badge=main)
 [![Coverage Status](https://coveralls.io/repos/github/release-engineering/Sync2Jira/badge.svg?branch=main)](https://coveralls.io/github/release-engineering/Sync2Jira?branch=main)
 ![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)
 
@@ -216,9 +216,9 @@ The following environment variables can be used to configure both tools:
 
 Comprehensive documentation is available at [sync2jira.readthedocs.io](https://sync2jira.readthedocs.io/en/latest/):
 
-- [Quick Start Guide](https://sync2jira.readthedocs.io/en/master/quickstart.html)
-- [Configuration Reference](https://sync2jira.readthedocs.io/en/master/config-file.html)
-- [Sync Page Usage](https://sync2jira.readthedocs.io/en/master/sync_page.html)
+- [Quick Start Guide](https://sync2jira.readthedocs.io/en/main/quickstart.html)
+- [Configuration Reference](https://sync2jira.readthedocs.io/en/main/config-file.html)
+- [Sync Page Usage](https://sync2jira.readthedocs.io/en/main/sync_page.html)
 
 
 ## License
