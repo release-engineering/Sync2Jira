@@ -763,7 +763,7 @@ def _update_jira_issue(existing, issue, client, config):
     # and when the issue is closed.
     if issue.status == "Closed":
         log.info("Attempting to update downstream issue on upstream closed event")
-        _update_on_close(existing, issue, updates)
+        _update_on_close(existing, updates)
 
     log.info("Done updating %s!", issue.url)
 
@@ -1108,7 +1108,7 @@ def _update_description(existing, issue):
 UPDATE_ENTRY = Union[str, dict[str, Union[str, dict[str, Any]]]]
 
 
-def _update_on_close(existing, issue, updates: list[UPDATE_ENTRY]):
+def _update_on_close(existing, updates: list[UPDATE_ENTRY]):
     """Update downstream Jira issue when upstream issue was closed
 
     Example update configuration:
@@ -1127,7 +1127,6 @@ def _update_on_close(existing, issue, updates: list[UPDATE_ENTRY]):
     ]
 
     :param jira.resource.Issue existing: existing Jira issue
-    :param sync2jira.intermediary.Issue issue: Upstream issue
     :param dict updates: update configuration
     :return: None
     """
