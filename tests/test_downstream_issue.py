@@ -1759,10 +1759,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
     @mock.patch(PATH + "snowflake.connector.connect")
     def test_execute_snowflake_query_real_connection(self, mock_snowflake_connect):
-        """
-        Test execute_snowflake_query with real Snowflake connection to cover the 10 lines
-        that are currently mocked out in other tests.
-        """
+        """Test execute_snowflake_query function."""
         # Create a mock issue
         mock_issue = MagicMock()
         mock_issue.url = "https://github.com/test/repo/issues/1"
