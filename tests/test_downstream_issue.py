@@ -236,7 +236,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user = MagicMock()
         mock_user.displayName = "mock_assignee"
         mock_user.key = "mock_user_key"
-        mock_client.search_assignable_users_for_issues.return_value = [mock_user]
+        mock_client.search_users.return_value = [mock_user]
         mock_client.assign_issue.return_value = True
         mock_rover_lookup.return_value = ["mock_user@redhat.com"]
 
@@ -249,9 +249,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_called_with(
             {"assignee": {"name": mock_user.name}}
         )
-        mock_client.search_assignable_users_for_issues.assert_called_with(
-            query="mock_user@redhat.com", issueKey=self.mock_downstream.key
-        )
+        mock_client.search_users.assert_called_with(user="mock_user@redhat.com")
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
@@ -264,7 +262,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user = MagicMock()
         mock_user.displayName = "mock_assignee"
         mock_user.key = "mock_user_key"
-        mock_client.search_assignable_users_for_issues.return_value = [mock_user]
+        mock_client.search_users.return_value = [mock_user]
         mock_client.assign_issue.return_value = True
         mock_rover_lookup.return_value = ["mock_user@redhat.com"]
         self.mock_issue.assignee = [
@@ -279,9 +277,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_called_with(
             {"assignee": {"name": mock_user.name}}
         )
-        mock_client.search_assignable_users_for_issues.assert_called_with(
-            query="mock_user@redhat.com", issueKey=self.mock_downstream.key
-        )
+        mock_client.search_users.assert_called_with(user="mock_user@redhat.com")
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
@@ -301,7 +297,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user2.name = "mock_assignee2_name"
         mock_user2.emailAddress = "wrong_mock_user@redhat.com"
         mock_user2.key = "mock_user2_key"
-        mock_client.search_assignable_users_for_issues.return_value = [
+        mock_client.search_users.return_value = [
             mock_user,
             mock_user2,
         ]
@@ -334,9 +330,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.assert_called_with(
             {"assignee": {"name": mock_user.name}}
         )
-        mock_client.search_assignable_users_for_issues.assert_called_with(
-            query="mock_user@redhat.com", issueKey=self.mock_downstream.key
-        )
+        mock_client.search_users.assert_called_with(user="mock_user@redhat.com")
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
@@ -349,7 +343,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user = MagicMock()
         mock_user.displayName = "mock_assignee"
         mock_user.key = "mock_user_key"
-        mock_client.search_assignable_users_for_issues.return_value = []
+        mock_client.search_users.return_value = []
         mock_client.assign_issue.return_value = True
         mock_rover_lookup.return_value = []
 
@@ -360,7 +354,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert that all calls mocked were called properly
         mock_client.assign_issue.assert_called_with(1234, "mock_owner")
-        mock_client.search_assignable_users_for_issues.assert_not_called()
+        mock_client.search_users.assert_not_called()
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
@@ -373,7 +367,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user = MagicMock()
         mock_user.displayName = "mock_assignee"
         mock_user.key = "mock_user_key"
-        mock_client.search_assignable_users_for_issues.return_value = []
+        mock_client.search_users.return_value = []
         mock_client.assign_issue.return_value = True
         mock_rover_lookup.return_value = ["no_match@redhat.com"]
 
@@ -384,9 +378,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert that all calls mocked were called properly
         mock_client.assign_issue.assert_called_with(1234, "mock_owner")
-        mock_client.search_assignable_users_for_issues.assert_called_with(
-            query="no_match@redhat.com", issueKey=self.mock_downstream.key
-        )
+        mock_client.search_users.assert_called_with(user="no_match@redhat.com")
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
@@ -399,7 +391,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user = MagicMock()
         mock_user.displayName = "mock_assignee"
         mock_user.key = "mock_user_key"
-        mock_client.search_assignable_users_for_issues.return_value = []
+        mock_client.search_users.return_value = []
         mock_client.assign_issue.return_value = True
         mock_rover_lookup.return_value = []
         self.mock_issue.downstream.pop("owner")
@@ -411,7 +403,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert that all calls mocked were called properly
         mock_client.assign_issue.assert_not_called()
-        mock_client.search_assignable_users_for_issues.assert_not_called()
+        mock_client.search_users.assert_not_called()
 
     @mock.patch(PATH + "match_user")
     @mock.patch("jira.client.JIRA")
@@ -431,7 +423,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert that all calls mocked were called properly
         mock_match_user.assert_not_called()
-        mock_client.search_assignable_users_for_issues.assert_not_called()
+        mock_client.search_users.assert_not_called()
         self.mock_downstream.update.assert_not_called()
         mock_client.assign_issue.assert_not_called()
 
@@ -451,7 +443,7 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert that all calls mocked were called properly
         self.mock_downstream.update.assert_called_with(assignee={"name": ""})
         mock_client.assign_issue.assert_not_called()
-        mock_client.search_assignable_users_for_issues.assert_not_called()
+        mock_client.search_users.assert_not_called()
 
     def common_test_create_jira_issue(
         self, mock_attach_link, mock_client, mock_update_jira_issue
@@ -819,7 +811,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "_update_assignee")
     @mock.patch(PATH + "_update_on_close")
     @mock.patch("jira.client.JIRA")
-    def test_update_jira_issue(
+    def test_update_jira_issue_closed(
         self,
         mock_client,
         mock_update_on_close,
@@ -832,7 +824,65 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_update_title,
     ):
         """
-        This tests '_update_jira_issue' function
+        This tests '_update_jira_issue' function when the issue is closed
+        """
+
+        self.mock_issue.status = "Closed"
+
+        # Call the function
+        d._update_jira_issue(
+            existing=self.mock_downstream,
+            issue=self.mock_issue,
+            client=mock_client,
+            config=self.mock_config,
+        )
+
+        # Assert all calls were made correctly
+        mock_update_comments.assert_called_with(
+            mock_client, self.mock_downstream, self.mock_issue
+        )
+        mock_update_tags.assert_called_with(
+            self.mock_updates, self.mock_downstream, self.mock_issue
+        )
+        mock_update_fixVersion.assert_called_with(
+            self.mock_updates,
+            self.mock_downstream,
+            self.mock_issue,
+            mock_client,
+        )
+        mock_update_assignee.assert_called_once()
+        mock_update_description.assert_called_with(
+            self.mock_downstream, self.mock_issue
+        )
+        mock_update_title.assert_called_with(self.mock_issue, self.mock_downstream)
+        mock_update_transition.assert_called_with(
+            mock_client, self.mock_downstream, self.mock_issue
+        )
+        mock_update_on_close.assert_called_once()
+
+    @mock.patch(PATH + "_update_title")
+    @mock.patch(PATH + "_update_description")
+    @mock.patch(PATH + "_update_comments")
+    @mock.patch(PATH + "_update_tags")
+    @mock.patch(PATH + "_update_fixVersion")
+    @mock.patch(PATH + "_update_transition")
+    @mock.patch(PATH + "_update_assignee")
+    @mock.patch(PATH + "_update_on_close")
+    @mock.patch("jira.client.JIRA")
+    def test_update_jira_issue_open(
+        self,
+        mock_client,
+        mock_update_on_close,
+        mock_update_assignee,
+        mock_update_transition,
+        mock_update_fixVersion,
+        mock_update_tags,
+        mock_update_comments,
+        mock_update_description,
+        mock_update_title,
+    ):
+        """
+        This tests '_update_jira_issue' function when the issue is not closed
         """
         # Call the function
         d._update_jira_issue(
@@ -855,6 +905,7 @@ class TestDownstreamIssue(unittest.TestCase):
             self.mock_issue,
             mock_client,
         )
+        mock_update_assignee.assert_called_once()
         mock_update_description.assert_called_with(
             self.mock_downstream, self.mock_issue
         )
@@ -862,7 +913,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_update_transition.assert_called_with(
             mock_client, self.mock_downstream, self.mock_issue
         )
-        mock_update_on_close.assert_called_once()
+        mock_update_on_close.assert_not_called()
 
     @mock.patch("jira.client.JIRA")
     def test_update_transition_JIRAError(self, mock_client):
@@ -1042,44 +1093,97 @@ class TestDownstreamIssue(unittest.TestCase):
         expected_results = iter(
             (
                 # - overwrite = True
-                #    - downstream assignee exists
-                None,  # upstream assignee exists and assignments are equal: not called
-                None,  # upstream assignee exists and assignments differ only in diacritics: not called
-                False,  # upstream assignee exists and assignments are different: called with remove_all=False
-                True,  # upstream assignee has a fullname of None: called with remove_all=True
-                True,  # upstream assignee does not exist: called with remove_all=True
-                True,  # upstream assignee is an empty list: called with remove_all=True
+                #    - downstream assignee is set
+                #       - upstream assignee exists and assignments are equal: not called
+                (11, None),
+                #       - upstream assignee exists and assignments differ only in diacritics: not called
+                (12, None),
+                #       - upstream assignee exists and assignments are different: called with remove_all=False
+                (13, False),
+                #       - upstream assignee has a fullname of None: called with remove_all=True
+                (14, True),
+                #       - upstream assignee does not exist: called with remove_all=True
+                (15, True),
+                #       - upstream assignee is an empty list: called with remove_all=True
+                (16, True),
+                #    - downstream assignee is owner
+                #       - upstream assignee exists and assignments are different: called with remove_all=False
+                (21, False),
+                #       - upstream assignee exists and assignments are different: called with remove_all=False
+                (22, False),
+                #       - upstream assignee exists and assignments are different: called with remove_all=False
+                (23, False),
+                #       - upstream assignee has a fullname of None: not called (already assigned to owner)
+                (24, None),
+                #       - upstream assignee does not exist: not called (already assigned to owner)
+                (25, None),
+                #       - upstream assignee is an empty list: not called (already assigned to owner)
+                (26, None),
                 #    - downstream assignee does not exist
-                False,  # upstream assignee exists: called with remove_all=False
-                False,  # upstream assignee exists: called with remove_all=False
-                False,  # upstream assignee exists: called with remove_all=False
-                False,  # upstream assignee has a fullname of None: called with remove_all=False
-                False,  # upstream assignee does not exist: called with remove_all=False
-                False,  # upstream assignee is an empty list: called with remove_all=False
+                #       - upstream assignee exists: called with remove_all=False
+                (31, False),
+                #       - upstream assignee exists: called with remove_all=False
+                (32, False),
+                #       - upstream assignee exists: called with remove_all=False
+                (33, False),
+                #       - upstream assignee has a fullname of None: called with remove_all=False
+                (34, False),
+                #       - upstream assignee does not exist: called with remove_all=False
+                (35, False),
+                #       - upstream assignee is an empty list: called with remove_all=False
+                (36, False),
                 # - overwrite = False
-                #    - downstream assignee exists:
-                None,  # upstream assignee exists and assignments are equal: not called
-                None,  # upstream assignee exists and assignments differ only in diacritics: not called
-                None,  # upstream assignee exists and assignments are different: not called
-                None,  # upstream assignee has a fullname of None: not called
-                None,  # upstream assignee does not exist: not called
-                None,  # upstream assignee is an empty list: not called
+                #    - downstream assignee is set:
+                #       - upstream assignee exists and assignments are equal: not called
+                (41, None),
+                #       - upstream assignee exists and assignments differ only in diacritics: not called
+                (42, None),
+                #       - upstream assignee exists and assignments are different: not called
+                (43, None),
+                #       - upstream assignee has a fullname of None: not called
+                (44, None),
+                #       - upstream assignee does not exist: not called
+                (45, None),
+                #       - upstream assignee is an empty list: not called
+                (46, None),
+                #    - downstream assignee is owner
+                #       - upstream assignee exists and assignments are different: not called
+                (51, None),
+                #       - upstream assignee exists and assignments are different: not called
+                (52, None),
+                #       - upstream assignee exists and assignments are different: not called
+                (53, None),
+                #       - upstream assignee has a fullname of None: not called
+                (54, None),
+                #       - upstream assignee does not exist: not called
+                (55, None),
+                #       - upstream assignee is an empty list: not called
+                (56, None),
                 #    - downstream assignee does not exist
-                False,  # upstream assignee exists: called with remove_all=False
-                False,  # upstream assignee exists: called with remove_all=False
-                False,  # upstream assignee exists: called with remove_all=False
-                False,  # upstream assignee has a fullname of None: called with remove_all=False
-                False,  # upstream assignee does not exist: called with remove_all=False
-                False,  # upstream assignee is an empty list: called with remove_all=False
+                #       - upstream assignee exists: called with remove_all=False
+                (61, False),
+                #       - upstream assignee exists: called with remove_all=False
+                (62, False),
+                #       - upstream assignee exists: called with remove_all=False
+                (63, False),
+                #       - upstream assignee has a fullname of None: called with remove_all=False
+                (64, False),
+                #       - upstream assignee does not exist: called with remove_all=False
+                (65, False),
+                #       - upstream assignee is an empty list: called with remove_all=False
+                (66, False),
             )
         )
         match = "Erik"
+        owner = self.mock_issue.downstream["owner"]
         for overwrite in (True, False):
-            for ds in (match, None):
+            for ds in (match, owner, None):
                 if ds is None:
                     delattr(self.mock_downstream.fields.assignee, "displayName")
+                    delattr(self.mock_downstream.fields.assignee, "name")
                 else:
-                    setattr(self.mock_downstream.fields.assignee, "displayName", match)
+                    setattr(self.mock_downstream.fields.assignee, "displayName", ds)
+                    setattr(self.mock_downstream.fields.assignee, "name", ds)
 
                 for us in (
                     [{"fullname": match}],
@@ -1090,6 +1194,7 @@ class TestDownstreamIssue(unittest.TestCase):
                     [],
                 ):
                     self.mock_issue.assignee = us
+                    scenario, expected_result = next(expected_results)
 
                     d._update_assignee(
                         client=mock_client,
@@ -1099,16 +1204,18 @@ class TestDownstreamIssue(unittest.TestCase):
                     )
 
                     # Check that the call was made correctly
-                    expected_result = next(expected_results)
-                    if expected_result is None:
-                        mock_assign_user.assert_not_called()
-                    else:
-                        mock_assign_user.assert_called_with(
-                            mock_client,
-                            self.mock_issue,
-                            self.mock_downstream,
-                            remove_all=expected_result,
-                        )
+                    try:
+                        if expected_result is None:
+                            mock_assign_user.assert_not_called()
+                        else:
+                            mock_assign_user.assert_called_with(
+                                mock_client,
+                                self.mock_issue,
+                                self.mock_downstream,
+                                remove_all=expected_result,
+                            )
+                    except AssertionError as e:
+                        raise AssertionError(f"Failed scenario {scenario}: {e}")
                     mock_assign_user.reset_mock()
 
     @mock.patch(PATH + "verify_tags")
@@ -1492,11 +1599,10 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         # Set up return values
         self.mock_downstream.fields.description = ""
-        self.mock_issue.status = "Closed"
         updates = [{"on_close": {"apply_labels": ["closed-upstream"]}}]
 
         # Call the function
-        d._update_on_close(self.mock_downstream, self.mock_issue, updates)
+        d._update_on_close(self.mock_downstream, updates)
 
         # Assert everything was called correctly
         self.mock_downstream.update.assert_called_with(
@@ -1509,11 +1615,10 @@ class TestDownstreamIssue(unittest.TestCase):
         "apply_labels" configuration but there is no update required.
         """
         # Set up return values
-        self.mock_issue.status = "Closed"
         updates = [{"on_close": {"apply_labels": ["tag4"]}}]
 
         # Call the function
-        d._update_on_close(self.mock_downstream, self.mock_issue, updates)
+        d._update_on_close(self.mock_downstream, updates)
 
         # Assert everything was called correctly
         self.mock_downstream.update.assert_not_called()
@@ -1524,11 +1629,10 @@ class TestDownstreamIssue(unittest.TestCase):
         "apply_labels" configuration.
         """
         # Set up return values
-        self.mock_issue.status = "Closed"
         updates = [{"on_close": {"some_other_action": None}}]
 
         # Call the function
-        d._update_on_close(self.mock_downstream, self.mock_issue, updates)
+        d._update_on_close(self.mock_downstream, updates)
 
         # Assert everything was called correctly
         self.mock_downstream.update.assert_not_called()
@@ -1539,11 +1643,10 @@ class TestDownstreamIssue(unittest.TestCase):
         configuration for close events.
         """
         # Set up return values
-        self.mock_issue.status = "Closed"
         updates = ["description"]
 
         # Call the function
-        d._update_on_close(self.mock_downstream, self.mock_issue, updates)
+        d._update_on_close(self.mock_downstream, updates)
 
         # Assert everything was called correctly
         self.mock_downstream.update.assert_not_called()

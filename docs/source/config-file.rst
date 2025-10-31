@@ -116,7 +116,7 @@ The config file is made up of multiple parts
 
 * You can add your projects here. The :code:`'project'` field is associated
   with downstream JIRA projects, and :code:`'component'` with downstream
-  components.  You can add the following to the :code:`issue_updates` array:
+  components. You can add the following to the :code:`issue_updates` array:
 
     * :code:`'comments'`
         * Sync comments and comment edits
@@ -126,6 +126,9 @@ The config file is made up of multiple parts
         * Sync fixVersion (downstream milestone), do/don't overwrite downstream fixVersion
     * :code:`{'assignee': {'overwrite': True/False}}`
         * Sync assignee (for Github only the first assignee will sync) do/don't overwrite downstream assignee
+        * Note that the downstream assignee is selected by performing an LDAP query for the upstream user in the
+          "Professional Social Media" link in the RoverPeople profiles, so, in order for this feature to work properly,
+          each potential assignee needs to ensure that they have added their upstream identity(es) to their Rover profile.
     * :code:`'description'`
         * Sync description
     * :code:`'title'`
@@ -137,11 +140,13 @@ The config file is made up of multiple parts
     * :code:`github_markdown`
         * If description syncing is turned on, this flag will convert Github markdown to Jira syntax. This uses the pypandoc module.
     * :code:`upstream_id`
-        * If selected this will add a comment to all newly created JIRA issue in the format 'UPSTREAM_PROJECT-#1' where the number indicates the issue ID. This allows users to search for the issue on JIRA via the issue number.
+        * If selected this will add a comment to all newly created JIRA issue in the format 'UPSTREAM_PROJECT-#1' where
+          the number indicates the issue ID. This allows users to search for the issue on JIRA via the issue number.
     * :code:`url`
         * This flag will add the upstream url to the bottom of the JIRA ticket
     * :code:`github_project_number`
-        * Specify the GitHub project number. If specified, story points and priority will be selected from this project, and other projects linked to the issues will be ignored.
+        * Specify the GitHub project number. If specified, story points and priority will be selected from this project,
+          and other projects linked to the issues will be ignored.
     * :code:`github_project_fields`
         * Sync GitHub projects fields. e.g, storypoints, priority
 
@@ -150,21 +155,24 @@ The config file is made up of multiple parts
         :Overwrite: Setting this to :code:`True` will ensure that Upstream (GitHub) values will overwrite downstream ones (i.e. if its empty upstream it'll be empty downstream)
         :CUSTOM_TRANSITION: Setting this value will get Sync2Jira to automatically transition downstream tickets once their upstream counterparts get closed. Set this to whatever 'closed' means downstream.
 
-* You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with downstream components
-  You can add the following to the :code:`pr_updates` array:
+* You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with
+  downstream components. You can add the following to the :code:`pr_updates` array:
 
     * :code:`{'merge_transition': 'CUSTOM_TRANSITION'}`
         * Sync when upstream PR gets merged. Attempts to transition JIRA ticket to CUSTOM_TRANSITION on upstream merge
     * :code:`{'link_transition': 'CUSTOM_TRANSITION'}`
         * Sync when upstream PR gets linked. Attempts to transition JIRA ticket to CUSTOM_TRANSITION on upstream link
 
-* You can add the following to the mapping array. This array will map an upstream field to the downstream counterpart with XXX replaced.
+* You can add the following to the mapping array. This array will map an upstream field to the downstream counterpart
+  with XXX replaced.
 
     * :code:`{'fixVersion': 'Test XXX'}`
-        * Maps upstream milestone (suppose it's called 'milestone') to downstream fixVersion with a mapping (for our example it would be 'Test milestone')
+        * Maps upstream milestone (suppose it's called 'milestone') to downstream fixVersion with a mapping (for our
+          example it would be 'Test milestone')
 
-* It is strongly encouraged for teams to use the :code:`owner` field. If configured, owners will be alerted if Sync2Jira finds duplicate downstream issues.
-  Further the owner will be used as a default in case the program is unable to find a valid assignee.
+* It is strongly encouraged for teams to use the :code:`owner` field. If configured, owners will be alerted if Sync2Jira
+  finds duplicate downstream issues. Further the owner will be used as a default in case the program is unable to find a
+  valid assignee.
 
 .. code-block:: python
 

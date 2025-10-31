@@ -431,19 +431,14 @@ def _upgrade_jira_issue(client, downstream, issue, config):
     attach_link(client, downstream, remote_link)
 
 
-def match_user(
-    emails: list[str], client: jira.client, downstream: jira.Issue
-) -> Optional[str]:
+def match_user(emails: list[str], client: jira.client.JIRA) -> Optional[str]:
     """Match an upstream user to an assignable downstream user and return the
     downstream username; return None on failure.
     """
 
     for email in emails:
-        # Get a list from Jira of users that match the supplied email address
-        # and that are suitable for assignment to this issue.
-        users = client.search_assignable_users_for_issues(
-            query=email, issueKey=downstream.key
-        )
+        # Get a list from Jira of users that match the supplied email address.
+        users = client.search_users(user=email)
 
         if not users:
             continue
@@ -475,7 +470,7 @@ def match_user(
 
 
 def assign_user(
-    client: jira.client, issue: Issue, downstream: jira.Issue, remove_all=False
+    client: jira.client.JIRA, issue: Issue, downstream: jira.Issue, remove_all=False
 ):
     """
     Attempts to assign a JIRA issue to the correct
@@ -505,7 +500,7 @@ def assign_user(
             continue
 
         # Try to match the upstream assignee's emails to a Jira user
-        match_name = match_user(emails, client, downstream)
+        match_name = match_user(emails, client)
         if match_name:
             # Assign the downstream issue to the matched user
             downstream.update({"assignee": {"name": match_name}})
@@ -516,7 +511,7 @@ def assign_user(
         log.warning(
             "Unable to assign %s from upstream assignees %s in %s",
             downstream.key,
-            str([a.get("fullname", "<no-fullname>") for a in issue.assignee]),
+            str([a.get("fullname", a.get("login", "<name>")) for a in issue.assignee]),
             issue.url,
         )
 
@@ -827,8 +822,10 @@ def _update_jira_issue(existing, issue, client, config):
         _update_transition(client, existing, issue)
 
     # Only execute 'on_close' events for listings that opt-in
-    log.info("Attempting to update downstream issue on upstream closed event")
-    _update_on_close(existing, issue, updates)
+    # and when the issue is closed.
+    if issue.status == "Closed":
+        log.info("Attempting to update downstream issue on upstream closed event")
+        _update_on_close(existing, updates)
 
     log.info("Done updating %s!", issue.url)
 
@@ -971,15 +968,19 @@ def _update_assignee(client, existing, issue, overwrite):
         existing.fields.assignee, "displayName"
     )
     if overwrite:
-        if ds_exists and us_exists:
+        if not ds_exists:
+            # Let assign_user() figure out what to do.
+            update = True
+        elif us_exists:
             # Overwrite the downstream assignment only if it is different from
             # the upstream one.
             un = issue.assignee[0]["fullname"]
             dn = existing.fields.assignee.displayName
             update = un != dn and remove_diacritics(un) != dn
         else:
-            # Let assign_user() figure out what to do.
-            update = True
+            # Without an upstream owner, update only if the downstream is not
+            # assigned to the project owner.
+            update = issue.downstream.get("owner") != existing.fields.assignee.name
     else:
         # We're not overwriting, so call assign_user() only if the downstream
         # doesn't already have an assignment.
@@ -1173,7 +1174,7 @@ def _update_description(existing, issue):
 UPDATE_ENTRY = Union[str, dict[str, Union[str, dict[str, Any]]]]
 
 
-def _update_on_close(existing, issue, updates: list[UPDATE_ENTRY]):
+def _update_on_close(existing, updates: list[UPDATE_ENTRY]):
     """Update downstream Jira issue when upstream issue was closed
 
     Example update configuration:
@@ -1192,29 +1193,19 @@ def _update_on_close(existing, issue, updates: list[UPDATE_ENTRY]):
     ]
 
     :param jira.resource.Issue existing: existing Jira issue
-    :param sync2jira.intermediary.Issue issue: Upstream issue
     :param dict updates: update configuration
     :return: None
     """
     for item in updates:
         if isinstance(item, dict):
-            if on_close_updates := item.get("on_close"):
+            if new_labels := item.get("on_close", {}).get("apply_labels", []):
                 break
     else:
-        on_close_updates = None
-
-    if not on_close_updates:
         return
 
-    if issue.status != "Closed":
-        return
-
-    if "apply_labels" not in on_close_updates:
-        return
-
-    log.info("Applying 'on_close' labels to downstream Jira issue")
     existing_labels = set(existing.fields.labels)
-    updated_labels = existing_labels.union(set(on_close_updates["apply_labels"]))
+    updated_labels = existing_labels.union(new_labels)
+    log.info("Applying 'on_close' labels %s to downstream Jira issue", updated_labels)
     _update_jira_labels(existing, list(updated_labels))
 
 
