@@ -1,12 +1,14 @@
-jira
+jira>=3.8.0
 requests
 requests_kerberos
 fedmsg
 fedora-messaging
 PyGithub
 pypandoc_binary
+dotenv
 urllib3
 jinja2
 flask
+snowflake
 webhook-to-fedora-messaging-messages
 ldap3>=2.9.0

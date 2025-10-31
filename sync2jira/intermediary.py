@@ -278,7 +278,7 @@ def map_fixVersion(mapping, issue):
         issue["milestone"] = fixVersion_map.replace("XXX", issue["milestone"])
 
 
-JIRA_REFERENCE = re.compile(r"\bJIRA:\s*([A-Z]+-\d+)\b")
+JIRA_REFERENCE = re.compile(r"\bJIRA:\s*([A-Z][A-Z0-9]*-\d+)\b")
 
 
 def matcher(content: Optional[str], comments: list[dict[str, str]]) -> str:
