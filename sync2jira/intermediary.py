@@ -86,7 +86,7 @@ class Issue(object):
 
     @classmethod
     def from_github(cls, upstream, issue, config):
-        """Helper function to create an intermediary Issue object."""
+        """Helper function to create an intermediary Issue object from Github."""
         upstream_source = "github"
         comments = reformat_github_comments(issue)
 
@@ -129,6 +129,41 @@ class Issue(object):
             storypoints=issue.get("storypoints"),
             upstream_id=issue["number"],
             issue_type=issue_type,
+        )
+
+    @classmethod
+    def from_gitlab(cls, issue, comments, upstream, config):
+        """Helper function to create an intermediary Issue object from Gitlab."""
+        upstream_source = "gitlab"
+
+        # Reformat the state field
+        issue_status = issue.state
+        if issue_status == "open":
+            issue_status = "Open"
+        elif issue_status == "closed":
+            issue_status = "Closed"
+
+        return cls(
+            source=upstream_source,
+            title=issue.title,
+            url=issue.web_url,
+            upstream=upstream,
+            config=config,
+            comments=reformat_gitlab_comments(comments),
+            tags=issue.labels,
+            fixVersion="" if not issue.milestone else issue.milestone.id,
+            priority="",
+            content=issue.description,
+            reporter={"login": issue.author.username, "fullname": issue.author.name},
+            assignee=[
+                {"login": entry.username, "fullname": entry.name}
+                for entry in issue.assignees
+            ],
+            status=issue_status,
+            id_=issue.id,
+            storypoints="",
+            upstream_id=issue.iid,
+            issue_type=issue.type,
         )
 
     def __repr__(self):
@@ -247,6 +282,54 @@ class PR(object):
             suffix=suffix,
             match=match,
         )
+
+    @classmethod
+    def from_gitlab(cls, pr, comments, upstream, config):
+        """Helper function to create an intermediary PR object from gitlab"""
+        upstream_source = "github"
+        reformatted_comments = reformat_gitlab_comments(comments)
+
+        # Match to a JIRA
+        match = matcher(pr.description, reformatted_comments)
+
+        # Return our PR object
+        return cls(
+            source=upstream_source,
+            jira_key=match,
+            title=pr.title,
+            url=pr.web_url,
+            upstream=upstream,
+            config=config,
+            comments=reformatted_comments,
+            # tags=issue['labels'],
+            # fixVersion=[issue['milestone']],
+            priority=None,
+            content=pr.description,
+            reporter=pr.author.name,
+            assignee={
+                "login": pr.assignee.username
+            },  # used like this in jira sync code
+            # GitHub PRs do not have status
+            status=None,
+            id_=pr.iid,
+            # upstream_id=issue['number'],
+            suffix=pr.state,
+            match=match,
+        )
+
+
+def reformat_gitlab_comments(comments):
+    return [
+        {
+            "author": comment.author.name,
+            "name": comment.author.username,
+            "body": trim_string(comment.body),
+            "id": comment.id,
+            "date_created": comment.created_at,
+            "changed": comment.updated_at,
+        }
+        for comment in comments
+    ]
 
 
 def reformat_github_comments(issue):

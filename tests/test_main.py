@@ -2,15 +2,18 @@ import unittest
 import unittest.mock as mock
 from unittest.mock import MagicMock
 
+import sync2jira.handler.github as gh_handler
 import sync2jira.main as m
 
 PATH = "sync2jira.main."
+HANDLER_PATH = "sync2jira.handler.github."
 
 
 class MockMessage(object):
-    def __init__(self, msg_id, body, topic):
+    def __init__(self, msg_id, body, headers, topic):
         self.id = msg_id
         self.body = body
+        self.headers = headers
         self.topic = topic
 
 
@@ -41,11 +44,13 @@ class TestMain(unittest.TestCase):
         self.old_style_mock_message = MockMessage(
             msg_id="mock_id",
             body=self.mock_message_body,
+            headers={},
             topic=None,
         )
         self.new_style_mock_message = MockMessage(
             msg_id="mock_id",
             body={"body": self.mock_message_body},
+            headers={},
             topic=None,
         )
 
@@ -235,9 +240,12 @@ class TestMain(unittest.TestCase):
         mock_sleep.assert_not_called()
         mock_report_failure.assert_called_with(self.mock_config)
 
-    @mock.patch(PATH + "handle_msg")
+    @mock.patch(HANDLER_PATH + "handle_issue_msg")
+    @mock.patch(HANDLER_PATH + "handle_pr_msg")
     @mock.patch(PATH + "load_config")
-    def test_listen_no_handlers(self, mock_load_config, mock_handle_msg):
+    def test_listen_no_handlers(
+        self, mock_load_config, mock_handle_pr_msg, mock_handle_issue_msg
+    ):
         """
         Test 'listen' function where suffix is not in handlers
         """
@@ -249,40 +257,47 @@ class TestMain(unittest.TestCase):
         m.callback(self.old_style_mock_message)
 
         # Assert everything was called correctly
-        mock_handle_msg.assert_not_called()
+        mock_handle_pr_msg.assert_not_called()
+        mock_handle_issue_msg.assert_not_called()
 
-    @mock.patch.dict(
-        PATH + "issue_handlers", {"github.issue.comment": lambda msg, c: "dummy_issue"}
-    )
-    @mock.patch(PATH + "handle_msg")
     @mock.patch(PATH + "load_config")
-    def test_listen(self, mock_load_config, mock_handle_msg):
+    def test_listen(self, mock_load_config):
         """
         Test 'listen' function where everything goes smoothly
         """
         # Set up return values
         mock_load_config.return_value = self.mock_config
 
-        # Call the function once with the old style
-        self.old_style_mock_message.topic = "d.d.d.github.issue.comment"
-        m.callback(self.old_style_mock_message)
+        mock_handler = mock.Mock()
+        with mock.patch.dict(
+            HANDLER_PATH + "issue_handlers", {"github.issue.comment": mock_handler}
+        ):
+            # Call the function once with the old style
+            self.old_style_mock_message.topic = "d.d.d.github.issue.comment"
+            m.callback(self.old_style_mock_message)
 
-        # ... and again with the new style
-        self.new_style_mock_message.topic = "d.d.d.github.issue.comment"
-        m.callback(self.new_style_mock_message)
+            # ... and again with the new style
+            self.new_style_mock_message.topic = "d.d.d.github.issue.comment"
+            m.callback(self.new_style_mock_message)
 
-        # Assert everything was called correctly
-        # It should be called twice, once for the old style message and once for the new.
-        mock_handle_msg.assert_has_calls(
-            [
-                mock.call(
-                    self.mock_message_body, "github.issue.comment", self.mock_config
-                ),
-                mock.call(
-                    self.mock_message_body, "github.issue.comment", self.mock_config
-                ),
-            ]
-        )
+            # Assert everything was called correctly
+            # It should be called twice, once for the old style message and once for the new.
+            mock_handler.assert_has_calls(
+                [
+                    mock.call(
+                        self.mock_message_body,
+                        {},
+                        "github.issue.comment",
+                        self.mock_config,
+                    ),
+                    mock.call(
+                        self.mock_message_body,
+                        {},
+                        "github.issue.comment",
+                        self.mock_config,
+                    ),
+                ]
+            )
 
     @mock.patch(PATH + "send_mail")
     @mock.patch(PATH + "jinja2")
@@ -310,56 +325,90 @@ class TestMain(unittest.TestCase):
             text="mock_html",
         )
 
-    @mock.patch(PATH + "u_issue")
-    @mock.patch(PATH + "d_issue")
-    def test_handle_msg_no_handlers(self, mock_d, mock_u):
+    def test_get_handler_for(self):
         """
-        Tests 'handle_msg' function where there are no handlers
+        Tests 'get_handler_for' function with finding a handler
         """
-        # Call the function
-        m.handle_msg(
-            body=self.mock_message_body, suffix="no_handler", config=self.mock_config
+        handler = gh_handler.get_handler_for(
+            suffix="github.pull_request", topic="random topic", idx="1337"
         )
+        assert (
+            handler is not None
+        ), "Expected handler to be found for 'github.pull_request'"
 
-        # Assert everything was called correctly
-        mock_d.sync_with_jira.assert_not_called()
-        mock_u.handle_github_message.assert_not_called()
+    def test_get_handler_for_no_handler(self):
+        """
+        Tests 'get_handler_for' function with finding a handler
+        """
+        handler = gh_handler.get_handler_for(
+            suffix="does.not.exist", topic="random topic", idx="1337"
+        )
+        assert handler is None, "Expected no handler to be found for 'does.not.exist'"
 
     @mock.patch.dict(
-        PATH + "issue_handlers", {"github.issue.comment": lambda msg, c: None}
+        HANDLER_PATH + "issue_handlers", {"github.issue.comment": lambda msg, c: None}
     )
-    @mock.patch(PATH + "u_issue")
-    @mock.patch(PATH + "d_issue")
+    @mock.patch(HANDLER_PATH + "u_issue")
+    @mock.patch(HANDLER_PATH + "d_issue")
     def test_handle_msg_no_issue(self, mock_d, mock_u):
         """
         Tests 'handle_msg' function where there is no issue
         """
+        mock_u.handle_github_message.return_value = None
+
         # Call the function
-        m.handle_msg(
+        gh_handler.handle_issue_msg(
             body=self.mock_message_body,
+            headers={},
             suffix="github.issue.comment",
             config=self.mock_config,
         )
 
         # Assert everything was called correctly
         mock_d.sync_with_jira.assert_not_called()
-        mock_u.handle_github_message.assert_not_called()
+        mock_u.handle_github_message.assert_called_once()
 
     @mock.patch.dict(
-        PATH + "issue_handlers", {"github.issue.comment": lambda msg, c: "dummy_issue"}
+        HANDLER_PATH + "issue_handlers",
+        {"github.issue.comment": lambda msg, c: "dummy_issue"},
     )
-    @mock.patch(PATH + "u_issue")
-    @mock.patch(PATH + "d_issue")
-    def test_handle_msg(self, mock_d, mock_u):
+    @mock.patch(HANDLER_PATH + "u_issue")
+    @mock.patch(HANDLER_PATH + "d_issue")
+    def test_handle_issue_msg(self, mock_d, mock_u):
         """
-        Tests 'handle_msg' function
+        Tests 'handle_issue_msg' function
         """
         # Set up return values
         mock_u.handle_github_message.return_value = "dummy_issue"
 
         # Call the function
-        m.handle_msg(
+        gh_handler.handle_issue_msg(
             body=self.mock_message_body,
+            headers={},
+            suffix="github.issue.comment",
+            config=self.mock_config,
+        )
+
+        # Assert everything was called correctly
+        mock_d.sync_with_jira.assert_called_with("dummy_issue", self.mock_config)
+
+    @mock.patch.dict(
+        HANDLER_PATH + "issue_handlers",
+        {"github.issue.comment": lambda msg, c: "dummy_issue"},
+    )
+    @mock.patch(HANDLER_PATH + "u_pr")
+    @mock.patch(HANDLER_PATH + "d_pr")
+    def test_handle_pr_msg(self, mock_d, mock_u):
+        """
+        Tests 'handle_issue_msg' function
+        """
+        # Set up return values
+        mock_u.handle_github_message.return_value = "dummy_issue"
+
+        # Call the function
+        gh_handler.handle_pr_msg(
+            body=self.mock_message_body,
+            headers={},
             suffix="github.issue.comment",
             config=self.mock_config,
         )
