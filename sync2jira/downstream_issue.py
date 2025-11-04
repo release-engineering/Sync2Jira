@@ -21,17 +21,21 @@ from datetime import datetime, timezone
 import difflib
 import logging
 import operator
+import os
 import re
 from typing import Any, Optional, Union
 import unicodedata
 
+from dotenv import load_dotenv
 from jira import JIRAError
 import jira.client
 import pypandoc
+import snowflake.connector
 
 import Rover_Lookup
 from sync2jira.intermediary import Issue, PR
 
+load_dotenv()
 # The date the service was upgraded
 # This is used to ensure legacy comments are not touched
 UPDATE_DATE = datetime(2019, 7, 9, 18, 18, 36, 480291, tzinfo=timezone.utc)
@@ -42,6 +46,62 @@ remote_link_title = "Upstream issue"
 duplicate_issues_subject = "FYI: Duplicate Sync2jira Issues"
 
 jira_cache = {}
+SNOWFLAKE_QUERY = f"""
+SELECT
+    CONCAT(p.PKEY, '-', a.issue_key) AS issue_key,
+    remote_link_url,
+    updated
+FROM
+    (
+        SELECT
+            ji.PROJECT_ID AS project_id,
+            ji.ISSUENUM AS issue_key,
+            rl.URL AS remote_link_url,
+            ji.updated
+        FROM
+            JIRA_DB.MARTS.JIRA_REMOTELINK AS rl
+            INNER JOIN JIRA_DB.MARTS.JIRA_ISSUE AS ji ON ji.ID = rl.ISSUEID
+            AND rl.TITLE = '{remote_link_title}' AND rl.URL = ?
+    ) AS a
+    LEFT JOIN JIRA_DB.MARTS.JIRA_PROJECT AS p on a.project_id = p.ID
+"""
+
+
+GH_URL_PATTERN = re.compile(r"https://github\.com/[^/]+/[^/]+/(issues|pull)/\d+")
+
+
+def validate_github_url(url):
+    """URL validation"""
+    return bool(GH_URL_PATTERN.fullmatch(url))
+
+
+def get_snowflake_conn():
+    """Get Snowflake connection - lazy initialization"""
+
+    return snowflake.connector.connect(
+        account=os.getenv("SNOWFLAKE_ACCOUNT"),
+        user=os.getenv("SNOWFLAKE_USER"),
+        password=os.getenv("SNOWFLAKE_PAT"),
+        role=os.getenv("SNOWFLAKE_ROLE"),
+        warehouse=os.getenv("SNOWFLAKE_WAREHOUSE", "DEFAULT"),
+        database=os.getenv("SNOWFLAKE_DATABASE", "JIRA_DB"),
+        schema=os.getenv("SNOWFLAKE_SCHEMA", "PUBLIC"),
+        paramstyle="qmark",
+    )
+
+
+def execute_snowflake_query(issue):
+    if not validate_github_url(issue.url):
+        log.error(f"Invalid GitHub URL format: {issue.url}")
+        return []
+    conn = get_snowflake_conn()
+    # Execute the Snowflake query
+    with conn as c:
+        cursor = c.cursor()
+        cursor.execute(SNOWFLAKE_QUERY, (issue.url,))
+        results = cursor.fetchall()
+        cursor.close()
+    return results
 
 
 def check_jira_status(client):
@@ -54,11 +114,11 @@ def check_jira_status(client):
     :rtype: Bool
     """
     # Search for any issue remote title
-    ret = client.search_issues("issueFunction in linkedIssuesOfRemote('*')")
-    if len(ret) < 1:
-        # If we did not find anything return false
+    try:
+        client.server_info()
+        return True
+    except Exception:
         return False
-    return True
 
 
 def _comment_format(comment):
@@ -126,7 +186,7 @@ def get_jira_client(issue, config):
     return client
 
 
-def _matching_jira_issue_query(client, issue, config, free=False):
+def _matching_jira_issue_query(client, issue, config):
     """
     API calls that find matching JIRA tickets if any are present.
 
@@ -138,14 +198,14 @@ def _matching_jira_issue_query(client, issue, config, free=False):
     :rtype: List
     """
     # Searches for any remote link to the issue.url
-    query = (
-        f'issueFunction in linkedIssuesOfRemote("{remote_link_title}") and '
-        f'issueFunction in linkedIssuesOfRemote("{issue.url}")'
-    )
-    if free:
-        query += " and statusCategory != Done"
+
     # Query the JIRA client and store the results
-    results_of_query: jira.client.ResultList = client.search_issues(query)
+    results = execute_snowflake_query(issue)
+    results_of_query = []
+    if len(results) > 0:
+        issue_keys = (row[0] for row in results)
+        jql = f"key in ({','.join(issue_keys)})"
+        results_of_query = client.search_issues(jql)
     if len(results_of_query) > 1:
         final_results = []
         # TODO: there is pagure-specific code in here that handles the case where a dropped issue's URL is
@@ -194,7 +254,9 @@ def _matching_jira_issue_query(client, issue, config, free=False):
             final_results.append(results_of_query[0])
 
         # Return the final_results
-        log.debug("Found %i results for query %r", len(final_results), query)
+        log.debug(
+            "Found %i results for query with issue %r", len(final_results), issue.url
+        )
         return final_results
     else:
         return results_of_query

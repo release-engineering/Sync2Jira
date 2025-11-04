@@ -183,8 +183,9 @@ class TestDownstreamIssue(unittest.TestCase):
             "(resolution is null OR resolution = Duplicate)",
         )
 
+    @mock.patch(PATH + "execute_snowflake_query")
     @mock.patch("jira.client.JIRA")
-    def test_get_existing_newstyle(self, client):
+    def test_get_existing_newstyle(self, client, mock_snowflake):
         config = self.mock_config
 
         issue = MagicMock()
@@ -195,13 +196,13 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_results_of_query.fields.summary = "A title, a title..."
 
         client.return_value.search_issues.return_value = [mock_results_of_query]
+        mock_snowflake.return_value = [("SYNC2JIRA-123",)]
         result = d._get_existing_jira_issue(jira.client.JIRA(), issue, config)
         # Ensure that we get the mock_result_of_query as a result
         self.assertEqual(result, mock_results_of_query)
 
         client.return_value.search_issues.assert_called_once_with(
-            'issueFunction in linkedIssuesOfRemote("Upstream issue") and '
-            'issueFunction in linkedIssuesOfRemote("http://threebean.org")'
+            "key in (SYNC2JIRA-123)"
         )
 
     @mock.patch("jira.client.JIRA")
@@ -1390,8 +1391,10 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "find_username")
     @mock.patch(PATH + "check_comments_for_duplicate")
     @mock.patch("jira.client.JIRA")
+    @mock.patch(PATH + "execute_snowflake_query")
     def test_matching_jira_issue_query(
         self,
+        mock_snowflake,
         mock_client,
         mock_check_comments_for_duplicates,
         mock_find_username,
@@ -1412,6 +1415,7 @@ class TestDownstreamIssue(unittest.TestCase):
         ]
         mock_check_comments_for_duplicates.return_value = True
         mock_find_username.return_value = "mock_username"
+        mock_snowflake.return_value = [("SYNC2JIRA-123",)]
 
         # Call the function
         response = d._matching_jira_issue_query(
@@ -1420,10 +1424,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert everything was called correctly
         self.assertEqual(response, [mock_downstream_issue])
-        mock_client.search_issues.assert_called_with(
-            'issueFunction in linkedIssuesOfRemote("Upstream issue")'
-            ' and issueFunction in linkedIssuesOfRemote("mock_url")'
-        )
+        mock_client.search_issues.assert_called_with("key in (SYNC2JIRA-123)")
         mock_check_comments_for_duplicates.assert_called_with(
             mock_client, mock_downstream_issue, "mock_username"
         )
@@ -1567,35 +1568,29 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         This function tests 'check_jira_status' where we return false
         """
-        # Set up return values
+        # Set up mock jira client that raises an exception
         mock_jira_client = MagicMock()
-        mock_jira_client.search_issues.return_value = []
+        mock_jira_client.server_info.side_effect = Exception("Connection failed")
 
         # Call the function
         response = d.check_jira_status(mock_jira_client)
 
         # Assert everything was called correctly
         self.assertEqual(response, False)
-        mock_jira_client.search_issues.assert_called_with(
-            "issueFunction in linkedIssuesOfRemote('*')"
-        )
 
     def test_check_jira_status_true(self):
         """
-        This function tests 'check_jira_status' where we return false
+        This function tests 'check_jira_status' where we return true
         """
-        # Set up return values
+        # Set up mock jira client that works normally
         mock_jira_client = MagicMock()
-        mock_jira_client.search_issues.return_value = ["some", "values"]
+        mock_jira_client.server_info.return_value = {"version": "8.0.0"}
 
         # Call the function
         response = d.check_jira_status(mock_jira_client)
 
         # Assert everything was called correctly
         self.assertEqual(response, True)
-        mock_jira_client.search_issues.assert_called_with(
-            "issueFunction in linkedIssuesOfRemote('*')"
-        )
 
     def test_update_on_close_update(self):
         """
@@ -1761,3 +1756,22 @@ class TestDownstreamIssue(unittest.TestCase):
         for text, expected in scenarios:
             actual = remove_diacritics(text)
             self.assertEqual(actual, expected)
+
+    @mock.patch(PATH + "snowflake.connector.connect")
+    def test_execute_snowflake_query_real_connection(self, mock_snowflake_connect):
+        """Test execute_snowflake_query function."""
+        # Create a mock issue
+        mock_issue = MagicMock()
+        mock_issue.url = "https://github.com/test/repo/issues/1"
+        # Call the function
+        result = d.execute_snowflake_query(mock_issue)
+        mock_cursor = (
+            mock_snowflake_connect.return_value.__enter__.return_value.cursor.return_value
+        )
+        # Assert the function was called correctly
+        mock_snowflake_connect.assert_called_once()
+        mock_cursor.execute.assert_called_once()
+        mock_cursor.fetchall.assert_called_once()
+        mock_cursor.close.assert_called_once()
+        # Assert the result
+        self.assertEqual(result, mock_cursor.fetchall.return_value)
