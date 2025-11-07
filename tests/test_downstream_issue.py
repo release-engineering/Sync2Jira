@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import os
 from typing import Any, Optional
 import unittest
 import unittest.mock as mock
@@ -1758,6 +1759,18 @@ class TestDownstreamIssue(unittest.TestCase):
             self.assertEqual(actual, expected)
 
     @mock.patch(PATH + "snowflake.connector.connect")
+    @mock.patch.dict(
+        os.environ,
+        {
+            "SNOWFLAKE_ACCOUNT": "test_account",
+            "SNOWFLAKE_USER": "test_user",
+            "SNOWFLAKE_ROLE": "test_role",
+            "SNOWFLAKE_WAREHOUSE": "test_wh",
+            "SNOWFLAKE_DATABASE": "test_db",
+            "SNOWFLAKE_SCHEMA": "PUBLIC",
+            "SNOWFLAKE_PAT": "fake_password",
+        },
+    )
     def test_execute_snowflake_query_real_connection(self, mock_snowflake_connect):
         """Test execute_snowflake_query function."""
         # Create a mock issue
