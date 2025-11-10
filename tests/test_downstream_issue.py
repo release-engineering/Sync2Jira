@@ -1788,3 +1788,31 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_cursor.close.assert_called_once()
         # Assert the result
         self.assertEqual(result, mock_cursor.fetchall.return_value)
+
+    @mock.patch(PATH + "snowflake.connector.connect")
+    @mock.patch.dict(
+        os.environ,
+        {
+            "SNOWFLAKE_ACCOUNT": "test_account",
+            "SNOWFLAKE_USER": "test_user",
+            "SNOWFLAKE_ROLE": "test_role",
+            "SNOWFLAKE_WAREHOUSE": "test_wh",
+            "SNOWFLAKE_DATABASE": "test_db",
+            "SNOWFLAKE_SCHEMA": "PUBLIC",
+            "SNOWFLAKE_PRIVATE_KEY_FILE": "test_key.pem",
+        },
+    )
+    @mock.patch("os.path.exists")
+    def test_get_snowflake_conn_jwt_auth(self, mock_exists, mock_connect):
+        """Test get_snowflake_conn with JWT authentication."""
+        mock_exists.return_value = True
+        mock_connect.return_value = MagicMock()
+
+        conn = d.get_snowflake_conn()
+
+        # Verify connect was called with JWT authenticator
+        mock_connect.assert_called_once()
+        call_args = mock_connect.call_args[1]
+        self.assertEqual(call_args["authenticator"], "SNOWFLAKE_JWT")
+        self.assertEqual(call_args["private_key_file"], "test_key.pem")
+        self.assertNotIn("password", call_args)
