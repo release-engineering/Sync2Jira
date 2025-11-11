@@ -1765,9 +1765,6 @@ class TestDownstreamIssue(unittest.TestCase):
             "SNOWFLAKE_ACCOUNT": "test_account",
             "SNOWFLAKE_USER": "test_user",
             "SNOWFLAKE_ROLE": "test_role",
-            "SNOWFLAKE_WAREHOUSE": "test_wh",
-            "SNOWFLAKE_DATABASE": "test_db",
-            "SNOWFLAKE_SCHEMA": "PUBLIC",
             "SNOWFLAKE_PAT": "fake_password",
         },
     )
@@ -1783,6 +1780,46 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         # Assert the function was called correctly
         mock_snowflake_connect.assert_called_once()
+        # Verify password authentication is used
+        call_args = mock_snowflake_connect.call_args[1]
+        self.assertEqual(call_args["password"], os.getenv("SNOWFLAKE_PAT"))
+        self.assertNotIn("authenticator", call_args)
+        self.assertNotIn("private_key_file", call_args)
+        mock_cursor.fetchall.assert_called_once()
+        mock_cursor.close.assert_called_once()
+        # Assert the result
+        self.assertEqual(result, mock_cursor.fetchall.return_value)
+
+    @mock.patch(PATH + "snowflake.connector.connect")
+    @mock.patch.dict(
+        os.environ,
+        {
+            "SNOWFLAKE_ACCOUNT": "test_account",
+            "SNOWFLAKE_USER": "test_user",
+            "SNOWFLAKE_ROLE": "test_role",
+            "SNOWFLAKE_PRIVATE_KEY_FILE": "test_key.pem",
+        },
+    )
+    @mock.patch("os.path.exists")
+    def test_execute_snowflake_query_with_jwt_auth(self, mock_exists, mock_snowflake_connect):
+        """Test execute_snowflake_query with JWT authentication."""
+        mock_exists.return_value = True
+        # Create a mock issue
+        mock_issue = MagicMock()
+        mock_issue.url = "https://github.com/test/repo/issues/1"
+        # Call the function
+        result = d.execute_snowflake_query(mock_issue)
+        mock_cursor = (
+            mock_snowflake_connect.return_value.__enter__.return_value.cursor.return_value
+        )
+        # Assert the function was called correctly
+        mock_snowflake_connect.assert_called_once()
+        # Verify JWT authentication is used
+        call_args = mock_snowflake_connect.call_args[1]
+        self.assertEqual(call_args["authenticator"], "SNOWFLAKE_JWT")
+        self.assertEqual(call_args["private_key_file"], os.getenv("SNOWFLAKE_PRIVATE_KEY_FILE"))
+        self.assertNotIn("password", call_args)
+        self.assertNotIn("private_key_file_pwd", call_args)
         mock_cursor.execute.assert_called_once()
         mock_cursor.fetchall.assert_called_once()
         mock_cursor.close.assert_called_once()
@@ -1796,23 +1833,51 @@ class TestDownstreamIssue(unittest.TestCase):
             "SNOWFLAKE_ACCOUNT": "test_account",
             "SNOWFLAKE_USER": "test_user",
             "SNOWFLAKE_ROLE": "test_role",
-            "SNOWFLAKE_WAREHOUSE": "test_wh",
-            "SNOWFLAKE_DATABASE": "test_db",
-            "SNOWFLAKE_SCHEMA": "PUBLIC",
             "SNOWFLAKE_PRIVATE_KEY_FILE": "test_key.pem",
+            "SNOWFLAKE_PRIVATE_KEY_FILE_PWD": "key_password",
         },
     )
     @mock.patch("os.path.exists")
-    def test_get_snowflake_conn_jwt_auth(self, mock_exists, mock_connect):
-        """Test get_snowflake_conn with JWT authentication."""
+    def test_execute_snowflake_query_with_jwt_auth_and_password(
+        self, mock_exists, mock_snowflake_connect
+    ):
+        """Test execute_snowflake_query with JWT authentication and key password."""
         mock_exists.return_value = True
-        mock_connect.return_value = MagicMock()
-
-        conn = d.get_snowflake_conn()
-
-        # Verify connect was called with JWT authenticator
-        mock_connect.assert_called_once()
-        call_args = mock_connect.call_args[1]
+        # Create a mock issue
+        mock_issue = MagicMock()
+        mock_issue.url = "https://github.com/test/repo/issues/1"
+        # Call the function
+        result = d.execute_snowflake_query(mock_issue)
+        mock_cursor = (
+            mock_snowflake_connect.return_value.__enter__.return_value.cursor.return_value
+        )
+        # Assert the function was called correctly
+        mock_snowflake_connect.assert_called_once()
+        # Verify JWT authentication with password is used
+        call_args = mock_snowflake_connect.call_args[1]
         self.assertEqual(call_args["authenticator"], "SNOWFLAKE_JWT")
-        self.assertEqual(call_args["private_key_file"], "test_key.pem")
+        self.assertEqual(call_args["private_key_file"], os.getenv("SNOWFLAKE_PRIVATE_KEY_FILE"))
+        self.assertEqual(
+            call_args["private_key_file_pwd"], os.getenv("SNOWFLAKE_PRIVATE_KEY_FILE_PWD")
+        )
         self.assertNotIn("password", call_args)
+        mock_cursor.execute.assert_called_once()
+        mock_cursor.fetchall.assert_called_once()
+        mock_cursor.close.assert_called_once()
+        # Assert the result
+        self.assertEqual(result, mock_cursor.fetchall.return_value)
+
+    @mock.patch.dict(os.environ, {}, clear=True)
+    def test_execute_snowflake_query_no_credentials(self):
+        """Test execute_snowflake_query raises error when no credentials are set."""
+        # Create a mock issue
+        mock_issue = MagicMock()
+        mock_issue.url = "https://github.com/test/repo/issues/1"
+        
+        with self.assertRaises(ValueError) as context:
+            d.execute_snowflake_query(mock_issue)
+        
+        self.assertIn(
+            "Either SNOWFLAKE_PRIVATE_KEY_FILE or SNOWFLAKE_PAT must be set",
+            str(context.exception),
+        )
