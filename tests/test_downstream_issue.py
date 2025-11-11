@@ -1801,7 +1801,9 @@ class TestDownstreamIssue(unittest.TestCase):
         },
     )
     @mock.patch("os.path.exists")
-    def test_execute_snowflake_query_with_jwt_auth(self, mock_exists, mock_snowflake_connect):
+    def test_execute_snowflake_query_with_jwt_auth(
+        self, mock_exists, mock_snowflake_connect
+    ):
         """Test execute_snowflake_query with JWT authentication."""
         mock_exists.return_value = True
         # Create a mock issue
@@ -1817,7 +1819,9 @@ class TestDownstreamIssue(unittest.TestCase):
         # Verify JWT authentication is used
         call_args = mock_snowflake_connect.call_args[1]
         self.assertEqual(call_args["authenticator"], "SNOWFLAKE_JWT")
-        self.assertEqual(call_args["private_key_file"], os.getenv("SNOWFLAKE_PRIVATE_KEY_FILE"))
+        self.assertEqual(
+            call_args["private_key_file"], os.getenv("SNOWFLAKE_PRIVATE_KEY_FILE")
+        )
         self.assertNotIn("password", call_args)
         self.assertNotIn("private_key_file_pwd", call_args)
         mock_cursor.execute.assert_called_once()
@@ -1856,9 +1860,12 @@ class TestDownstreamIssue(unittest.TestCase):
         # Verify JWT authentication with password is used
         call_args = mock_snowflake_connect.call_args[1]
         self.assertEqual(call_args["authenticator"], "SNOWFLAKE_JWT")
-        self.assertEqual(call_args["private_key_file"], os.getenv("SNOWFLAKE_PRIVATE_KEY_FILE"))
         self.assertEqual(
-            call_args["private_key_file_pwd"], os.getenv("SNOWFLAKE_PRIVATE_KEY_FILE_PWD")
+            call_args["private_key_file"], os.getenv("SNOWFLAKE_PRIVATE_KEY_FILE")
+        )
+        self.assertEqual(
+            call_args["private_key_file_pwd"],
+            os.getenv("SNOWFLAKE_PRIVATE_KEY_FILE_PWD"),
         )
         self.assertNotIn("password", call_args)
         mock_cursor.execute.assert_called_once()
@@ -1873,10 +1880,10 @@ class TestDownstreamIssue(unittest.TestCase):
         # Create a mock issue
         mock_issue = MagicMock()
         mock_issue.url = "https://github.com/test/repo/issues/1"
-        
+
         with self.assertRaises(ValueError) as context:
             d.execute_snowflake_query(mock_issue)
-        
+
         self.assertIn(
             "Either SNOWFLAKE_PRIVATE_KEY_FILE or SNOWFLAKE_PAT must be set",
             str(context.exception),
