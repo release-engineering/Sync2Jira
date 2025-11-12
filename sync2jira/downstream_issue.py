@@ -76,18 +76,50 @@ def validate_github_url(url):
 
 
 def get_snowflake_conn():
-    """Get Snowflake connection - lazy initialization"""
+    """Get Snowflake connection - lazy initialization
 
-    return snowflake.connector.connect(
-        account=os.getenv("SNOWFLAKE_ACCOUNT"),
-        user=os.getenv("SNOWFLAKE_USER"),
-        password=os.getenv("SNOWFLAKE_PAT"),
-        role=os.getenv("SNOWFLAKE_ROLE"),
-        warehouse=os.getenv("SNOWFLAKE_WAREHOUSE", "DEFAULT"),
-        database=os.getenv("SNOWFLAKE_DATABASE", "JIRA_DB"),
-        schema=os.getenv("SNOWFLAKE_SCHEMA", "PUBLIC"),
-        paramstyle="qmark",
-    )
+    Supports two authentication methods:
+    1. JWT authentication with private key file (if SNOWFLAKE_PRIVATE_KEY_FILE is set)
+    2. Password authentication with PAT (if SNOWFLAKE_PAT is set)
+    """
+    account = os.getenv("SNOWFLAKE_ACCOUNT")
+    user = os.getenv("SNOWFLAKE_USER")
+    role = os.getenv("SNOWFLAKE_ROLE")
+    warehouse = os.getenv("SNOWFLAKE_WAREHOUSE", "DEFAULT")
+    database = os.getenv("SNOWFLAKE_DATABASE", "JIRA_DB")
+    schema = os.getenv("SNOWFLAKE_SCHEMA", "PUBLIC")
+
+    # Build base connection parameters
+    conn_params = {
+        "account": account,
+        "user": user,
+        "role": role,
+        "warehouse": warehouse,
+        "database": database,
+        "schema": schema,
+        "paramstyle": "qmark",
+    }
+
+    # Check for private key file (JWT authentication)
+    private_key_file = os.getenv("SNOWFLAKE_PRIVATE_KEY_FILE")
+    if private_key_file:
+        conn_params["authenticator"] = "SNOWFLAKE_JWT"
+        conn_params["private_key_file"] = private_key_file
+
+        # Add private key file password if specified
+        private_key_file_pwd = os.getenv("SNOWFLAKE_PRIVATE_KEY_FILE_PWD")
+        if private_key_file_pwd:
+            conn_params["private_key_file_pwd"] = private_key_file_pwd
+    else:
+        # Fall back to password authentication
+        password = os.getenv("SNOWFLAKE_PAT")
+        if not password:
+            raise ValueError(
+                "Either SNOWFLAKE_PRIVATE_KEY_FILE or SNOWFLAKE_PAT must be set"
+            )
+        conn_params["password"] = password
+
+    return snowflake.connector.connect(**conn_params)
 
 
 def execute_snowflake_query(issue):
