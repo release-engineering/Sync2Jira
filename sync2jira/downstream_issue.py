@@ -336,6 +336,11 @@ def _find_comment_in_jira(comment, j_comments):
     :returns: Item/None
     :rtype: jira.resource.Comment/None
     """
+    if comment["date_created"] < UPDATE_DATE:
+        # If the comment date is prior to the update_date, we should not try to
+        # touch the comment; return the item as is.
+        return comment
+
     formatted_comment = _comment_format(comment)
     legacy_formatted_comment = _comment_format_legacy(comment)
     for item in j_comments:
@@ -351,13 +356,6 @@ def _find_comment_in_jira(comment, j_comments):
                 item.update(body=formatted_comment)
                 log.info("Updated one comment")
                 # Now we can just return the item
-                return item
-            else:
-                # Else they are equal and we can return the item
-                return item
-        if comment["date_created"] < UPDATE_DATE:
-            # If the comment date is prior to the update_date,
-            # we should not try to touch the comment
             return item
     return None
 
