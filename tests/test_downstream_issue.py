@@ -152,7 +152,9 @@ class TestDownstreamIssue(unittest.TestCase):
         # Set up return values
         mock_issue = MagicMock(spec=Issue)
         mock_issue.downstream = {"jira_instance": "mock_jira_instance"}
-        mock_client.return_value = "Successful call!"
+        mock_jira_instance = MagicMock()
+        mock_jira_instance.session.return_value = None
+        mock_client.return_value = mock_jira_instance
 
         # Call the function
 
@@ -160,7 +162,8 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_client.assert_called_with(mock_jira="mock_jira")
-        self.assertEqual("Successful call!", response)
+        mock_jira_instance.session.assert_called_once()
+        self.assertEqual(mock_jira_instance, response)
 
     @mock.patch("jira.client.JIRA")
     def test_get_existing_legacy(self, client):
