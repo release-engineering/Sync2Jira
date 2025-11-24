@@ -875,7 +875,7 @@ def _update_transition(client, existing, issue):
     # downstream JIRA ticket
 
     # First get the closed status from the config file
-    t = filter(lambda d: "transition" in d, issue.downstream.get("issue_updates", {}))
+    t = filter(lambda d: "transition" in d, issue.downstream.get("issue_updates", []))
     closed_status = next(t)["transition"]
     if (
         closed_status is not True
@@ -1154,7 +1154,7 @@ def _update_tags(updates, existing, issue):
 
 def _build_description(issue):
     # Build the description of the JIRA issue
-    issue_updates = issue.downstream.get("issue_updates", {})
+    issue_updates = issue.downstream.get("issue_updates", [])
     description = ""
     if "description" in issue_updates:
         description = f"Upstream description: {{quote}}{issue.content}{{quote}}"
