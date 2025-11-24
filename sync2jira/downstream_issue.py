@@ -41,6 +41,7 @@ load_dotenv()
 UPDATE_DATE = datetime(2019, 7, 9, 18, 18, 36, 480291, tzinfo=timezone.utc)
 
 log = logging.getLogger("sync2jira")
+logging.getLogger("snowflake.connector").setLevel(logging.WARNING)
 
 remote_link_title = "Upstream issue"
 duplicate_issues_subject = "FYI: Duplicate Sync2jira Issues"
