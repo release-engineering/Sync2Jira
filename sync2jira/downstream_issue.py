@@ -229,62 +229,60 @@ def _matching_jira_issue_query(client, issue, config):
     :returns: results: Returns a list of matching JIRA issues if any are found
     :rtype: List
     """
-    # Searches for any remote link to the issue.url
-
-    # Query the JIRA client and store the results
+    # Search for Jira issues with a "remote link" to the issue.url;
+    # if we find none, return an empty list.
     results = execute_snowflake_query(issue)
-    results_of_query = []
-    if len(results) > 0:
-        issue_keys = (row[0] for row in results)
-        jql = f"key in ({','.join(issue_keys)})"
-        results_of_query = client.search_issues(jql)
-    if len(results_of_query) > 1:
-        final_results = []
+    if not results:
+        return []
+
+    # Fetch the Jira issue objects using the keys returned from Snowflake
+    issue_keys = (row[0] for row in results)
+    jql = f"key in ({','.join(issue_keys)})"
+    results = client.search_issues(jql)
+
+    # If there is more than one issue, remove duplicates and filter the list
+    # down to one.
+    if len(results) > 1:
+        filtered_results = []
         # TODO: there is pagure-specific code in here that handles the case where a dropped issue's URL is
         #       re-used by an issue opened later. i.e. pagure re-uses IDs
-        for result in results_of_query:
+        for result in results:
             description = result.fields.description or ""
             summary = result.fields.summary or ""
-            if issue.id in description or issue.title == summary:
-                username = find_username(issue, config)
-                search = check_comments_for_duplicate(client, result, username)
-                final_results.append(search if search else result)
-
-            # If that's not the case, check if they have the same upstream title.
-            # Upstream username/repo can change if repos are merged.
-            elif re.search(
-                r"\[[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':\\|,.<>/?]*] "
-                + issue.upstream_title,
-                result.fields.summary,
+            if (
+                issue.id in description
+                or issue.title == summary
+                or re.search(
+                    r"\[[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':\\|,.<>/?]*] "
+                    + issue.upstream_title,
+                    summary,
+                )
             ):
                 username = find_username(issue, config)
                 search = check_comments_for_duplicate(client, result, username)
-                if not search:
-                    # We went through all the comments and didn't find anything
-                    # that indicated it was a duplicate
-                    log.warning(
-                        "Matching downstream issue %s to upstream issue %s",
-                        result.key,
-                        issue.url,
-                    )
-                final_results.append(search if search else result)
+                filtered_results.append(search if search else result)
 
-        if not final_results:
-            # Only return the most updated issue
-            results_of_query.sort(
+        # Unless the filtering removed _all_ the results, switch the results to
+        # the filtered results; otherwise, continue with the original list.
+        if filtered_results:
+            results = filtered_results
+
+        # If there is more than one result, select only the most-recently updated one.
+        if len(results) > 1:
+            log.debug(
+                "Found %i results for query with issue %r",
+                len(results),
+                issue.url,
+            )
+            results.sort(
                 key=lambda x: datetime.strptime(
                     x.fields.updated, "%Y-%m-%dT%H:%M:%S.%f+0000"
-                )
+                ),
+                reverse=True,  # Biggest (most recent) first
             )
-            final_results.append(results_of_query[0])
+            results = [results[0]]  # A list of one item
 
-        # Return the final_results
-        log.debug(
-            "Found %i results for query with issue %r", len(final_results), issue.url
-        )
-        return final_results
-    else:
-        return results_of_query
+    return results
 
 
 def find_username(_issue, config):
