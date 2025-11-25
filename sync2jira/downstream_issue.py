@@ -46,7 +46,6 @@ logging.getLogger("snowflake.connector").setLevel(logging.WARNING)
 remote_link_title = "Upstream issue"
 duplicate_issues_subject = "FYI: Duplicate Sync2jira Issues"
 
-jira_cache = {}
 SNOWFLAKE_QUERY = f"""
 SELECT
     CONCAT(p.PKEY, '-', a.issue_key) AS issue_key,
@@ -69,6 +68,22 @@ FROM
 
 
 GH_URL_PATTERN = re.compile(r"https://github\.com/[^/]+/[^/]+/(issues|pull)/\d+")
+
+
+class UrlCache(dict):
+    """A dict-like object, intended to be used as a cache, which contains a
+    limited number of entries -- excess entries are deleted in FIFO order.
+    """
+
+    MAX_SIZE = 1000
+
+    def __setitem__(self, key, value):
+        while len(self) >= self.MAX_SIZE:
+            del self[next(iter(self))]
+        super().__setitem__(key, value)
+
+
+jira_cache = UrlCache()
 
 
 def validate_github_url(url):
@@ -229,6 +244,11 @@ def _matching_jira_issue_query(client, issue, config):
     :returns: results: Returns a list of matching JIRA issues if any are found
     :rtype: List
     """
+
+    # If there's an entry for the issue in our cache, return it.
+    if result := jira_cache.get(issue.url):
+        return result
+
     # Search for Jira issues with a "remote link" to the issue.url;
     # if we find none, return an empty list.
     results = execute_snowflake_query(issue)
@@ -282,6 +302,8 @@ def _matching_jira_issue_query(client, issue, config):
             )
             results = [results[0]]  # A list of one item
 
+    # Cache the result for next time and return it.
+    jira_cache[issue.url] = results
     return results
 
 
@@ -677,6 +699,7 @@ def _create_jira_issue(client, issue, config):
         return None
 
     downstream = client.create_issue(**kwargs)
+    jira_cache[issue.url] = [downstream]
 
     # Add values to the Epic link, QA, and EXD-Service fields if present
     if (

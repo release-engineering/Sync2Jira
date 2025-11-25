@@ -1417,6 +1417,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_check_comments_for_duplicates.return_value = None
         mock_find_username.return_value = "mock_username"
         mock_snowflake.return_value = [("SYNC2JIRA-123",)]
+        d.jira_cache = d.UrlCache()  # Clear the cache
 
         # Call the function
         response = d._matching_jira_issue_query(
