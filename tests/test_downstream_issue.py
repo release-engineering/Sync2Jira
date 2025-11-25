@@ -1414,7 +1414,7 @@ class TestDownstreamIssue(unittest.TestCase):
             mock_downstream_issue,
             bad_downstream_issue,
         ]
-        mock_check_comments_for_duplicates.return_value = True
+        mock_check_comments_for_duplicates.return_value = None
         mock_find_username.return_value = "mock_username"
         mock_snowflake.return_value = [("SYNC2JIRA-123",)]
 

@@ -226,7 +226,6 @@ def _matching_jira_issue_query(client, issue, config):
     :param jira.client.JIRA client: JIRA client
     :param sync2jira.intermediary.Issue issue: Issue object
     :param Dict config: Config dict
-    :param Bool free: Free tag to add 'statusCategory != Done' to query
     :returns: results: Returns a list of matching JIRA issues if any are found
     :rtype: List
     """
@@ -247,14 +246,10 @@ def _matching_jira_issue_query(client, issue, config):
             description = result.fields.description or ""
             summary = result.fields.summary or ""
             if issue.id in description or issue.title == summary:
-                search = check_comments_for_duplicate(
-                    client, result, find_username(issue, config)
-                )
-                if search is True:
-                    final_results.append(result)
-                else:
-                    # Else search returned a linked issue
-                    final_results.append(search)
+                username = find_username(issue, config)
+                search = check_comments_for_duplicate(client, result, username)
+                final_results.append(search if search else result)
+
             # If that's not the case, check if they have the same upstream title.
             # Upstream username/repo can change if repos are merged.
             elif re.search(
@@ -262,10 +257,9 @@ def _matching_jira_issue_query(client, issue, config):
                 + issue.upstream_title,
                 result.fields.summary,
             ):
-                search = check_comments_for_duplicate(
-                    client, result, find_username(issue, config)
-                )
-                if search is True:
+                username = find_username(issue, config)
+                search = check_comments_for_duplicate(client, result, username)
+                if not search:
                     # We went through all the comments and didn't find anything
                     # that indicated it was a duplicate
                     log.warning(
@@ -273,10 +267,8 @@ def _matching_jira_issue_query(client, issue, config):
                         result.key,
                         issue.url,
                     )
-                    final_results.append(result)
-                else:
-                    # Else search returned a linked issue
-                    final_results.append(search)
+                final_results.append(search if search else result)
+
         if not final_results:
             # Only return the most updated issue
             results_of_query.sort(
@@ -315,16 +307,15 @@ def check_comments_for_duplicate(client, result, username):
     :param jira.client.JIRA client: JIRA client
     :param jira.resource.Issue result: JIRA issue
     :param string username: Username of JIRA user
-    :returns: True if duplicate comment was not found or JIRA issue if \
-              we were able to find it
-    :rtype: Bool or jira.resource.Issue
+    :returns: duplicate JIRA issue or None
+    :rtype: jira.resource.Issue or None
     """
     for comment in client.comments(result):
         search = re.search(r"Marking as duplicate of (\w*)-(\d*)", comment.body)
         if search and comment.author.name == username:
             issue_id = search.groups()[0] + "-" + search.groups()[1]
             return client.issue(issue_id)
-    return True
+    return None
 
 
 def _find_comment_in_jira(comment, j_comments):
