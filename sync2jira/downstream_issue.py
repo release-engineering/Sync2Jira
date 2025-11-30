@@ -136,6 +136,68 @@ def execute_snowflake_query(issue):
     return results
 
 
+def _get_field_id_by_name(client, field_name):
+    """
+    Convert a human-readable custom field name to its JIRA field ID.
+    
+    :param jira.client.JIRA client: JIRA client
+    :param str field_name: Human-readable field name (e.g., "Story Points", "Epic Link")
+    :returns: Field ID (e.g., "customfield_12310243") or None if not found
+    :rtype: Optional[str]
+    """
+    # Cache field mappings per client to avoid repeated API calls
+    cache_key = id(client)
+    if cache_key not in jira_cache:
+        jira_cache[cache_key] = {}
+    
+    # Check cache first
+    if field_name in jira_cache[cache_key]:
+        print(f"Field name is in cache: {field_name}")
+        return jira_cache[cache_key][field_name]
+    
+    # Fetch all fields from JIRA
+    try:
+        all_fields = client.fields()
+        name_map = {field["name"]: field["id"] for field in all_fields}
+        
+        # Cache the entire mapping
+        jira_cache[cache_key] = name_map
+        
+        # Return the field ID if found
+        field_id = name_map.get(field_name)
+        print(f"Field ID is: {field_id}")
+        if field_id:
+            print(f"Field ID is: {field_id}")
+            log.debug(f"Resolved field name '{field_name}' to ID '{field_id}'")
+        else:
+            print(f"Field name '{field_name}' not found in JIRA fields")
+            log.warning(f"Field name '{field_name}' not found in JIRA fields")
+        return field_id
+    except Exception as e:
+        print(f"Error fetching JIRA fields: {e}")
+        log.error(f"Error fetching JIRA fields: {e}")
+        return None
+
+
+def _resolve_field_identifier(client, field_identifier):
+    """
+    Resolve a field identifier (either a name or an ID) to a field ID.
+    If the identifier is already an ID (starts with 'customfield_'), return it as-is.
+    Otherwise, treat it as a name and convert it to an ID.
+    
+    :param jira.client.JIRA client: JIRA client
+    :param str field_identifier: Field name (e.g., "Story Points") or ID (e.g., "customfield_12310243")
+    :returns: Field ID or None if not found
+    :rtype: Optional[str]
+    """
+    # If it's already an ID (starts with 'customfield_' or is a standard field), return as-is
+    if field_identifier.startswith("customfield_") or field_identifier in ["priority", "assignee", "summary", "description"]:
+        print(f"Field identifier is already an ID: {field_identifier}")
+        return field_identifier
+    
+    # Otherwise, treat it as a name and convert to ID
+    return _get_field_id_by_name(client, field_identifier)
+
 def check_jira_status(client):
     """
     Function tests the status of the JIRA server.
@@ -674,10 +736,15 @@ def _create_jira_issue(client, issue, config):
         kwargs["components"] = [dict(name=issue.downstream["component"])]
 
     for key, custom_field in custom_fields.items():
+         # If key is a field name, resolve it to an ID
+        field_id=_resolve_field_identifier(client, key)
+        if not field_id:
+            log.warning(f"Could not resolve custom field '{key}' to an ID, skipping")
+            continue
         if type(custom_field) is str:
-            kwargs[key] = custom_field.replace("[remote-link]", issue.url)
+            kwargs[field_id] = custom_field.replace("[remote-link]", issue.url)
         else:
-            kwargs[key] = custom_field
+            kwargs[field_id] = custom_field
 
     # Add labels if needed
     if "labels" in issue.downstream.keys():
@@ -697,12 +764,13 @@ def _create_jira_issue(client, issue, config):
         or issue.downstream.get("EXD-Service")
     ):
         # Fetch all fields
-        all_fields = client.fields()
-        # Make a map from field name -> field id
-        name_map = {field["name"]: field["id"] for field in all_fields}
+        # all_fields = client.fields()
+        # # Make a map from field name -> field id
+        # name_map = {field["name"]: field["id"] for field in all_fields}
         if issue.downstream.get("epic-link"):
             # Try to get and update the custom field
-            custom_field: Optional[str] = name_map.get("Epic Link")
+
+            custom_field: Optional[str] = _get_field_id_by_name(client, "Epic Link")
             if custom_field:
                 try:
                     downstream.update({custom_field: issue.downstream["epic-link"]})
@@ -711,15 +779,19 @@ def _create_jira_issue(client, issue, config):
                         downstream,
                         f"Error adding Epic-Link: {issue.downstream['epic-link']}",
                     )
+            else:
+                log.warning("Could not resolve 'Epic Link' field name to ID")
         if issue.downstream.get("qa-contact"):
             # Try to get and update the custom field
-            custom_field = name_map.get("QA Contact")
+            custom_field = _get_field_id_by_name(client, "QA Contact")
             if custom_field:
                 downstream.update({custom_field: issue.downstream["qa-contact"]})
+            else:
+                log.warning("Could not resolve 'QA Contact' field name to ID")
         if issue.downstream.get("EXD-Service"):
             # Try to update the custom field
             exd_service_info = issue.downstream["EXD-Service"]
-            custom_field = name_map.get("EXD-Service")
+            custom_field = _get_field_id_by_name(client, "EXD-Service")
             if custom_field:
                 try:
                     downstream.update(
@@ -737,7 +809,8 @@ def _create_jira_issue(client, issue, config):
                         f"Project: {exd_service_info['guild']}\n"
                         f"Value: {exd_service_info['value']}",
                     )
-
+            else:
+                log.warning("Could not resolve 'EXD-Service' field name to ID")
     # Add upstream issue ID in comment if required
     if "upstream_id" in issue.downstream.get("issue_updates", []):
         comment = (
@@ -1075,7 +1148,18 @@ def _update_github_project_fields(
                     )
                 continue
             try:
-                jirafieldname = default_jira_fields["storypoints"]
+                field_identifier = default_jira_fields.get("storypoints")
+                if not field_identifier:
+                    log.error(
+                        "Configuration error: Missing 'storypoints' in `default_jira_fields`"
+                    )
+                    continue
+                # Resolve the field identifier to an ID
+                jirafieldname = _resolve_field_identifier(client, field_identifier)
+                if not field_identifier:
+                    log.error(f"Could not resolve custom field '{field_identifier}' to an ID, skipping")
+                    continue
+
                 log.info(f"Jira issue story point field name is:  '{jirafieldname}'")
             except KeyError:
                 log.error(
@@ -1104,7 +1188,14 @@ def _update_github_project_fields(
                 )
                 continue
             try:
-                jirafieldname = default_jira_fields["priority"]
+                field_identifier = default_jira_fields.get("priority", "priority")
+                # Resolve to field ID (convert name to ID if needed)
+                jirafieldname = _resolve_field_identifier(client, field_identifier)
+                if not jirafieldname:
+                    log.warning(
+                        f"Could not resolve field identifier '{field_identifier}' for priority, using 'priority'"
+                    )
+                    jirafieldname = "priority"
                 log.info(
                     f"Configured Jira issue priority field name is:  '{jirafieldname}'"
                 )
