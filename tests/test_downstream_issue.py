@@ -1856,6 +1856,82 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.create_issue.assert_called_once()
         self.assertEqual(response, self.mock_downstream)
 
+    @mock.patch(PATH + "_update_jira_issue")
+    @mock.patch(PATH + "attach_link")
+    @mock.patch(PATH + "change_status")
+    @mock.patch("jira.client.JIRA")
+    def test_create_jira_issue_with_component_and_labels(
+        self, mock_client, mock_change_status, mock_attach_link, mock_update_jira_issue
+    ):
+        """Test _create_jira_issue with component and labels"""
+        # Clear cache first
+        d.jira_cache.clear()
+
+        # Set up return values
+        mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {"name": "Epic Link", "id": "customfield_1"},
+            {"name": "QA Contact", "id": "customfield_2"},
+            {"name": "EXD-Service", "id": "customfield_3"},
+        ]
+
+        # Add component and labels to issue
+        self.mock_issue.downstream["component"] = "test-component"
+        self.mock_issue.downstream["labels"] = ["label1", "label2"]
+
+        # Call the function
+        response = d._create_jira_issue(
+            client=mock_client, issue=self.mock_issue, config=self.mock_config
+        )
+
+        # Assert component and labels are included
+        mock_client.create_issue.assert_called_once()
+        call_kwargs = mock_client.create_issue.call_args[1]
+        self.assertEqual(call_kwargs["components"], [{"name": "test-component"}])
+        self.assertEqual(call_kwargs["labels"], ["label1", "label2"])
+        self.assertEqual(response, self.mock_downstream)
+
+    @mock.patch(PATH + "_update_jira_issue")
+    @mock.patch(PATH + "attach_link")
+    @mock.patch(PATH + "change_status")
+    @mock.patch("jira.client.JIRA")
+    def test_create_jira_issue_with_default_status_and_upstream_id(
+        self, mock_client, mock_change_status, mock_attach_link, mock_update_jira_issue
+    ):
+        """Test _create_jira_issue with default_status and upstream_id comment"""
+        # Clear cache first
+        d.jira_cache.clear()
+
+        # Set up return values
+        mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {"name": "Epic Link", "id": "customfield_1"},
+            {"name": "QA Contact", "id": "customfield_2"},
+            {"name": "EXD-Service", "id": "customfield_3"},
+        ]
+
+        # Add default_status and upstream_id to issue
+        self.mock_issue.downstream["default_status"] = "In Progress"
+        self.mock_issue.downstream["issue_updates"].append("upstream_id")
+        self.mock_issue.upstream = "github"
+        self.mock_issue.upstream_id = "123"
+
+        # Call the function
+        response = d._create_jira_issue(
+            client=mock_client, issue=self.mock_issue, config=self.mock_config
+        )
+
+        # Assert default_status and upstream_id comment are handled
+        mock_client.create_issue.assert_called_once()
+        mock_change_status.assert_called_once_with(
+            mock_client, self.mock_downstream, "In Progress", self.mock_issue
+        )
+        mock_client.add_comment.assert_called_with(
+            self.mock_downstream,
+            f"Creating issue for [github-#123|{self.mock_issue.url}]",
+        )
+        self.assertEqual(response, self.mock_downstream)
+
     @mock.patch(PATH + "snowflake.connector.connect")
     @mock.patch.dict(
         os.environ,
