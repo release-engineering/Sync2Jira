@@ -457,6 +457,7 @@ class TestDownstreamIssue(unittest.TestCase):
             {"name": "Epic Link", "id": "customfield_1"},
             {"name": "QA Contact", "id": "customfield_2"},
             {"name": "EXD-Service", "id": "customfield_3"},
+            {"name": "somecustumfield", "id": "customfield_4"},
         ]
 
         # Call the function
@@ -468,7 +469,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.create_issue.assert_called_with(
             issuetype={"name": "Bug"},
             project={"key": "mock_project"},
-            somecustumfield="somecustumvalue",
+            customfield_4="somecustumvalue",
             description=(
                 "[1234] Upstream Reporter: mock_user\n"
                 "Upstream issue status: Open\n"
@@ -591,6 +592,12 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         # Set up return values
         mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {"name": "Epic Link", "id": "customfield_1"},
+            {"name": "QA Contact", "id": "customfield_2"},
+            {"name": "EXD-Service", "id": "customfield_3"},
+            {"name": "somecustumfield", "id": "customfield_4"},
+        ]
         self.mock_issue.downstream["issue_updates"] = []
 
         # Call the function
@@ -602,7 +609,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.create_issue.assert_called_with(
             issuetype={"name": "Bug"},
             project={"key": "mock_project"},
-            somecustumfield="somecustumvalue",
+            customfield_4="somecustumvalue",
             description="[1234] Upstream Reporter: mock_user\n",
             summary="mock_title",
         )
@@ -1757,6 +1764,97 @@ class TestDownstreamIssue(unittest.TestCase):
         for text, expected in scenarios:
             actual = remove_diacritics(text)
             self.assertEqual(actual, expected)
+
+    def test_get_field_id_by_name(self):
+        """Test _get_field_id_by_name function"""
+        # Clear cache first
+        d.jira_cache.clear()
+
+        mock_client = MagicMock()
+        mock_client.fields.return_value = [
+            {"name": "Story Points", "id": "customfield_12345"},
+            {"name": "Epic Link", "id": "customfield_67890"},
+        ]
+
+        # Test field found - fetches and caches
+        result = d._get_field_id_by_name(mock_client, "Story Points")
+        self.assertEqual(result, "customfield_12345")
+        mock_client.fields.assert_called_once()
+
+        # Test cache - should use cache, not fetch again
+        result = d._get_field_id_by_name(mock_client, "Epic Link")
+        self.assertEqual(result, "customfield_67890")
+        self.assertEqual(mock_client.fields.call_count, 1)
+
+        # Test field not found - will fetch again since not in cache
+        result = d._get_field_id_by_name(mock_client, "Non Existent Field")
+        self.assertIsNone(result)
+        self.assertEqual(mock_client.fields.call_count, 2)
+
+    def test_resolve_field_identifier(self):
+        """Test _resolve_field_identifier function"""
+        # Clear cache first
+        d.jira_cache.clear()
+
+        mock_client = MagicMock()
+        mock_client.fields.return_value = [
+            {"name": "Story Points", "id": "customfield_12345"},
+        ]
+
+        # Test customfield ID - should return as-is
+        result = d._resolve_field_identifier(mock_client, "customfield_99999")
+        self.assertEqual(result, "customfield_99999")
+        mock_client.fields.assert_not_called()
+
+        # Test standard field - should return as-is
+        result = d._resolve_field_identifier(mock_client, "priority")
+        self.assertEqual(result, "priority")
+        mock_client.fields.assert_not_called()
+
+        # Test field name - should convert to ID
+        result = d._resolve_field_identifier(mock_client, "Story Points")
+        self.assertEqual(result, "customfield_12345")
+        mock_client.fields.assert_called_once()
+
+    def test_get_field_id_by_name_exception(self):
+        """Test _get_field_id_by_name when client.fields() raises an exception"""
+        # Clear cache first
+        d.jira_cache.clear()
+
+        mock_client = MagicMock()
+        mock_client.fields.side_effect = Exception("Connection error")
+
+        # Call function
+        result = d._get_field_id_by_name(mock_client, "Story Points")
+
+        # Assert
+        self.assertIsNone(result)
+        mock_client.fields.assert_called_once()
+
+    @mock.patch(PATH + "_update_jira_issue")
+    @mock.patch(PATH + "attach_link")
+    @mock.patch("jira.client.JIRA")
+    def test_create_jira_issue_epic_link_field_not_found(
+        self, mock_client, mock_attach_link, mock_update_jira_issue
+    ):
+        """Test _create_jira_issue when Epic Link field cannot be resolved"""
+        # Set up return values
+        mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {"name": "QA Contact", "id": "customfield_2"},
+            {"name": "EXD-Service", "id": "customfield_3"},
+            # Note: Epic Link is NOT in the fields list
+        ]
+
+        # Call the function
+        response = d._create_jira_issue(
+            client=mock_client, issue=self.mock_issue, config=self.mock_config
+        )
+
+        # Assert - Epic Link should not be updated since field not found
+        # But issue should still be created
+        mock_client.create_issue.assert_called_once()
+        self.assertEqual(response, self.mock_downstream)
 
     @mock.patch(PATH + "snowflake.connector.connect")
     @mock.patch.dict(

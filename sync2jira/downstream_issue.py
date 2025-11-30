@@ -139,7 +139,7 @@ def execute_snowflake_query(issue):
 def _get_field_id_by_name(client, field_name):
     """
     Convert a human-readable custom field name to its JIRA field ID.
-    
+
     :param jira.client.JIRA client: JIRA client
     :param str field_name: Human-readable field name (e.g., "Story Points", "Epic Link")
     :returns: Field ID (e.g., "customfield_12310243") or None if not found
@@ -149,32 +149,27 @@ def _get_field_id_by_name(client, field_name):
     cache_key = id(client)
     if cache_key not in jira_cache:
         jira_cache[cache_key] = {}
-    
+
     # Check cache first
     if field_name in jira_cache[cache_key]:
-        print(f"Field name is in cache: {field_name}")
         return jira_cache[cache_key][field_name]
-    
+
     # Fetch all fields from JIRA
     try:
         all_fields = client.fields()
         name_map = {field["name"]: field["id"] for field in all_fields}
-        
+
         # Cache the entire mapping
         jira_cache[cache_key] = name_map
-        
+
         # Return the field ID if found
         field_id = name_map.get(field_name)
-        print(f"Field ID is: {field_id}")
         if field_id:
-            print(f"Field ID is: {field_id}")
             log.debug(f"Resolved field name '{field_name}' to ID '{field_id}'")
         else:
-            print(f"Field name '{field_name}' not found in JIRA fields")
             log.warning(f"Field name '{field_name}' not found in JIRA fields")
         return field_id
     except Exception as e:
-        print(f"Error fetching JIRA fields: {e}")
         log.error(f"Error fetching JIRA fields: {e}")
         return None
 
@@ -184,19 +179,24 @@ def _resolve_field_identifier(client, field_identifier):
     Resolve a field identifier (either a name or an ID) to a field ID.
     If the identifier is already an ID (starts with 'customfield_'), return it as-is.
     Otherwise, treat it as a name and convert it to an ID.
-    
+
     :param jira.client.JIRA client: JIRA client
     :param str field_identifier: Field name (e.g., "Story Points") or ID (e.g., "customfield_12310243")
     :returns: Field ID or None if not found
     :rtype: Optional[str]
     """
     # If it's already an ID (starts with 'customfield_' or is a standard field), return as-is
-    if field_identifier.startswith("customfield_") or field_identifier in ["priority", "assignee", "summary", "description"]:
-        print(f"Field identifier is already an ID: {field_identifier}")
+    if field_identifier.startswith("customfield_") or field_identifier in [
+        "priority",
+        "assignee",
+        "summary",
+        "description",
+    ]:
         return field_identifier
-    
+
     # Otherwise, treat it as a name and convert to ID
     return _get_field_id_by_name(client, field_identifier)
+
 
 def check_jira_status(client):
     """
@@ -736,8 +736,8 @@ def _create_jira_issue(client, issue, config):
         kwargs["components"] = [dict(name=issue.downstream["component"])]
 
     for key, custom_field in custom_fields.items():
-         # If key is a field name, resolve it to an ID
-        field_id=_resolve_field_identifier(client, key)
+        # If key is a field name, resolve it to an ID
+        field_id = _resolve_field_identifier(client, key)
         if not field_id:
             log.warning(f"Could not resolve custom field '{key}' to an ID, skipping")
             continue
@@ -1157,7 +1157,9 @@ def _update_github_project_fields(
                 # Resolve the field identifier to an ID
                 jirafieldname = _resolve_field_identifier(client, field_identifier)
                 if not field_identifier:
-                    log.error(f"Could not resolve custom field '{field_identifier}' to an ID, skipping")
+                    log.error(
+                        f"Could not resolve custom field '{field_identifier}' to an ID, skipping"
+                    )
                     continue
 
                 log.info(f"Jira issue story point field name is:  '{jirafieldname}'")
