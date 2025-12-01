@@ -219,7 +219,7 @@ def add_project_values(issue, upstream, headers, config):
     """
     upstream_config = config["sync2jira"]["map"]["github"][upstream]
     project_number = upstream_config.get("github_project_number")
-    issue_updates = upstream_config.get("issue_updates", {})
+    issue_updates = upstream_config.get("issue_updates", [])
     if "github_project_fields" not in issue_updates:
         return
     issue["storypoints"] = None

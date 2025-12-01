@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 import os
 from typing import Any, Optional
 import unittest
@@ -1414,9 +1414,10 @@ class TestDownstreamIssue(unittest.TestCase):
             mock_downstream_issue,
             bad_downstream_issue,
         ]
-        mock_check_comments_for_duplicates.return_value = True
+        mock_check_comments_for_duplicates.return_value = None
         mock_find_username.return_value = "mock_username"
         mock_snowflake.return_value = [("SYNC2JIRA-123",)]
+        d.jira_cache = d.UrlCache()  # Clear the cache
 
         # Call the function
         response = d._matching_jira_issue_query(
@@ -1474,24 +1475,27 @@ class TestDownstreamIssue(unittest.TestCase):
         # Set up return values
         mock_comment_format.return_value = "mock_comment_body"
         mock_comment_format_legacy.return_value = "mock_legacy_comment_body"
-        mock_jira_comment = MagicMock()
-        mock_jira_comment.raw = {"body": "mock_legacy_comment_body"}
         mock_comment = {
             "id": "12345",
-            "date_created": datetime(2019, 8, 8, tzinfo=timezone.utc),
+            "date_created": d.UPDATE_DATE,
         }
+        mock_jira_comment_nm1 = MagicMock()
+        mock_jira_comment_nm1.raw = {"body": "mock_legacy_comment_body_non-match-1"}
+        mock_jira_comment_match = MagicMock()
+        mock_jira_comment_match.raw = {"body": "mock_legacy_comment_body"}
+        mock_jira_comment_nm2 = MagicMock()
+        mock_jira_comment_nm2.raw = {"body": "mock_legacy_comment_body_non-match-2"}
 
         # Call the function
-        response = d._find_comment_in_jira(mock_comment, [mock_jira_comment])
-
-        # Assert everything was called correctly
-        mock_comment_format_legacy.assert_called_with(mock_comment)
-        mock_comment_format.assert_called_with(mock_comment)
-        self.assertEqual(response, mock_jira_comment)
+        response = d._find_comment_in_jira(
+            mock_comment,
+            [mock_jira_comment_nm1, mock_jira_comment_match, mock_jira_comment_nm2],
+        )
+        self.assertEqual(response, mock_jira_comment_match)
 
     @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_format_legacy")
-    def test_find_comment_in_jira_id(
+    def test_find_comment_in_jira_id_update(
         self, mock_comment_format_legacy, mock_comment_format
     ):
         """
@@ -1500,20 +1504,64 @@ class TestDownstreamIssue(unittest.TestCase):
         # Set up return values
         mock_comment_format.return_value = "mock_comment_body"
         mock_comment_format_legacy.return_value = "mock_legacy_comment_body"
-        mock_jira_comment = MagicMock()
-        mock_jira_comment.raw = {"body": "12345"}
         mock_comment = {
             "id": "12345",
-            "date_created": datetime(2019, 8, 8, tzinfo=timezone.utc),
+            "date_created": d.UPDATE_DATE,
         }
+        mock_jira_comment_nm1 = MagicMock()
+        mock_jira_comment_nm1.raw = {"body": "1234_X"}
+        mock_jira_comment_match = MagicMock()
+        mock_jira_comment_match.raw = {"body": "12345"}
+        mock_jira_comment_nm2 = MagicMock()
+        mock_jira_comment_nm2.raw = {"body": "1234_Y"}
 
         # Call the function
-        response = d._find_comment_in_jira(mock_comment, [mock_jira_comment])
+        response = d._find_comment_in_jira(
+            mock_comment,
+            [mock_jira_comment_nm1, mock_jira_comment_match, mock_jira_comment_nm2],
+        )
+        self.assertEqual(response, mock_jira_comment_match)
 
-        # Assert everything was called correctly
-        mock_comment_format_legacy.assert_called_with(mock_comment)
-        mock_comment_format.assert_called_with(mock_comment)
-        self.assertEqual(response, mock_jira_comment)
+        # Assert everything was (not) called correctly
+        mock_jira_comment_nm1.update.assert_not_called()
+        mock_jira_comment_match.update.assert_called_with(
+            body=mock_comment_format.return_value
+        )
+        mock_jira_comment_nm2.update.assert_not_called()
+
+    @mock.patch(PATH + "_comment_format")
+    @mock.patch(PATH + "_comment_format_legacy")
+    def test_find_comment_in_jira_id_no_update(
+        self, mock_comment_format_legacy, mock_comment_format
+    ):
+        """
+        This function tests '_find_comment_in_jira' where we match an ID
+        """
+        # Set up return values
+        mock_comment_format.return_value = "mock_comment_body_12345"
+        mock_comment_format_legacy.return_value = "mock_legacy_comment_body"
+        mock_comment = {
+            "id": "12345",
+            "date_created": d.UPDATE_DATE,
+        }
+        mock_jira_comment_nm1 = MagicMock()
+        mock_jira_comment_nm1.raw = {"body": "1234_X"}
+        mock_jira_comment_match = MagicMock()
+        mock_jira_comment_match.raw = {"body": "mock_comment_body_12345"}
+        mock_jira_comment_nm2 = MagicMock()
+        mock_jira_comment_nm2.raw = {"body": "1234_Y"}
+
+        # Call the function
+        response = d._find_comment_in_jira(
+            mock_comment,
+            [mock_jira_comment_nm1, mock_jira_comment_match, mock_jira_comment_nm2],
+        )
+        self.assertEqual(response, mock_jira_comment_match)
+
+        # Assert everything was (not) called correctly
+        mock_jira_comment_nm1.update.assert_not_called()
+        mock_jira_comment_match.update.assert_not_called()
+        mock_jira_comment_nm2.update.assert_not_called()
 
     @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_format_legacy")
@@ -1530,39 +1578,64 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_jira_comment.raw = {"body": "old_comment"}
         mock_comment = {
             "id": "12345",
-            "date_created": datetime(2019, 1, 1, tzinfo=timezone.utc),
+            "date_created": d.UPDATE_DATE - timedelta(days=1),
         }
 
         # Call the function
         response = d._find_comment_in_jira(mock_comment, [mock_jira_comment])
+        self.assertEqual(response, mock_comment)
 
-        # Assert everything was called correctly
-        mock_comment_format_legacy.assert_called_with(mock_comment)
-        mock_comment_format.assert_called_with(mock_comment)
-        self.assertEqual(response, mock_jira_comment)
+        # Assert everything was (not) called correctly
+        mock_comment_format_legacy.assert_not_called()
+        mock_comment_format.assert_not_called()
 
     @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_format_legacy")
-    def test_find_comment_in_jira_none(
+    def test_find_comment_in_jira_no_match(
         self, mock_comment_format_legacy, mock_comment_format
     ):
         """
-        This function tests '_find_comment_in_jira' where we return None
+        This function tests '_find_comment_in_jira' where none match
         """
         # Set up return values
         mock_comment_format.return_value = "mock_comment_body"
         mock_comment_format_legacy.return_value = "mock_legacy_comment_body"
         mock_comment = {
             "id": "12345",
-            "date_created": datetime(2019, 1, 1, tzinfo=timezone.utc),
+            "date_created": d.UPDATE_DATE,
+        }
+        mock_jira_comment_1 = MagicMock()
+        mock_jira_comment_1.raw = {"body": "comment 1"}
+        mock_jira_comment_2 = MagicMock()
+        mock_jira_comment_2.raw = {"body": "comment 2"}
+        mock_jira_comment_3 = MagicMock()
+        mock_jira_comment_3.raw = {"body": "comment 3"}
+
+        # Call the function
+        response = d._find_comment_in_jira(
+            mock_comment,
+            [mock_jira_comment_1, mock_jira_comment_2, mock_jira_comment_3],
+        )
+        self.assertEqual(response, None)
+
+    @mock.patch(PATH + "_comment_format")
+    @mock.patch(PATH + "_comment_format_legacy")
+    def test_find_comment_in_jira_empty_list(
+        self, mock_comment_format_legacy, mock_comment_format
+    ):
+        """
+        This function tests '_find_comment_in_jira' where we pass in an empty list of comments
+        """
+        # Set up return values
+        mock_comment_format.return_value = "mock_comment_body"
+        mock_comment_format_legacy.return_value = "mock_legacy_comment_body"
+        mock_comment = {
+            "id": "12345",
+            "date_created": d.UPDATE_DATE,
         }
 
         # Call the function
         response = d._find_comment_in_jira(mock_comment, [])
-
-        # Assert everything was called correctly
-        mock_comment_format_legacy.assert_called_with(mock_comment)
-        mock_comment_format.assert_called_with(mock_comment)
         self.assertEqual(response, None)
 
     def test_check_jira_status_false(self):
