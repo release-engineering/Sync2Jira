@@ -872,6 +872,12 @@ def _update_jira_issue(existing, issue, client, config):
 
     log.info("Done updating %s!", issue.url)
 
+    # Refresh our locally cached copy, because the updated date has now changed.
+    for i, cached_jira_issue in enumerate(jira_cache.get(issue.url, [])):
+        log.info("Reloading %s from jira to refresh the cache.", cached_jira_issue.key)
+        jira_cache[issue.url][i] = client.issue(cached_jira_issue.key)
+        
+    log.info("Done refreshing cache for %s!", issue.url)
 
 def _update_transition(client, existing, issue):
     """
