@@ -245,18 +245,21 @@ def _matching_jira_issue_query(client, issue, config):
     :rtype: List
     """
 
-    # If there's an entry for the issue in our cache, return it.
+    # If there's an entry for the issue in our cache, fetch the issue key from it.
     if result := jira_cache.get(issue.url):
-        return result
+        issue_keys = [result]
+    else:
+        # Search for Jira issues with a "remote link" to the issue.url;
+        # if we find none, return an empty list.
+        results = execute_snowflake_query(issue)
+        if not results:
+            return []
 
-    # Search for Jira issues with a "remote link" to the issue.url;
-    # if we find none, return an empty list.
-    results = execute_snowflake_query(issue)
-    if not results:
-        return []
+        # From the results returned by Snowflake, make an iterable of the
+        # issues' keys.
+        issue_keys = (row[0] for row in results)
 
-    # Fetch the Jira issue objects using the keys returned from Snowflake
-    issue_keys = (row[0] for row in results)
+    # Fetch the Jira issue objects using the key list.
     jql = f"key in ({','.join(issue_keys)})"
     results = client.search_issues(jql)
 
@@ -303,7 +306,7 @@ def _matching_jira_issue_query(client, issue, config):
             results = [results[0]]  # A list of one item
 
     # Cache the result for next time and return it.
-    jira_cache[issue.url] = results
+    jira_cache[issue.url] = results[0].key
     return results
 
 
@@ -699,7 +702,7 @@ def _create_jira_issue(client, issue, config):
         return None
 
     downstream = client.create_issue(**kwargs)
-    jira_cache[issue.url] = [downstream]
+    jira_cache[issue.url] = [downstream.key]
 
     # Add values to the Epic link, QA, and EXD-Service fields if present
     if (
@@ -871,13 +874,6 @@ def _update_jira_issue(existing, issue, client, config):
         _update_on_close(existing, updates)
 
     log.info("Done updating %s!", issue.url)
-
-    # Refresh our locally cached copy, because the updated date has now changed.
-    for i, cached_jira_issue in enumerate(jira_cache.get(issue.url, [])):
-        log.info("Reloading %s from jira to refresh the cache.", cached_jira_issue.key)
-        jira_cache[issue.url][i] = client.issue(cached_jira_issue.key)
-
-    log.info("Done refreshing cache for %s!", issue.url)
 
 
 def _update_transition(client, existing, issue):
