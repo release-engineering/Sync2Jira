@@ -234,26 +234,26 @@ def get_jira_client(issue, config):
     return client
 
 
-def _matching_jira_issue_query(client, issue, config):
+def _get_existing_jira_issue(client, issue, config):
     """
-    API calls that find matching JIRA tickets if any are present.
+    Get a jira issue by the linked remote issue.
 
     :param jira.client.JIRA client: JIRA client
     :param sync2jira.intermediary.Issue issue: Issue object
     :param Dict config: Config dict
-    :returns: results: Returns a list of matching JIRA issues if any are found
-    :rtype: List
+    :returns: Returns a list of matching JIRA issues if any are found
+    :rtype: str or None
     """
 
     # If there's an entry for the issue in our cache, fetch the issue key from it.
     if result := jira_cache.get(issue.url):
-        issue_keys = [result]
+        issue_keys = (result,)
     else:
         # Search for Jira issues with a "remote link" to the issue.url;
-        # if we find none, return an empty list.
+        # if we find none, return None.
         results = execute_snowflake_query(issue)
         if not results:
-            return []
+            return None
 
         # From the results returned by Snowflake, make an iterable of the
         # issues' keys.
@@ -307,7 +307,7 @@ def _matching_jira_issue_query(client, issue, config):
 
     # Cache the result for next time and return it.
     jira_cache[issue.url] = results[0].key
-    return results
+    return results[0]
 
 
 def find_username(_issue, config):
@@ -390,24 +390,6 @@ def _comment_matching(g_comments, j_comments):
             g_comments,
         )
     )
-
-
-def _get_existing_jira_issue(client, issue, config):
-    """
-    Get a jira issue by the linked remote issue. \
-    This is the new supported way of doing this.
-
-    :param jira.client.JIRA client: JIRA client
-    :param sync2jira.intermediary.Issue issue: Issue object
-    :param Dict config: Config dict
-    :returns: Returns a list of matching JIRA issues if any are found
-    :rtype: List
-    """
-    results = _matching_jira_issue_query(client, issue, config)
-    if results:
-        return results[0]
-    else:
-        return None
 
 
 def _get_existing_jira_issue_legacy(client, issue):
@@ -702,7 +684,7 @@ def _create_jira_issue(client, issue, config):
         return None
 
     downstream = client.create_issue(**kwargs)
-    jira_cache[issue.url] = [downstream.key]
+    jira_cache[issue.url] = downstream.key
 
     # Add values to the Epic link, QA, and EXD-Service fields if present
     if (
