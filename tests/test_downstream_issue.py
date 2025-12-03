@@ -1420,12 +1420,12 @@ class TestDownstreamIssue(unittest.TestCase):
         d.jira_cache = d.UrlCache()  # Clear the cache
 
         # Call the function
-        response = d._matching_jira_issue_query(
+        response = d._get_existing_jira_issue(
             client=mock_client, issue=self.mock_issue, config=self.mock_config
         )
 
         # Assert everything was called correctly
-        self.assertEqual(response, [mock_downstream_issue])
+        self.assertEqual(response, mock_downstream_issue)
         mock_client.search_issues.assert_called_with("key in (SYNC2JIRA-123)")
         mock_check_comments_for_duplicates.assert_called_with(
             mock_client, mock_downstream_issue, "mock_username"
