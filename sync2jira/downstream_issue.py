@@ -41,11 +41,11 @@ load_dotenv()
 UPDATE_DATE = datetime(2019, 7, 9, 18, 18, 36, 480291, tzinfo=timezone.utc)
 
 log = logging.getLogger("sync2jira")
+logging.getLogger("snowflake.connector").setLevel(logging.WARNING)
 
 remote_link_title = "Upstream issue"
 duplicate_issues_subject = "FYI: Duplicate Sync2jira Issues"
 
-jira_cache = {}
 SNOWFLAKE_QUERY = f"""
 SELECT
     CONCAT(p.PKEY, '-', a.issue_key) AS issue_key,
@@ -68,6 +68,22 @@ FROM
 
 
 GH_URL_PATTERN = re.compile(r"https://github\.com/[^/]+/[^/]+/(issues|pull)/\d+")
+
+
+class UrlCache(dict):
+    """A dict-like object, intended to be used as a cache, which contains a
+    limited number of entries -- excess entries are deleted in FIFO order.
+    """
+
+    MAX_SIZE = 1000
+
+    def __setitem__(self, key, value):
+        while len(self) >= self.MAX_SIZE:
+            del self[next(iter(self))]
+        super().__setitem__(key, value)
+
+
+jira_cache = UrlCache()
 
 
 def validate_github_url(url):
@@ -280,80 +296,80 @@ def get_jira_client(issue, config):
     return client
 
 
-def _matching_jira_issue_query(client, issue, config):
+def _get_existing_jira_issue(client, issue, config):
     """
-    API calls that find matching JIRA tickets if any are present.
+    Get a jira issue by the linked remote issue.
 
     :param jira.client.JIRA client: JIRA client
     :param sync2jira.intermediary.Issue issue: Issue object
     :param Dict config: Config dict
-    :param Bool free: Free tag to add 'statusCategory != Done' to query
-    :returns: results: Returns a list of matching JIRA issues if any are found
-    :rtype: List
+    :returns: Returns a list of matching JIRA issues if any are found
+    :rtype: str or None
     """
-    # Searches for any remote link to the issue.url
 
-    # Query the JIRA client and store the results
-    results = execute_snowflake_query(issue)
-    results_of_query = []
-    if len(results) > 0:
+    # If there's an entry for the issue in our cache, fetch the issue key from it.
+    if result := jira_cache.get(issue.url):
+        issue_keys = (result,)
+    else:
+        # Search for Jira issues with a "remote link" to the issue.url;
+        # if we find none, return None.
+        results = execute_snowflake_query(issue)
+        if not results:
+            return None
+
+        # From the results returned by Snowflake, make an iterable of the
+        # issues' keys.
         issue_keys = (row[0] for row in results)
-        jql = f"key in ({','.join(issue_keys)})"
-        results_of_query = client.search_issues(jql)
-    if len(results_of_query) > 1:
-        final_results = []
+
+    # Fetch the Jira issue objects using the key list.
+    jql = f"key in ({','.join(issue_keys)})"
+    results = client.search_issues(jql)
+
+    # If there is more than one issue, remove duplicates and filter the list
+    # down to one.
+    if len(results) > 1:
+        filtered_results = []
         # TODO: there is pagure-specific code in here that handles the case where a dropped issue's URL is
         #       re-used by an issue opened later. i.e. pagure re-uses IDs
-        for result in results_of_query:
+        for result in results:
             description = result.fields.description or ""
             summary = result.fields.summary or ""
-            if issue.id in description or issue.title == summary:
-                search = check_comments_for_duplicate(
-                    client, result, find_username(issue, config)
+            if (
+                issue.id in description
+                or issue.title == summary
+                or re.search(
+                    r"\[[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':\\|,.<>/?]*] "
+                    + issue.upstream_title,
+                    summary,
                 )
-                if search is True:
-                    final_results.append(result)
-                else:
-                    # Else search returned a linked issue
-                    final_results.append(search)
-            # If that's not the case, check if they have the same upstream title.
-            # Upstream username/repo can change if repos are merged.
-            elif re.search(
-                r"\[[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':\\|,.<>/?]*] "
-                + issue.upstream_title,
-                result.fields.summary,
             ):
-                search = check_comments_for_duplicate(
-                    client, result, find_username(issue, config)
-                )
-                if search is True:
-                    # We went through all the comments and didn't find anything
-                    # that indicated it was a duplicate
-                    log.warning(
-                        "Matching downstream issue %s to upstream issue %s",
-                        result.key,
-                        issue.url,
-                    )
-                    final_results.append(result)
-                else:
-                    # Else search returned a linked issue
-                    final_results.append(search)
-        if not final_results:
-            # Only return the most updated issue
-            results_of_query.sort(
+                username = find_username(issue, config)
+                search = check_comments_for_duplicate(client, result, username)
+                filtered_results.append(search if search else result)
+
+        # Unless the filtering removed _all_ the results, switch the results to
+        # the filtered results; otherwise, continue with the original list.
+        if filtered_results:
+            results = filtered_results
+
+        # If there is more than one result, select only the most-recently updated one.
+        if len(results) > 1:
+            log.debug(
+                "Found %i results for query with issue %r",
+                len(results),
+                issue.url,
+            )
+            results.sort(
                 key=lambda x: datetime.strptime(
                     x.fields.updated, "%Y-%m-%dT%H:%M:%S.%f+0000"
-                )
+                ),
+                reverse=True,  # Biggest (most recent) first
             )
-            final_results.append(results_of_query[0])
+            results = [results[0]]  # A list of one item
 
-        # Return the final_results
-        log.debug(
-            "Found %i results for query with issue %r", len(final_results), issue.url
-        )
-        return final_results
-    else:
-        return results_of_query
+    # Cache the result for next time and return it.
+    jira_cache[issue.url] = results[0].key
+    return results[0]
 
 
 def find_username(_issue, config):
@@ -376,16 +392,15 @@ def check_comments_for_duplicate(client, result, username):
     :param jira.client.JIRA client: JIRA client
     :param jira.resource.Issue result: JIRA issue
     :param string username: Username of JIRA user
-    :returns: True if duplicate comment was not found or JIRA issue if \
-              we were able to find it
-    :rtype: Bool or jira.resource.Issue
+    :returns: duplicate JIRA issue or None
+    :rtype: jira.resource.Issue or None
     """
     for comment in client.comments(result):
         search = re.search(r"Marking as duplicate of (\w*)-(\d*)", comment.body)
         if search and comment.author.name == username:
             issue_id = search.groups()[0] + "-" + search.groups()[1]
             return client.issue(issue_id)
-    return True
+    return None
 
 
 def _find_comment_in_jira(comment, j_comments):
@@ -397,6 +412,11 @@ def _find_comment_in_jira(comment, j_comments):
     :returns: Item/None
     :rtype: jira.resource.Comment/None
     """
+    if comment["date_created"] < UPDATE_DATE:
+        # If the comment date is prior to the update_date, we should not try to
+        # touch the comment; return the item as is.
+        return comment
+
     formatted_comment = _comment_format(comment)
     legacy_formatted_comment = _comment_format_legacy(comment)
     for item in j_comments:
@@ -412,13 +432,6 @@ def _find_comment_in_jira(comment, j_comments):
                 item.update(body=formatted_comment)
                 log.info("Updated one comment")
                 # Now we can just return the item
-                return item
-            else:
-                # Else they are equal and we can return the item
-                return item
-        if comment["date_created"] < UPDATE_DATE:
-            # If the comment date is prior to the update_date,
-            # we should not try to touch the comment
             return item
     return None
 
@@ -439,24 +452,6 @@ def _comment_matching(g_comments, j_comments):
             g_comments,
         )
     )
-
-
-def _get_existing_jira_issue(client, issue, config):
-    """
-    Get a jira issue by the linked remote issue. \
-    This is the new supported way of doing this.
-
-    :param jira.client.JIRA client: JIRA client
-    :param sync2jira.intermediary.Issue issue: Issue object
-    :param Dict config: Config dict
-    :returns: Returns a list of matching JIRA issues if any are found
-    :rtype: List
-    """
-    results = _matching_jira_issue_query(client, issue, config)
-    if results:
-        return results[0]
-    else:
-        return None
 
 
 def _get_existing_jira_issue_legacy(client, issue):
@@ -756,6 +751,7 @@ def _create_jira_issue(client, issue, config):
         return None
 
     downstream = client.create_issue(**kwargs)
+    jira_cache[issue.url] = downstream.key
 
     # Add values to the Epic link, QA, and EXD-Service fields if present
     if (
@@ -948,7 +944,7 @@ def _update_transition(client, existing, issue):
     # downstream JIRA ticket
 
     # First get the closed status from the config file
-    t = filter(lambda d: "transition" in d, issue.downstream.get("issue_updates", {}))
+    t = filter(lambda d: "transition" in d, issue.downstream.get("issue_updates", []))
     closed_status = next(t)["transition"]
     if (
         closed_status is not True
@@ -1247,7 +1243,7 @@ def _update_tags(updates, existing, issue):
 
 def _build_description(issue):
     # Build the description of the JIRA issue
-    issue_updates = issue.downstream.get("issue_updates", {})
+    issue_updates = issue.downstream.get("issue_updates", [])
     description = ""
     if "description" in issue_updates:
         description = f"Upstream description: {{quote}}{issue.content}{{quote}}"
