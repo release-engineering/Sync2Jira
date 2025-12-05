@@ -759,10 +759,6 @@ def _create_jira_issue(client, issue, config):
         or issue.downstream.get("qa-contact")
         or issue.downstream.get("EXD-Service")
     ):
-        # Fetch all fields
-        # all_fields = client.fields()
-        # # Make a map from field name -> field id
-        # name_map = {field["name"]: field["id"] for field in all_fields}
         if issue.downstream.get("epic-link"):
             # Try to get and update the custom field
 
@@ -1152,7 +1148,7 @@ def _update_github_project_fields(
                     continue
                 # Resolve the field identifier to an ID
                 jirafieldname = _resolve_field_identifier(client, field_identifier)
-                if not field_identifier:
+                if not jirafieldname:
                     log.error(
                         f"Could not resolve custom field '{field_identifier}' to an ID, skipping"
                     )
