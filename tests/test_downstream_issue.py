@@ -2339,3 +2339,20 @@ class TestDownstreamIssue(unittest.TestCase):
             "Either SNOWFLAKE_PRIVATE_KEY_FILE or SNOWFLAKE_PAT must be set",
             str(context.exception),
         )
+
+    def test_UrlCache(self):
+        """Test UrlCache class
+
+        Show that, as we add items to the cache, the size of the cache never
+        exceeds the maximum, even when it is full; then show that the
+        overflow removed items in FIFO order, and that the last-inserted items
+        are still in the cache.
+        """
+        cache = d.UrlCache()
+        for i in range(cache.MAX_SIZE * 2):
+            self.assertLessEqual(len(cache), cache.MAX_SIZE)
+            cache[str(i)] = i
+        for i in range(cache.MAX_SIZE):
+            self.assertNotIn(str(i), cache)
+        for i in range(cache.MAX_SIZE, cache.MAX_SIZE * 2):
+            self.assertIn(str(i), cache)
