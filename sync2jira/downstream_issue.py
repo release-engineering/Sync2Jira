@@ -68,6 +68,7 @@ FROM
 
 
 GH_URL_PATTERN = re.compile(r"https://github\.com/[^/]+/[^/]+/(issues|pull)/\d+")
+field_name_cache = {}
 
 
 class UrlCache(dict):
@@ -152,6 +153,26 @@ def execute_snowflake_query(issue):
     return results
 
 
+def _build_field_name_cache(client):
+    """Build the field name cache for the given JIRA client."""
+    try:
+        # clearing the cache to remove any stale entries
+        field_name_cache.clear()
+
+        # adding the standard fields to the cache
+        for field in ("priority", "assignee", "summary", "description"):
+            field_name_cache[field] = field
+
+        # fetching the custom fields from the JIRA client
+        all_fields = client.fields()
+        name_map = {field["name"]: field["id"] for field in all_fields}
+
+        # updating the cache with the custom fields
+        field_name_cache.update(name_map)
+    except Exception as e:
+        log.error(f"Error building field name cache: {e}")
+
+
 def _get_field_id_by_name(client, field_name):
     """
     Convert a human-readable custom field name to its JIRA field ID.
@@ -161,33 +182,15 @@ def _get_field_id_by_name(client, field_name):
     :returns: Field ID (e.g., "customfield_12310243") or None if not found
     :rtype: Optional[str]
     """
-    # Cache field mappings per client to avoid repeated API calls
-    cache_key = id(client)
-    if cache_key not in jira_cache:
-        jira_cache[cache_key] = {}
-
     # Check cache first
-    if field_name in jira_cache[cache_key]:
-        return jira_cache[cache_key][field_name]
+    if field_ID := field_name_cache.get(field_name):
+        return field_ID
+    # If not in cache, build the cache
+    _build_field_name_cache(client)
 
-    # Fetch all fields from JIRA
-    try:
-        all_fields = client.fields()
-        name_map = {field["name"]: field["id"] for field in all_fields}
-
-        # Cache the entire mapping
-        jira_cache[cache_key] = name_map
-
-        # Return the field ID if found
-        field_id = name_map.get(field_name)
-        if field_id:
-            log.debug(f"Resolved field name '{field_name}' to ID '{field_id}'")
-        else:
-            log.warning(f"Field name '{field_name}' not found in JIRA fields")
-        return field_id
-    except Exception as e:
-        log.error(f"Error fetching JIRA fields: {e}")
-        return None
+    if field_ID := field_name_cache.get(field_name):
+        return field_ID
+    return None
 
 
 def _resolve_field_identifier(client, field_identifier):
@@ -202,12 +205,7 @@ def _resolve_field_identifier(client, field_identifier):
     :rtype: Optional[str]
     """
     # If it's already an ID (starts with 'customfield_' or is a standard field), return as-is
-    if field_identifier.startswith("customfield_") or field_identifier in [
-        "priority",
-        "assignee",
-        "summary",
-        "description",
-    ]:
+    if field_identifier.startswith("customfield_"):
         return field_identifier
 
     # Otherwise, treat it as a name and convert to ID
@@ -1139,27 +1137,22 @@ def _update_github_project_fields(
                         f"Story point field value '{fieldvalue}' is a {type(fieldvalue)}, not an 'int'"
                     )
                 continue
-            try:
-                field_identifier = default_jira_fields.get("storypoints")
-                if not field_identifier:
-                    log.error(
-                        "Configuration error: Missing 'storypoints' in `default_jira_fields`"
-                    )
-                    continue
-                # Resolve the field identifier to an ID
-                jirafieldname = _resolve_field_identifier(client, field_identifier)
-                if not jirafieldname:
-                    log.error(
-                        f"Could not resolve custom field '{field_identifier}' to an ID, skipping"
-                    )
-                    continue
 
-                log.info(f"Jira issue story point field name is:  '{jirafieldname}'")
-            except KeyError:
-                log.error(
+            field_identifier = default_jira_fields.get("storypoints")
+            if not field_identifier:
+                log.warning(
                     "Configuration error: Missing 'storypoints' in `default_jira_fields`"
                 )
                 continue
+            # Resolve the field identifier to an ID
+            jirafieldname = _resolve_field_identifier(client, field_identifier)
+            if not jirafieldname:
+                log.warning(
+                    f"Could not resolve custom field '{field_identifier}' to an ID, skipping"
+                )
+                continue
+
+            log.debug(f"Jira issue story point field name is:  '{jirafieldname}'")
             try:
                 existing.update({jirafieldname: fieldvalue})
                 log.info("Jira issue story point update was successful")

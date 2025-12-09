@@ -51,7 +51,7 @@ class TestDownstreamIssue(unittest.TestCase):
         ]
         self.mock_issue.downstream = {
             "project": "mock_project",
-            "custom_fields": {"somecustumfield": "somecustumvalue"},
+            "custom_fields": {"somecustomfield": "somecustomvalue"},
             "qa-contact": "dummy@dummy.com",
             "epic-link": "DUMMY-1234",
             "EXD-Service": {"guild": "EXD-Project", "value": "EXD-Value"},
@@ -457,7 +457,7 @@ class TestDownstreamIssue(unittest.TestCase):
             {"name": "Epic Link", "id": "customfield_1"},
             {"name": "QA Contact", "id": "customfield_2"},
             {"name": "EXD-Service", "id": "customfield_3"},
-            {"name": "somecustumfield", "id": "customfield_4"},
+            {"name": "somecustomfield", "id": "customfield_4"},
         ]
 
         # Call the function
@@ -469,7 +469,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.create_issue.assert_called_with(
             issuetype={"name": "Bug"},
             project={"key": "mock_project"},
-            customfield_4="somecustumvalue",
+            customfield_4="somecustomvalue",
             description=(
                 "[1234] Upstream Reporter: mock_user\n"
                 "Upstream issue status: Open\n"
@@ -596,7 +596,7 @@ class TestDownstreamIssue(unittest.TestCase):
             {"name": "Epic Link", "id": "customfield_1"},
             {"name": "QA Contact", "id": "customfield_2"},
             {"name": "EXD-Service", "id": "customfield_3"},
-            {"name": "somecustumfield", "id": "customfield_4"},
+            {"name": "somecustomfield", "id": "customfield_4"},
         ]
         self.mock_issue.downstream["issue_updates"] = []
 
@@ -609,7 +609,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.create_issue.assert_called_with(
             issuetype={"name": "Bug"},
             project={"key": "mock_project"},
-            customfield_4="somecustumvalue",
+            customfield_4="somecustomvalue",
             description="[1234] Upstream Reporter: mock_user\n",
             summary="mock_title",
         )
@@ -1859,40 +1859,52 @@ class TestDownstreamIssue(unittest.TestCase):
         self.assertEqual(result, "customfield_67890")
         self.assertEqual(mock_client.fields.call_count, 1)
 
+        # Test standard field from cache - should not call fields() again
+        result = d._get_field_id_by_name(mock_client, "priority")
+        self.assertEqual(result, "priority")
+        self.assertEqual(mock_client.fields.call_count, 1)  # Still only called once
+
+        # verify standard fields were seeded in cache
+        self.assertEqual(d.field_name_cache.get("priority"), "priority")
+        self.assertEqual(d.field_name_cache.get("assignee"), "assignee")
+        self.assertEqual(d.field_name_cache.get("summary"), "summary")
+        self.assertEqual(d.field_name_cache.get("description"), "description")
+
         # Test field not found - will fetch again since not in cache
         result = d._get_field_id_by_name(mock_client, "Non Existent Field")
         self.assertIsNone(result)
         self.assertEqual(mock_client.fields.call_count, 2)
 
-    def test_resolve_field_identifier(self):
+    @mock.patch("sync2jira.downstream_issue._get_field_id_by_name")
+    def test_resolve_field_identifier(self, mock_get_field_id_by_name):
         """Test _resolve_field_identifier function"""
-        # Clear cache first
-        d.jira_cache.clear()
 
         mock_client = MagicMock()
-        mock_client.fields.return_value = [
-            {"name": "Story Points", "id": "customfield_12345"},
-        ]
 
         # Test customfield ID - should return as-is
         result = d._resolve_field_identifier(mock_client, "customfield_99999")
         self.assertEqual(result, "customfield_99999")
-        mock_client.fields.assert_not_called()
+        mock_get_field_id_by_name.assert_not_called()
+
+        mock_get_field_id_by_name.reset_mock()
 
         # Test standard field - should return as-is
+        mock_get_field_id_by_name.return_value = "priority"
         result = d._resolve_field_identifier(mock_client, "priority")
         self.assertEqual(result, "priority")
-        mock_client.fields.assert_not_called()
+        mock_get_field_id_by_name.assert_called_once_with(mock_client, "priority")
 
         # Test field name - should convert to ID
+        mock_get_field_id_by_name.return_value = "customfield_12345"
         result = d._resolve_field_identifier(mock_client, "Story Points")
         self.assertEqual(result, "customfield_12345")
-        mock_client.fields.assert_called_once()
+        self.assertEqual(mock_get_field_id_by_name.call_count, 2)
+        mock_get_field_id_by_name.assert_any_call(mock_client, "Story Points")
 
     def test_get_field_id_by_name_exception(self):
         """Test _get_field_id_by_name when client.fields() raises an exception"""
         # Clear cache first
-        d.jira_cache.clear()
+        d.field_name_cache.clear()
 
         mock_client = MagicMock()
         mock_client.fields.side_effect = Exception("Connection error")
