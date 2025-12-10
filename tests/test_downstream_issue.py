@@ -51,7 +51,7 @@ class TestDownstreamIssue(unittest.TestCase):
         ]
         self.mock_issue.downstream = {
             "project": "mock_project",
-            "custom_fields": {"somecustumfield": "somecustumvalue"},
+            "custom_fields": {"somecustomfield": "somecustomvalue"},
             "qa-contact": "dummy@dummy.com",
             "epic-link": "DUMMY-1234",
             "EXD-Service": {"guild": "EXD-Project", "value": "EXD-Value"},
@@ -457,6 +457,7 @@ class TestDownstreamIssue(unittest.TestCase):
             {"name": "Epic Link", "id": "customfield_1"},
             {"name": "QA Contact", "id": "customfield_2"},
             {"name": "EXD-Service", "id": "customfield_3"},
+            {"name": "somecustomfield", "id": "customfield_4"},
         ]
 
         # Call the function
@@ -468,7 +469,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.create_issue.assert_called_with(
             issuetype={"name": "Bug"},
             project={"key": "mock_project"},
-            somecustumfield="somecustumvalue",
+            customfield_4="somecustomvalue",
             description=(
                 "[1234] Upstream Reporter: mock_user\n"
                 "Upstream issue status: Open\n"
@@ -591,6 +592,12 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         # Set up return values
         mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {"name": "Epic Link", "id": "customfield_1"},
+            {"name": "QA Contact", "id": "customfield_2"},
+            {"name": "EXD-Service", "id": "customfield_3"},
+            {"name": "somecustomfield", "id": "customfield_4"},
+        ]
         self.mock_issue.downstream["issue_updates"] = []
 
         # Call the function
@@ -602,7 +609,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.create_issue.assert_called_with(
             issuetype={"name": "Bug"},
             project={"key": "mock_project"},
-            somecustumfield="somecustumvalue",
+            customfield_4="somecustomvalue",
             description="[1234] Upstream Reporter: mock_user\n",
             summary="mock_title",
         )
@@ -1830,6 +1837,185 @@ class TestDownstreamIssue(unittest.TestCase):
         for text, expected in scenarios:
             actual = remove_diacritics(text)
             self.assertEqual(actual, expected)
+
+    def test_get_field_id_by_name(self):
+        """Test _get_field_id_by_name function"""
+        # Clear cache first
+        d.jira_cache.clear()
+
+        mock_client = MagicMock()
+        mock_client.fields.return_value = [
+            {"name": "Story Points", "id": "customfield_12345"},
+            {"name": "Epic Link", "id": "customfield_67890"},
+        ]
+
+        # Test field found - fetches and caches
+        result = d._get_field_id_by_name(mock_client, "Story Points")
+        self.assertEqual(result, "customfield_12345")
+        mock_client.fields.assert_called_once()
+
+        # Test cache - should use cache, not fetch again
+        result = d._get_field_id_by_name(mock_client, "Epic Link")
+        self.assertEqual(result, "customfield_67890")
+        self.assertEqual(mock_client.fields.call_count, 1)
+
+        # Test standard field from cache - should not call fields() again
+        result = d._get_field_id_by_name(mock_client, "priority")
+        self.assertEqual(result, "priority")
+        self.assertEqual(mock_client.fields.call_count, 1)  # Still only called once
+
+        # verify standard fields were seeded in cache
+        self.assertEqual(d.field_name_cache.get("priority"), "priority")
+        self.assertEqual(d.field_name_cache.get("assignee"), "assignee")
+        self.assertEqual(d.field_name_cache.get("summary"), "summary")
+        self.assertEqual(d.field_name_cache.get("description"), "description")
+
+        # Test field not found - will fetch again since not in cache
+        result = d._get_field_id_by_name(mock_client, "Non Existent Field")
+        self.assertIsNone(result)
+        self.assertEqual(mock_client.fields.call_count, 2)
+
+    @mock.patch("sync2jira.downstream_issue._get_field_id_by_name")
+    def test_resolve_field_identifier(self, mock_get_field_id_by_name):
+        """Test _resolve_field_identifier function"""
+
+        mock_client = MagicMock()
+
+        # Test customfield ID - should return as-is
+        result = d._resolve_field_identifier(mock_client, "customfield_99999")
+        self.assertEqual(result, "customfield_99999")
+        mock_get_field_id_by_name.assert_not_called()
+
+        mock_get_field_id_by_name.reset_mock()
+
+        # Test standard field - should return as-is
+        mock_get_field_id_by_name.return_value = "priority"
+        result = d._resolve_field_identifier(mock_client, "priority")
+        self.assertEqual(result, "priority")
+        mock_get_field_id_by_name.assert_called_once_with(mock_client, "priority")
+
+        # Test field name - should convert to ID
+        mock_get_field_id_by_name.return_value = "customfield_12345"
+        result = d._resolve_field_identifier(mock_client, "Story Points")
+        self.assertEqual(result, "customfield_12345")
+        self.assertEqual(mock_get_field_id_by_name.call_count, 2)
+        mock_get_field_id_by_name.assert_any_call(mock_client, "Story Points")
+
+    def test_get_field_id_by_name_exception(self):
+        """Test _get_field_id_by_name when client.fields() raises an exception"""
+        # Clear cache first
+        d.field_name_cache.clear()
+
+        mock_client = MagicMock()
+        mock_client.fields.side_effect = Exception("Connection error")
+
+        # Call function
+        result = d._get_field_id_by_name(mock_client, "Story Points")
+
+        # Assert
+        self.assertIsNone(result)
+        mock_client.fields.assert_called_once()
+
+    @mock.patch(PATH + "_update_jira_issue")
+    @mock.patch(PATH + "attach_link")
+    @mock.patch("jira.client.JIRA")
+    def test_create_jira_issue_epic_link_field_not_found(
+        self, mock_client, mock_attach_link, mock_update_jira_issue
+    ):
+        """Test _create_jira_issue when Epic Link field cannot be resolved"""
+        # Set up return values
+        mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {"name": "QA Contact", "id": "customfield_2"},
+            {"name": "EXD-Service", "id": "customfield_3"},
+            # Note: Epic Link is NOT in the fields list
+        ]
+
+        # Call the function
+        response = d._create_jira_issue(
+            client=mock_client, issue=self.mock_issue, config=self.mock_config
+        )
+
+        # Assert - Epic Link should not be updated since field not found
+        # But issue should still be created
+        mock_client.create_issue.assert_called_once()
+        self.assertEqual(response, self.mock_downstream)
+
+    @mock.patch(PATH + "_update_jira_issue")
+    @mock.patch(PATH + "attach_link")
+    @mock.patch(PATH + "change_status")
+    @mock.patch("jira.client.JIRA")
+    def test_create_jira_issue_with_component_and_labels(
+        self, mock_client, mock_change_status, mock_attach_link, mock_update_jira_issue
+    ):
+        """Test _create_jira_issue with component and labels"""
+        # Clear cache first
+        d.jira_cache.clear()
+
+        # Set up return values
+        mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {"name": "Epic Link", "id": "customfield_1"},
+            {"name": "QA Contact", "id": "customfield_2"},
+            {"name": "EXD-Service", "id": "customfield_3"},
+        ]
+
+        # Add component and labels to issue
+        self.mock_issue.downstream["component"] = "test-component"
+        self.mock_issue.downstream["labels"] = ["label1", "label2"]
+
+        # Call the function
+        response = d._create_jira_issue(
+            client=mock_client, issue=self.mock_issue, config=self.mock_config
+        )
+
+        # Assert component and labels are included
+        mock_client.create_issue.assert_called_once()
+        call_kwargs = mock_client.create_issue.call_args[1]
+        self.assertEqual(call_kwargs["components"], [{"name": "test-component"}])
+        self.assertEqual(call_kwargs["labels"], ["label1", "label2"])
+        self.assertEqual(response, self.mock_downstream)
+
+    @mock.patch(PATH + "_update_jira_issue")
+    @mock.patch(PATH + "attach_link")
+    @mock.patch(PATH + "change_status")
+    @mock.patch("jira.client.JIRA")
+    def test_create_jira_issue_with_default_status_and_upstream_id(
+        self, mock_client, mock_change_status, mock_attach_link, mock_update_jira_issue
+    ):
+        """Test _create_jira_issue with default_status and upstream_id comment"""
+        # Clear cache first
+        d.jira_cache.clear()
+
+        # Set up return values
+        mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {"name": "Epic Link", "id": "customfield_1"},
+            {"name": "QA Contact", "id": "customfield_2"},
+            {"name": "EXD-Service", "id": "customfield_3"},
+        ]
+
+        # Add default_status and upstream_id to issue
+        self.mock_issue.downstream["default_status"] = "In Progress"
+        self.mock_issue.downstream["issue_updates"].append("upstream_id")
+        self.mock_issue.upstream = "github"
+        self.mock_issue.upstream_id = "123"
+
+        # Call the function
+        response = d._create_jira_issue(
+            client=mock_client, issue=self.mock_issue, config=self.mock_config
+        )
+
+        # Assert default_status and upstream_id comment are handled
+        mock_client.create_issue.assert_called_once()
+        mock_change_status.assert_called_once_with(
+            mock_client, self.mock_downstream, "In Progress", self.mock_issue
+        )
+        mock_client.add_comment.assert_called_with(
+            self.mock_downstream,
+            f"Creating issue for [github-#123|{self.mock_issue.url}]",
+        )
+        self.assertEqual(response, self.mock_downstream)
 
     @mock.patch(PATH + "snowflake.connector.connect")
     @mock.patch.dict(
