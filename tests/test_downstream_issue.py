@@ -1910,11 +1910,13 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.fields.side_effect = Exception("Connection error")
 
         # Call function
-        result = d._get_field_id_by_name(mock_client, "Story Points")
+        with self.assertRaises(Exception) as context:
+            result = d._get_field_id_by_name(mock_client, "Story Points")
 
         # Assert
-        self.assertIsNone(result)
+        self.assertEqual(str(context.exception), "Connection error")
         mock_client.fields.assert_called_once()
+        self.assertEqual(len(d.field_name_cache), 4)
 
     @mock.patch(PATH + "_update_jira_issue")
     @mock.patch(PATH + "attach_link")
@@ -1931,15 +1933,14 @@ class TestDownstreamIssue(unittest.TestCase):
             # Note: Epic Link is NOT in the fields list
         ]
 
-        # Call the function
+        # Call the function - should raise ValueError when trying to update Epic Link
         response = d._create_jira_issue(
             client=mock_client, issue=self.mock_issue, config=self.mock_config
         )
 
-        # Assert - Epic Link should not be updated since field not found
-        # But issue should still be created
-        mock_client.create_issue.assert_called_once()
+        # Assert error message contains diagnostic information
         self.assertEqual(response, self.mock_downstream)
+        mock_client.create_issue.assert_called_once()
 
     @mock.patch(PATH + "_update_jira_issue")
     @mock.patch(PATH + "attach_link")
