@@ -29,6 +29,8 @@ import unicodedata
 from dotenv import load_dotenv
 from jira import JIRAError
 import jira.client
+from jira.client import Issue as JIssue
+from jira.client import ResultList
 import pypandoc
 import snowflake.connector
 
@@ -300,53 +302,19 @@ def _get_existing_jira_issue(client, issue, config):
     :param sync2jira.intermediary.Issue issue: Issue object
     :param Dict config: Config dict
     :returns: Returns a list of matching JIRA issues if any are found
-    :rtype: str or None
+    :rtype: JIssue or None
     """
 
-    # If there's an entry for the issue in our cache, fetch the issue key from it.
-    if result := jira_cache.get(issue.url):
-        issue_keys = (result,)
-    else:
-        # Search for Jira issues with a "remote link" to the issue.url;
-        # if we find none, return None.
-        results = execute_snowflake_query(issue)
-        if not results:
-            return None
-
-        # From the results returned by Snowflake, make an iterable of the
-        # issues' keys.
-        issue_keys = (row[0] for row in results)
-
     # Fetch the Jira issue objects using the key list.
-    jql = f"key in ({','.join(issue_keys)})"
-    results = client.search_issues(jql)
+    jql = _get_existing_jira_issue_query(issue)
+    if not jql:
+        return None
+    results: ResultList[JIssue] = client.search_issues(jql)
 
     # If there is more than one issue, remove duplicates and filter the list
     # down to one.
     if len(results) > 1:
-        filtered_results = []
-        # TODO: there is pagure-specific code in here that handles the case where a dropped issue's URL is
-        #       re-used by an issue opened later. i.e. pagure re-uses IDs
-        for result in results:
-            description = result.fields.description or ""
-            summary = result.fields.summary or ""
-            if (
-                issue.id in description
-                or issue.title == summary
-                or re.search(
-                    r"\[[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':\\|,.<>/?]*] "
-                    + issue.upstream_title,
-                    summary,
-                )
-            ):
-                username = find_username(issue, config)
-                search = check_comments_for_duplicate(client, result, username)
-                filtered_results.append(search if search else result)
-
-        # Unless the filtering removed _all_ the results, switch the results to
-        # the filtered results; otherwise, continue with the original list.
-        if filtered_results:
-            results = filtered_results
+        results = _filter_downstream_issues(results, issue, client, config)
 
         # If there is more than one result, select only the most-recently updated one.
         if len(results) > 1:
@@ -361,11 +329,73 @@ def _get_existing_jira_issue(client, issue, config):
                 ),
                 reverse=True,  # Biggest (most recent) first
             )
-            results = [results[0]]  # A list of one item
+            results = ResultList[JIssue]((results[0],))  # A list of one item
 
     # Cache the result for next time and return it.
     jira_cache[issue.url] = results[0].key
     return results[0]
+
+
+def _get_existing_jira_issue_query(issue: Issue) -> Optional[str]:
+    """
+    Generate a JQL query to find downstream issues corresponding to a given
+    upstream issue.  Return None if no matches were found in either our local
+    cache or in the Dataverse.
+
+    :param sync2jira.intermediary.Issue issue: Issue object
+    :returns: A string containing the JQL query or None if no matches
+    :rtype: str or None
+    """
+    if result := jira_cache.get(issue.url):
+        issue_keys = (result,)
+    else:
+        results = execute_snowflake_query(issue)
+        if not results:
+            return None
+        issue_keys = (row[0] for row in results)
+
+    return f"key in ({','.join(issue_keys)})"
+
+
+def _filter_downstream_issues(
+    results: ResultList[JIssue],
+    issue: Issue,
+    client: jira.client.JIRA,
+    config,
+) -> ResultList[JIssue]:
+    """
+    Remove duplicates; if the result would be an empty list, the original list
+    is returned.
+
+    :param ResultList[JIssue] results: Query results list
+    :param sync2jira.intermediary.Issue issue: Target Issue object
+    :param jira.client.JIRA client: JIRA client
+    :param Dict config: Config dict
+    :returns: a filtered list of matching JIRA issues or the original input
+    :rtype: ResultList[JIssue]
+    """
+    filtered_results = ResultList[JIssue]()
+
+    # TODO: there is pagure-specific code in here that handles the case where a
+    #       dropped issue's URL is re-used by an issue opened later.
+    #       I.e. pagure re-uses IDs.
+    for result in results:
+        description = result.fields.description or ""
+        summary = result.fields.summary or ""
+        if (
+            issue.id in description
+            or issue.title == summary
+            or re.search(
+                r"\[[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':\\|,.<>/?]*] "
+                + issue.upstream_title,
+                summary,
+            )
+        ):
+            username = find_username(issue, config)
+            search = check_comments_for_duplicate(client, result, username)
+            filtered_results.append(search if search else result)
+
+    return filtered_results if filtered_results else results
 
 
 def find_username(_issue, config):
@@ -555,7 +585,7 @@ def match_user(emails: list[str], client: jira.client.JIRA) -> Optional[str]:
 
 
 def assign_user(
-    client: jira.client.JIRA, issue: Issue, downstream: jira.Issue, remove_all=False
+    client: jira.client.JIRA, issue: Issue, downstream: JIssue, remove_all=False
 ):
     """
     Attempts to assign a JIRA issue to the correct
