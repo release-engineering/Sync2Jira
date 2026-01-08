@@ -1910,11 +1910,19 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.fields.side_effect = Exception("Connection error")
 
         # Call function
-        result = d._get_field_id_by_name(mock_client, "Story Points")
+        with self.assertRaises(Exception) as context:
+            result = d._get_field_id_by_name(mock_client, "Story Points")
 
         # Assert
-        self.assertIsNone(result)
+        self.assertEqual(str(context.exception), "Connection error")
         mock_client.fields.assert_called_once()
+        expected_cache = {
+            "priority": "priority",
+            "assignee": "assignee",
+            "summary": "summary",
+            "description": "description",
+        }
+        self.assertDictEqual(d.field_name_cache, expected_cache)
 
     @mock.patch(PATH + "_update_jira_issue")
     @mock.patch(PATH + "attach_link")
@@ -1936,10 +1944,46 @@ class TestDownstreamIssue(unittest.TestCase):
             client=mock_client, issue=self.mock_issue, config=self.mock_config
         )
 
-        # Assert - Epic Link should not be updated since field not found
-        # But issue should still be created
-        mock_client.create_issue.assert_called_once()
+        # Assert response is the mock downstream issue
         self.assertEqual(response, self.mock_downstream)
+        mock_client.create_issue.assert_called_once()
+
+    @mock.patch("jira.client.JIRA")
+    def test_update_github_project_fields_storypoints_resolution_failure(
+        self, mock_client
+    ):
+        """Test _update_github_project_fields raises ValueError when storypoints field cannot be resolved"""
+        github_project_fields = {"storypoints": {"gh_field": "Estimate"}}
+        jira_fields = self.mock_config["sync2jira"]["default_jira_fields"]
+        original_storypoints = jira_fields["storypoints"]
+        jira_fields["storypoints"] = "Story Points"
+        # Set up mock - storypoints field identifier doesn't exist in JIRA
+        # Note: The field from default_jira_fields.storypoints doesn't exist
+        mock_client.fields.return_value = [{"name": "Priority", "id": "priority"}]
+
+        # Clear cache to force fresh lookup
+        d.field_name_cache.clear()
+
+        # Call function - should raise ValueError
+        with self.assertRaises(ValueError) as context:
+            d._update_github_project_fields(
+                mock_client,
+                self.mock_downstream,
+                self.mock_issue,
+                github_project_fields,
+                self.mock_config,
+            )
+
+        # Assert error message contains diagnostic information
+        error_msg = str(context.exception)
+        self.assertIn("story points", error_msg.lower())
+        self.assertIn("Could not resolve", error_msg)
+        # Issue should not be updated
+        self.mock_downstream.update.assert_not_called()
+        # Restore original config
+        self.mock_config["sync2jira"]["default_jira_fields"][
+            "storypoints"
+        ] = original_storypoints
 
     @mock.patch(PATH + "_update_jira_issue")
     @mock.patch(PATH + "attach_link")
