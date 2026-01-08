@@ -1954,18 +1954,12 @@ class TestDownstreamIssue(unittest.TestCase):
     ):
         """Test _update_github_project_fields raises ValueError when storypoints field cannot be resolved"""
         github_project_fields = {"storypoints": {"gh_field": "Estimate"}}
-        original_storypoints = self.mock_config["sync2jira"]["default_jira_fields"][
-            "storypoints"
-        ]
-        self.mock_config["sync2jira"]["default_jira_fields"][
-            "storypoints"
-        ] = "Story Points"
-
+        jira_fields = self.mock_config["sync2jira"]["default_jira_fields"]
+        original_storypoints = jira_fields["storypoints"]
+        jira_fields["storypoints"] = "Story Points"
         # Set up mock - storypoints field identifier doesn't exist in JIRA
-        mock_client.fields.return_value = [
-            {"name": "Priority", "id": "priority"},
-            # Note: The field from default_jira_fields.storypoints doesn't exist
-        ]
+        # Note: The field from default_jira_fields.storypoints doesn't exist
+        mock_client.fields.return_value = [{"name": "Priority", "id": "priority"}]
 
         # Clear cache to force fresh lookup
         d.field_name_cache.clear()
@@ -1982,7 +1976,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert error message contains diagnostic information
         error_msg = str(context.exception)
-        self.assertIn("story points", error_msg.lower() or error_msg)
+        self.assertIn("story points", error_msg.lower())
         self.assertIn("Could not resolve", error_msg)
         # Issue should not be updated
         self.mock_downstream.update.assert_not_called()
