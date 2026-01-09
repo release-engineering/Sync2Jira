@@ -226,6 +226,11 @@ def add_project_values(issue, upstream, headers, config):
     issue["priority"] = None
     issuenumber = issue["number"]
     github_project_fields = upstream_config["github_project_fields"]
+    if not github_project_fields:
+        log.debug(
+            "github_project_fields is None or empty, skipping project field updates"
+        )
+        return
     orgname, reponame = upstream.rsplit("/", 1)
     variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
     response = requests.post(

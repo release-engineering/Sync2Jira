@@ -868,7 +868,11 @@ def _update_jira_issue(existing, issue, client, config):
     # Get fields representing project item fields in GitHub and Jira
     github_project_fields = issue.downstream.get("github_project_fields", {})
     # Only synchronize comments for listings that op-in
-    if "github_project_fields" in updates and len(github_project_fields) > 0:
+    if (
+        "github_project_fields" in updates
+        and github_project_fields is not None
+        and len(github_project_fields) > 0
+    ):
         log.info("Looking for GitHub project fields")
         _update_github_project_fields(
             client, existing, issue, github_project_fields, config
@@ -1237,7 +1241,7 @@ def _build_description(issue):
     if "description" in issue_updates:
         description = f"Upstream description: {{quote}}{issue.content}{{quote}}"
 
-    if any("transition" in item for item in issue_updates):
+    if any("transition" in item for item in issue_updates) and issue.status:
         # Add the upstream issue status to the top of the description
         formatted_status = "Upstream issue status: " + issue.status
         description = formatted_status + "\n" + description

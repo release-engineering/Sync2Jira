@@ -370,3 +370,207 @@ class TestDownstreamPR(unittest.TestCase):
         mock_d_issue.change_status.assert_called_with(
             mock_client, self.mock_existing, "CUSTOM_TRANSITION1", self.mock_pr
         )
+
+    # Add these new test methods to the TestDownstreamPR class
+
+    @mock.patch(PATH + "_create_jira_issue_from_pr")
+    @mock.patch(PATH + "d_issue")
+    def test_sync_with_jira_create_pr_issue_enabled(
+        self, mock_d_issue, mock_create_jira_issue_from_pr
+    ):
+        """
+        Test 'sync_with_jira' when create_pr_issue is enabled and no JIRA key is found.
+        """
+        # Set up return values
+        self.mock_pr.jira_key = None
+        self.mock_pr.match = None
+        self.mock_pr.downstream = {"create_pr_issue": True}
+        mock_client = MagicMock()
+        mock_d_issue.get_jira_client.return_value = mock_client
+
+        # Call the function
+        d.sync_with_jira(self.mock_pr, self.mock_config)
+
+        # Assert everything was called correctly
+        mock_d_issue.get_jira_client.assert_called_with(self.mock_pr, self.mock_config)
+        mock_create_jira_issue_from_pr.assert_called_with(
+            mock_client, self.mock_pr, self.mock_config
+        )
+
+    @mock.patch(PATH + "d_issue")
+    def test_sync_with_jira_create_pr_issue_disabled(self, mock_d_issue):
+        """
+        Test 'sync_with_jira' when create_pr_issue is disabled and no JIRA key is found.
+        Should skip and return None.
+        """
+        # Set up return values
+        self.mock_pr.jira_key = None
+        self.mock_pr.match = None
+        self.mock_pr.downstream = {"create_pr_issue": False}
+
+        # Call the function
+        result = d.sync_with_jira(self.mock_pr, self.mock_config)
+
+        # Assert everything was called correctly
+        mock_d_issue.get_jira_client.assert_not_called()
+        self.assertIsNone(result)
+
+    @mock.patch(PATH + "_create_jira_issue_from_pr")
+    @mock.patch(PATH + "d_issue")
+    def test_update_jira_create_pr_issue_enabled(
+        self, mock_d_issue, mock_create_jira_issue_from_pr
+    ):
+        """
+        Test 'update_jira' when create_pr_issue is enabled and no JIRA key is found.
+        """
+        # Set up return values
+        mock_client = MagicMock()
+        mock_d_issue.check_jira_status.return_value = True
+        self.mock_pr.jira_key = None
+        self.mock_pr.downstream = {"create_pr_issue": True}
+
+        # Call the function
+        d.update_jira(mock_client, self.mock_config, self.mock_pr)
+
+        # Assert everything was called correctly
+        mock_d_issue.check_jira_status.assert_called_with(mock_client)
+        mock_create_jira_issue_from_pr.assert_called_with(
+            mock_client, self.mock_pr, self.mock_config
+        )
+        mock_client.search_issues.assert_not_called()
+
+    @mock.patch(PATH + "d_issue")
+    def test_update_jira_create_pr_issue_disabled(self, mock_d_issue):
+        """
+        Test 'update_jira' when create_pr_issue is disabled and no JIRA key is found.
+        Should log and return without creating issue.
+        """
+        # Set up return values
+        mock_client = MagicMock()
+        mock_d_issue.check_jira_status.return_value = True
+        self.mock_pr.jira_key = None
+        self.mock_pr.downstream = {"create_pr_issue": False}
+
+        # Call the function
+        d.update_jira(mock_client, self.mock_config, self.mock_pr)
+
+        # Assert everything was called correctly
+        mock_d_issue.check_jira_status.assert_called_with(mock_client)
+        mock_client.search_issues.assert_not_called()
+
+    @mock.patch(PATH + "d_issue._create_jira_issue")
+    @mock.patch("sync2jira.intermediary.Issue")
+    def test_create_jira_issue_from_pr(self, mock_issue_class, mock_create_jira_issue):
+        """
+        Test '_create_jira_issue_from_pr' converts PR to Issue-like object and creates JIRA issue.
+        """
+        # Set up return values
+        mock_client = MagicMock()
+        mock_created_issue = MagicMock()
+        mock_create_jira_issue.return_value = mock_created_issue
+
+        # Set up PR object
+        self.mock_pr.source = "github"
+        self.mock_pr._title = "Test PR Title"
+        self.mock_pr.url = "https://github.com/test/repo/pull/1"
+        self.mock_pr.upstream = "test/repo"
+        self.mock_pr.comments = []
+        self.mock_pr.priority = None
+        self.mock_pr.content = "PR description"
+        self.mock_pr.reporter = "testuser"
+        self.mock_pr.assignee = []
+        self.mock_pr.status = None
+        self.mock_pr.id = "1"
+        self.mock_pr.downstream = {"project": "TEST", "type": "Task"}
+
+        # Call the function
+        result = d._create_jira_issue_from_pr(
+            mock_client, self.mock_pr, self.mock_config
+        )
+
+        # Assert Issue was created with correct parameters
+        mock_issue_class.assert_called_once()
+        call_args = mock_issue_class.call_args
+        self.assertEqual(call_args[1]["source"], "github")
+        self.assertEqual(call_args[1]["title"], "Test PR Title")
+        self.assertEqual(call_args[1]["url"], "https://github.com/test/repo/pull/1")
+        self.assertEqual(call_args[1]["upstream"], "test/repo")
+        self.assertEqual(call_args[1]["status"], None)
+        self.assertEqual(call_args[1]["reporter"], {"fullname": "testuser"})
+
+        # Assert _create_jira_issue was called
+        mock_create_jira_issue.assert_called_once()
+        self.assertEqual(result, mock_created_issue)
+
+    @mock.patch(PATH + "d_issue._create_jira_issue")
+    @mock.patch("sync2jira.intermediary.Issue")
+    def test_create_jira_issue_from_pr_no_content(
+        self, mock_issue_class, mock_create_jira_issue
+    ):
+        """
+        Test '_create_jira_issue_from_pr' when PR has no content (uses fallback).
+        """
+        # Set up return values
+        mock_client = MagicMock()
+        mock_created_issue = MagicMock()
+        mock_create_jira_issue.return_value = mock_created_issue
+
+        # Set up PR object with no content
+        self.mock_pr.source = "github"
+        self.mock_pr._title = "Test PR"
+        self.mock_pr.url = "https://github.com/test/repo/pull/1"
+        self.mock_pr.upstream = "test/repo"
+        self.mock_pr.comments = []
+        self.mock_pr.priority = None
+        self.mock_pr.content = None  # No content
+        self.mock_pr.reporter = "testuser"
+        self.mock_pr.assignee = []
+        self.mock_pr.status = None
+        self.mock_pr.id = "1"
+        self.mock_pr.downstream = {"project": "TEST"}
+
+        # Call the function
+        d._create_jira_issue_from_pr(mock_client, self.mock_pr, self.mock_config)
+
+        # Assert Issue was created with fallback content
+        call_args = mock_issue_class.call_args
+        self.assertEqual(
+            call_args[1]["content"], "PR: https://github.com/test/repo/pull/1"
+        )
+
+    @mock.patch(PATH + "d_issue._create_jira_issue")
+    @mock.patch("sync2jira.intermediary.Issue")
+    def test_create_jira_issue_from_pr_reporter_dict(
+        self, mock_issue_class, mock_create_jira_issue
+    ):
+        """
+        Test '_create_jira_issue_from_pr' when reporter is already a dict (not a string).
+        """
+        # Set up return values
+        mock_client = MagicMock()
+        mock_created_issue = MagicMock()
+        mock_create_jira_issue.return_value = mock_created_issue
+
+        # Set up PR object with dict reporter
+        self.mock_pr.source = "github"
+        self.mock_pr._title = "Test PR"
+        self.mock_pr.url = "https://github.com/test/repo/pull/1"
+        self.mock_pr.upstream = "test/repo"
+        self.mock_pr.comments = []
+        self.mock_pr.priority = None
+        self.mock_pr.content = "PR description"
+        self.mock_pr.reporter = {"fullname": "testuser", "email": "test@example.com"}
+        self.mock_pr.assignee = []
+        self.mock_pr.status = None
+        self.mock_pr.id = "1"
+        self.mock_pr.downstream = {"project": "TEST"}
+
+        # Call the function
+        d._create_jira_issue_from_pr(mock_client, self.mock_pr, self.mock_config)
+
+        # Assert Issue was created with dict reporter (not wrapped)
+        call_args = mock_issue_class.call_args
+        self.assertEqual(
+            call_args[1]["reporter"],
+            {"fullname": "testuser", "email": "test@example.com"},
+        )
