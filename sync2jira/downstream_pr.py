@@ -177,9 +177,18 @@ def sync_with_jira(pr, config):
         log.info("Testing flag is true.  Skipping actual update.")
         return None
 
+    # Check if we should create issues for PRs without JIRA keys
+    create_pr_issue = pr.downstream.get("create_pr_issue", False)
+
     if not pr.match:
-        log.info(f"[PR] No match found for {pr.title}")
-        return None
+        if create_pr_issue:
+            log.info(
+                f"No JIRA key found in PR {pr.title}, but 'create_pr_issue' is enabled. "
+                f"Will create new JIRA issue."
+            )
+        else:
+            log.info(f"[PR] No match found for {pr.title}")
+            return None
 
     # Create a client connection for this issue
     client = d_issue.get_jira_client(pr, config)
@@ -219,7 +228,16 @@ def update_jira(client, config, pr):
         pr.jira_key = matcher(pr.content, pr.comments)
 
     if not pr.jira_key:
-        log.info("No JIRA key found in PR, skipping.")
+        create_pr_issue = pr.downstream.get("create_pr_issue", False)
+        if create_pr_issue:
+            log.info(
+                f"No JIRA key found in PR {pr.url}, but 'create_pr_issue' is enabled. "
+                f"Creating new JIRA issue for PR."
+            )
+            # Convert PR to Issue-like object for creation
+            _create_jira_issue_from_pr(client, pr, config)
+        else:
+            log.info("No JIRA key found in PR, skipping.")
         return
 
     response: ResultList[JIRAIssue] = client.search_issues(f"Key = {pr.jira_key}")
@@ -234,3 +252,61 @@ def update_jira(client, config, pr):
         log.warning(
             f"Unexpectedly received {len(response)} matches for JIRA issue {pr.jira_key}"
         )
+
+
+def _create_jira_issue_from_pr(client, pr, config):
+    """
+    Create a new JIRA issue from a PR when no JIRA key is referenced.
+
+    :param jira.client.JIRA client: JIRA client
+    :param sync2jira.intermediary.PR pr: PR object
+    :param Dict config: Config dict
+    :returns: Created JIRA issue
+    :rtype: jira.resources.Issue
+    """
+    from sync2jira.intermediary import Issue
+
+    # Convert PR to Issue-like object for creation
+    # PR and Issue share similar structure, but we need to adapt it
+    print("--------------------------------")
+    print(
+        pr,
+        pr.source,
+        pr.downstream,
+        pr._title,
+        pr.url,
+        pr.upstream,
+        pr.comments,
+        pr.priority,
+        pr.content,
+        pr.reporter,
+        pr.assignee,
+        pr.status,
+        pr.id,
+    )
+    # exit(1)
+    issue_like = Issue(
+        source=pr.source,
+        title=pr._title,  # Use original title without [upstream] prefix
+        url=pr.url,
+        upstream=pr.upstream,
+        comments=pr.comments,
+        config=config,
+        tags=[],  # PRs don't have tags in the same way
+        fixVersion=[],
+        priority=pr.priority,
+        content=pr.content or f"PR: {pr.url}",
+        reporter=(
+            {"fullname": pr.reporter} if isinstance(pr.reporter, str) else pr.reporter
+        ),
+        assignee=pr.assignee or [],
+        status=pr.status,
+        id_=pr.id,
+        storypoints=None,
+        upstream_id=pr.id,
+        issue_type=None,
+        downstream=pr.downstream,  # Use PR's downstream config
+    )
+
+    # Use existing issue creation logic
+    return d_issue._create_jira_issue(client, issue_like, config)
