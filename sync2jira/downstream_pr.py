@@ -23,6 +23,7 @@ import logging
 from jira import JIRAError
 from jira.client import Issue as JIRAIssue
 from jira.client import ResultList
+import pypandoc
 
 # Local Modules
 import sync2jira.downstream_issue as d_issue
@@ -175,20 +176,14 @@ def sync_with_jira(pr, config):
     # Return if testing
     if config["sync2jira"]["testing"]:
         log.info("Testing flag is true.  Skipping actual update.")
-        return None
+        return
 
     # Check if we should create issues for PRs without JIRA keys
     create_pr_issue = pr.downstream.get("create_pr_issue", False)
 
-    if not pr.match:
-        if create_pr_issue:
-            log.info(
-                f"No JIRA key found in PR {pr.title}, but 'create_pr_issue' is enabled. "
-                f"Will create new JIRA issue."
-            )
-        else:
-            log.info(f"[PR] No match found for {pr.title}")
-            return None
+    if not pr.match and not create_pr_issue:
+        log.info(f"[PR] No match found for {pr.title}")
+        return
 
     # Create a client connection for this issue
     client = d_issue.get_jira_client(pr, config)
@@ -230,10 +225,6 @@ def update_jira(client, config, pr):
     if not pr.jira_key:
         create_pr_issue = pr.downstream.get("create_pr_issue", False)
         if create_pr_issue:
-            log.info(
-                f"No JIRA key found in PR {pr.url}, but 'create_pr_issue' is enabled. "
-                f"Creating new JIRA issue for PR."
-            )
             # Convert PR to Issue-like object for creation
             _create_jira_issue_from_pr(client, pr, config)
         else:
@@ -264,27 +255,18 @@ def _create_jira_issue_from_pr(client, pr, config):
     :returns: Created JIRA issue
     :rtype: jira.resources.Issue
     """
-    from sync2jira.intermediary import Issue
+
+    pr_content = pr.content or f"PR: {pr.url}"
+    if pr.downstream.get("issue_updates"):
+        if (
+            pr.source == "github"
+            and pr_content
+            and "github_markdown" in pr.downstream["issue_updates"]
+        ):
+            pr_content = pypandoc.convert_text(pr_content, "jira", format="gfm")
 
     # Convert PR to Issue-like object for creation
     # PR and Issue share similar structure, but we need to adapt it
-    print("--------------------------------")
-    print(
-        pr,
-        pr.source,
-        pr.downstream,
-        pr._title,
-        pr.url,
-        pr.upstream,
-        pr.comments,
-        pr.priority,
-        pr.content,
-        pr.reporter,
-        pr.assignee,
-        pr.status,
-        pr.id,
-    )
-    # exit(1)
     issue_like = Issue(
         source=pr.source,
         title=pr._title,  # Use original title without [upstream] prefix
@@ -297,7 +279,9 @@ def _create_jira_issue_from_pr(client, pr, config):
         priority=pr.priority,
         content=pr.content or f"PR: {pr.url}",
         reporter=(
-            {"fullname": pr.reporter} if isinstance(pr.reporter, str) else pr.reporter
+            pr.reporter
+            if isinstance(pr.reporter, dict)
+            else {"fullname": str(pr.reporter)}
         ),
         assignee=pr.assignee or [],
         status=pr.status,
