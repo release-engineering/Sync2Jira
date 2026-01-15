@@ -114,7 +114,7 @@ See `example.py` for a complete usage example with logging configuration.
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.12+
 - ldap3 >= 2.9.0
 
 ## License
