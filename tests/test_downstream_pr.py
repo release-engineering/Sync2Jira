@@ -398,7 +398,7 @@ class TestDownstreamPR(unittest.TestCase):
     ):
         """
         Test 'sync_with_jira' when create_pr_issue is disabled and no JIRA key is found.
-        Should skip and return None.
+        Should skip and return early.
         """
         # Set up return values
         self.mock_pr.jira_key = None
@@ -406,11 +406,10 @@ class TestDownstreamPR(unittest.TestCase):
         self.mock_pr.downstream = {"create_pr_issue": False}
 
         # Call the function
-        result = d.sync_with_jira(self.mock_pr, self.mock_config)
+        d.sync_with_jira(self.mock_pr, self.mock_config)
 
         # Assert everything was called correctly
         mock_update_jira.assert_not_called()
-        self.assertIsNone(result)
 
     @mock.patch(PATH + "_create_jira_issue_from_pr")
     @mock.patch(PATH + "d_issue")
@@ -436,11 +435,13 @@ class TestDownstreamPR(unittest.TestCase):
         )
         mock_client.search_issues.assert_not_called()
 
+    @mock.patch(PATH + "_create_jira_issue_from_pr")
     @mock.patch(PATH + "d_issue")
-    def test_update_jira_create_pr_issue_disabled(self, mock_d_issue):
+    def test_update_jira_create_pr_issue_disabled(
+        self, mock_d_issue, mock_create_jira_issue_from_pr
+    ):
         """
         Test 'update_jira' when create_pr_issue is disabled and no JIRA key is found.
-        Should log and return without creating issue.
         """
         # Set up return values
         mock_client = MagicMock()
@@ -453,6 +454,7 @@ class TestDownstreamPR(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_d_issue.check_jira_status.assert_called_with(mock_client)
+        mock_create_jira_issue_from_pr.assert_not_called()
         mock_client.search_issues.assert_not_called()
 
     def _setup_pr_for_issue_creation(self, **overrides):
@@ -548,12 +550,9 @@ class TestDownstreamPR(unittest.TestCase):
         # Call the function
         d._create_jira_issue_from_pr(mock_client, self.mock_pr, self.mock_config)
 
-        # Assert Issue was created with fallback content
-        call_args = mock_issue_class.call_args
-        self.assertIsNotNone(call_args, "Issue class should have been called")
-        self.assertEqual(call_args[1]["content"], f"PR: {self.mock_pr.url}")
-        # Assert other common fields still correct
-        self._assert_issue_created_with_pr_fields(mock_issue_class)
+        self._assert_issue_created_with_pr_fields(
+            mock_issue_class, content=f"PR: {self.mock_pr.url}"
+        )
 
     @mock.patch(PATH + "d_issue._create_jira_issue")
     @mock.patch(PATH + "Issue")

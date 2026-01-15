@@ -277,7 +277,7 @@ def _create_jira_issue_from_pr(client, pr, config):
         tags=[],  # PRs don't have tags in the same way
         fixVersion=[],
         priority=pr.priority,
-        content=pr.content or f"PR: {pr.url}",
+        content=pr_content,
         reporter=(
             pr.reporter
             if isinstance(pr.reporter, dict)
