@@ -745,53 +745,25 @@ class TestUpstreamIssue(unittest.TestCase):
             "priority": None,
         }
 
-        # Test case 1: github_project_fields is None
-        upstream_config["github_project_fields"] = None
-        result = u.add_project_values(
-            issue=mock_issue,
-            upstream="org/repo",
-            headers={},
-            config=self.mock_config,
+        scenarios = (
+            # Test case 1: github_project_fields is None
+            (None, ["github_project_fields"]),
+            # Test case 2: github_project_fields is empty dict
+            ({}, ["github_project_fields"]),
+            # Test case 3: "github_project_fields" not in issue_updates
+            ({"storypoints": {"gh_field": "Estimate"}}, []),
         )
-
-        # Assert requests.post was not called (early exit occurred)
-        mock_requests_post.assert_not_called()
-        self.assertIsNone(result)
-
-        # Reset mock
-        mock_requests_post.reset_mock()
-
-        # Test case 2: github_project_fields is empty dict
-        upstream_config["github_project_fields"] = {}
-        result = u.add_project_values(
-            issue=mock_issue,
-            upstream="org/repo",
-            headers={},
-            config=self.mock_config,
-        )
-
-        # Assert requests.post was not called (early exit occurred)
-        mock_requests_post.assert_not_called()
-        self.assertIsNone(result)
-
-        # Reset mock
-        mock_requests_post.reset_mock()
-
-        # Test case 3: github_project_fields not in issue_updates
-        upstream_config["github_project_fields"] = {
-            "storypoints": {"gh_field": "Estimate"}
-        }
-        upstream_config["issue_updates"] = [
-            "comments",
-            "title",
-        ]  # No "github_project_fields"
-        result = u.add_project_values(
-            issue=mock_issue,
-            upstream="org/repo",
-            headers={},
-            config=self.mock_config,
-        )
-
-        # Assert requests.post was not called (early exit occurred)
-        mock_requests_post.assert_not_called()
-        self.assertIsNone(result)
+        for gpf, iu in scenarios:
+            upstream_config["github_project_fields"] = gpf
+            upstream_config["issue_updates"] = ["comments", "title"] + iu
+            result = u.add_project_values(
+                issue=mock_issue,
+                upstream="org/repo",
+                headers={},
+                config=self.mock_config,
+            )
+            # Assert requests.post was not called (early exit occurred)
+            mock_requests_post.assert_not_called()
+            self.assertIsNone(result)
+            # Reset mock
+            mock_requests_post.reset_mock()

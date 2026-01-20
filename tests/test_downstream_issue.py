@@ -2384,56 +2384,33 @@ class TestDownstreamIssue(unittest.TestCase):
         Test '_update_jira_issue' early exit when github_project_fields is not in updates
         or when github_project_fields is empty/None.
         """
-        # Test case 1: github_project_fields not in updates
-        self.mock_issue.downstream = {
-            "issue_updates": ["comments", "title"],  # No "github_project_fields"
-            "github_project_fields": {"storypoints": {"gh_field": "Estimate"}},
-        }
-
-        d._update_jira_issue(
-            existing=self.mock_downstream,
-            issue=self.mock_issue,
-            client=mock_client,
-            config=self.mock_config,
+        scenarios = (
+            # Test case 1: github_project_fields not in updates
+            {
+                "issue_updates": ["comments", "title"],  # No "github_project_fields"
+                "github_project_fields": {"storypoints": {"gh_field": "Estimate"}},
+            },
+            # Test case 2: github_project_fields is empty dict
+            {
+                "issue_updates": ["comments", "title", "github_project_fields"],
+                "github_project_fields": {},  # Empty dict
+            },
+            # Test case 3: github_project_fields is None
+            {
+                "issue_updates": ["comments", "title", "github_project_fields"],
+                "github_project_fields": None,
+            },
         )
 
-        # Assert _update_github_project_fields was not called
-        mock_update_github_project_fields.assert_not_called()
-
-        # Reset mock
-        mock_update_github_project_fields.reset_mock()
-
-        # Test case 2: github_project_fields is empty dict
-        self.mock_issue.downstream = {
-            "issue_updates": ["comments", "title", "github_project_fields"],
-            "github_project_fields": {},  # Empty dict
-        }
-
-        d._update_jira_issue(
-            existing=self.mock_downstream,
-            issue=self.mock_issue,
-            client=mock_client,
-            config=self.mock_config,
-        )
-
-        # Assert _update_github_project_fields was not called
-        mock_update_github_project_fields.assert_not_called()
-
-        # Reset mock
-        mock_update_github_project_fields.reset_mock()
-
-        # Test case 3: github_project_fields is None
-        self.mock_issue.downstream = {
-            "issue_updates": ["comments", "title", "github_project_fields"],
-            "github_project_fields": None,
-        }
-
-        d._update_jira_issue(
-            existing=self.mock_downstream,
-            issue=self.mock_issue,
-            client=mock_client,
-            config=self.mock_config,
-        )
-
-        # Assert _update_github_project_fields was not called
-        mock_update_github_project_fields.assert_not_called()
+        for s in scenarios:
+            self.mock_issue.downstream = s
+            d._update_jira_issue(
+                existing=self.mock_downstream,
+                issue=self.mock_issue,
+                client=mock_client,
+                config=self.mock_config,
+            )
+            # Assert _update_github_project_fields was not called
+            mock_update_github_project_fields.assert_not_called()
+            # Reset mock
+            mock_update_github_project_fields.reset_mock()
