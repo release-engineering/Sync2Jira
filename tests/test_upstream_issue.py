@@ -725,3 +725,45 @@ class TestUpstreamIssue(unittest.TestCase):
                     )
                 )
                 self.assertEqual(result, expected_result)
+
+    @mock.patch(PATH + "requests.post")
+    def test_add_project_values_early_exit(self, mock_requests_post):
+        """
+        Test 'add_project_values' early exit when github_project_fields is None/empty
+        or when github_project_fields is not in issue_updates.
+        """
+        # Set up base config
+        upstream_config = {
+            "issue_updates": ["comments", "title"],
+            "github_project_number": 1,
+        }
+        self.mock_config["sync2jira"]["map"]["github"]["org/repo"] = upstream_config
+
+        mock_issue = {
+            "number": 1234,
+            "storypoints": None,
+            "priority": None,
+        }
+
+        scenarios = (
+            # Test case 1: github_project_fields is None
+            (None, ["github_project_fields"]),
+            # Test case 2: github_project_fields is empty dict
+            ({}, ["github_project_fields"]),
+            # Test case 3: "github_project_fields" not in issue_updates
+            ({"storypoints": {"gh_field": "Estimate"}}, []),
+        )
+        for gpf, iu in scenarios:
+            upstream_config["github_project_fields"] = gpf
+            upstream_config["issue_updates"] = ["comments", "title"] + iu
+            result = u.add_project_values(
+                issue=mock_issue,
+                upstream="org/repo",
+                headers={},
+                config=self.mock_config,
+            )
+            # Assert requests.post was not called (early exit occurred)
+            mock_requests_post.assert_not_called()
+            self.assertIsNone(result)
+            # Reset mock
+            mock_requests_post.reset_mock()
