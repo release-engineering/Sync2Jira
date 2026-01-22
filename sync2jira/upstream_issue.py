@@ -218,14 +218,17 @@ def add_project_values(issue, upstream, headers, config):
     :param dict config: Config
     """
     upstream_config = config["sync2jira"]["map"]["github"][upstream]
-    project_number = upstream_config.get("github_project_number")
-    issue_updates = upstream_config.get("issue_updates", {})
-    if "github_project_fields" not in issue_updates:
+    issue_updates = upstream_config.get("issue_updates", [])
+    github_project_fields = upstream_config.get("github_project_fields")
+    if not github_project_fields or "github_project_fields" not in issue_updates:
+        log.debug(
+            "github_project_fields is None or empty, skipping project field updates"
+        )
         return
+    project_number = upstream_config.get("github_project_number")
     issue["storypoints"] = None
     issue["priority"] = None
     issuenumber = issue["number"]
-    github_project_fields = upstream_config["github_project_fields"]
     orgname, reponame = upstream.rsplit("/", 1)
     variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
     response = requests.post(

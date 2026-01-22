@@ -128,7 +128,7 @@ def sync_with_jira(issue: sync2jira.intermediary.Issue, config:dict[str, Any]) -
 tox
 
 # Run specific test environments
-tox -e py39          # Python 3.9 tests
+tox -e py312         # Python 3.12 tests
 tox -e py313         # Python 3.13 tests
 tox -e lint          # Linting only
 tox -e black         # Code formatting check
@@ -356,4 +356,4 @@ By contributing to Sync2Jira, you agree that your contributions will be licensed
 
 ---
 
-Thank you for contributing to Sync2Jira! Your contributions help improve the tool for everyone in the community. 
+Thank you for contributing to Sync2Jira! Your contributions help improve the tool for everyone in the community.

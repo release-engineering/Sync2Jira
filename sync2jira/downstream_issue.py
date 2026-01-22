@@ -29,6 +29,8 @@ import unicodedata
 from dotenv import load_dotenv
 from jira import JIRAError
 import jira.client
+from jira.client import Issue as JIssue
+from jira.client import ResultList
 import pypandoc
 import snowflake.connector
 
@@ -41,11 +43,11 @@ load_dotenv()
 UPDATE_DATE = datetime(2019, 7, 9, 18, 18, 36, 480291, tzinfo=timezone.utc)
 
 log = logging.getLogger("sync2jira")
+logging.getLogger("snowflake.connector").setLevel(logging.WARNING)
 
 remote_link_title = "Upstream issue"
 duplicate_issues_subject = "FYI: Duplicate Sync2jira Issues"
 
-jira_cache = {}
 SNOWFLAKE_QUERY = f"""
 SELECT
     CONCAT(p.PKEY, '-', a.issue_key) AS issue_key,
@@ -68,6 +70,23 @@ FROM
 
 
 GH_URL_PATTERN = re.compile(r"https://github\.com/[^/]+/[^/]+/(issues|pull)/\d+")
+field_name_cache = {}
+
+
+class UrlCache(dict):
+    """A dict-like object, intended to be used as a cache, which contains a
+    limited number of entries -- excess entries are deleted in FIFO order.
+    """
+
+    MAX_SIZE = 1000
+
+    def __setitem__(self, key, value):
+        while len(self) >= self.MAX_SIZE:
+            del self[next(iter(self))]
+        super().__setitem__(key, value)
+
+
+jira_cache = UrlCache()
 
 
 def validate_github_url(url):
@@ -134,6 +153,63 @@ def execute_snowflake_query(issue):
         results = cursor.fetchall()
         cursor.close()
     return results
+
+
+def _build_field_name_cache(client):
+    """Build the field name cache for the given JIRA client."""
+    global field_name_cache
+    # Reset the cache to just the standard fields
+    field_name_cache = {
+        f: f for f in ("priority", "assignee", "summary", "description")
+    }
+
+    # fetching the custom fields from the JIRA client
+    try:
+        all_fields = client.fields()
+    except Exception as e:
+        log.error(f"Error building field name cache: {e}")
+        raise
+
+    # updating the cache with the custom fields
+    for field in all_fields:
+        field_name_cache[field["name"]] = field["id"]
+
+
+def _get_field_id_by_name(client, field_name):
+    """
+    Convert a human-readable custom field name to its JIRA field ID.
+
+    :param jira.client.JIRA client: JIRA client
+    :param str field_name: Human-readable field name (e.g., "Story Points", "Epic Link")
+    :returns: Field ID (e.g., "customfield_12310243") or None if not found
+    :rtype: Optional[str]
+    """
+    # Check cache first
+    if field_ID := field_name_cache.get(field_name):
+        return field_ID
+    # If not in cache, build the cache
+    _build_field_name_cache(client)
+
+    return field_name_cache.get(field_name)
+
+
+def _resolve_field_identifier(client, field_identifier):
+    """
+    Resolve a field identifier (either a name or an ID) to a field ID.
+    If the identifier is already an ID (starts with 'customfield_'), return it as-is.
+    Otherwise, treat it as a name and convert it to an ID.
+
+    :param jira.client.JIRA client: JIRA client
+    :param str field_identifier: Field name (e.g., "Story Points") or ID (e.g., "customfield_12310243")
+    :returns: Field ID or None if not found
+    :rtype: Optional[str]
+    """
+    # If it's already a customfield ID, return as-is
+    if field_identifier.startswith("customfield_"):
+        return field_identifier
+
+    # Otherwise, treat it as a name (custom field name or standard field) and convert to ID
+    return _get_field_id_by_name(client, field_identifier)
 
 
 def check_jira_status(client):
@@ -219,80 +295,108 @@ def get_jira_client(issue, config):
     return client
 
 
-def _matching_jira_issue_query(client, issue, config):
+def _get_existing_jira_issue(client, issue, config):
     """
-    API calls that find matching JIRA tickets if any are present.
+    Get a jira issue by the linked remote issue.
 
     :param jira.client.JIRA client: JIRA client
     :param sync2jira.intermediary.Issue issue: Issue object
     :param Dict config: Config dict
-    :param Bool free: Free tag to add 'statusCategory != Done' to query
-    :returns: results: Returns a list of matching JIRA issues if any are found
-    :rtype: List
+    :returns: Returns a list of matching JIRA issues if any are found
+    :rtype: JIssue or None
     """
-    # Searches for any remote link to the issue.url
 
-    # Query the JIRA client and store the results
-    results = execute_snowflake_query(issue)
-    results_of_query = []
-    if len(results) > 0:
-        issue_keys = (row[0] for row in results)
-        jql = f"key in ({','.join(issue_keys)})"
-        results_of_query = client.search_issues(jql)
-    if len(results_of_query) > 1:
-        final_results = []
-        # TODO: there is pagure-specific code in here that handles the case where a dropped issue's URL is
-        #       re-used by an issue opened later. i.e. pagure re-uses IDs
-        for result in results_of_query:
-            description = result.fields.description or ""
-            summary = result.fields.summary or ""
-            if issue.id in description or issue.title == summary:
-                search = check_comments_for_duplicate(
-                    client, result, find_username(issue, config)
-                )
-                if search is True:
-                    final_results.append(result)
-                else:
-                    # Else search returned a linked issue
-                    final_results.append(search)
-            # If that's not the case, check if they have the same upstream title.
-            # Upstream username/repo can change if repos are merged.
-            elif re.search(
-                r"\[[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':\\|,.<>/?]*] "
-                + issue.upstream_title,
-                result.fields.summary,
-            ):
-                search = check_comments_for_duplicate(
-                    client, result, find_username(issue, config)
-                )
-                if search is True:
-                    # We went through all the comments and didn't find anything
-                    # that indicated it was a duplicate
-                    log.warning(
-                        "Matching downstream issue %s to upstream issue %s",
-                        result.key,
-                        issue.url,
-                    )
-                    final_results.append(result)
-                else:
-                    # Else search returned a linked issue
-                    final_results.append(search)
-        if not final_results:
-            # Only return the most updated issue
-            results_of_query.sort(
+    # Fetch the Jira issue objects using the key list.
+    jql = _get_existing_jira_issue_query(issue)
+    if not jql:
+        return None
+    results: ResultList[JIssue] = client.search_issues(jql)
+
+    # If there is more than one issue, remove duplicates and filter the list
+    # down to one.
+    if len(results) > 1:
+        results = _filter_downstream_issues(results, issue, client, config)
+
+        # If there is more than one result, select only the most-recently updated one.
+        if len(results) > 1:
+            log.debug(
+                "Found %i results for query with issue %r",
+                len(results),
+                issue.url,
+            )
+            results.sort(
                 key=lambda x: datetime.strptime(
                     x.fields.updated, "%Y-%m-%dT%H:%M:%S.%f+0000"
-                )
+                ),
+                reverse=True,  # Biggest (most recent) first
             )
-            final_results.append(results_of_query[0])
+            results = ResultList[JIssue]((results[0],))  # A list of one item
 
-        # Return the final_results
-        log.debug(
-            "Found %i results for query with issue %r", len(final_results), issue.url
-        )
-        return final_results
+    # Cache the result for next time and return it.
+    jira_cache[issue.url] = results[0].key
+    return results[0]
+
+
+def _get_existing_jira_issue_query(issue: Issue) -> Optional[str]:
+    """
+    Generate a JQL query to find downstream issues corresponding to a given
+    upstream issue.  Return None if no matches were found in either our local
+    cache or in the Dataverse.
+
+    :param sync2jira.intermediary.Issue issue: Issue object
+    :returns: A string containing the JQL query or None if no matches
+    :rtype: str or None
+    """
+    if result := jira_cache.get(issue.url):
+        issue_keys = (result,)
     else:
-        return results_of_query
+        results = execute_snowflake_query(issue)
+        if not results:
+            return None
+        issue_keys = (row[0] for row in results)
+
+    return f"key in ({','.join(issue_keys)})"
+
+
+def _filter_downstream_issues(
+    results: ResultList[JIssue],
+    issue: Issue,
+    client: jira.client.JIRA,
+    config,
+) -> ResultList[JIssue]:
+    """
+    Remove duplicates; if the result would be an empty list, the original list
+    is returned.
+
+    :param ResultList[JIssue] results: Query results list
+    :param sync2jira.intermediary.Issue issue: Target Issue object
+    :param jira.client.JIRA client: JIRA client
+    :param Dict config: Config dict
+    :returns: a filtered list of matching JIRA issues or the original input
+    :rtype: ResultList[JIssue]
+    """
+    filtered_results = ResultList[JIssue]()
+
+    # TODO: there is pagure-specific code in here that handles the case where a
+    #       dropped issue's URL is re-used by an issue opened later.
+    #       I.e. pagure re-uses IDs.
+    for result in results:
+        description = result.fields.description or ""
+        summary = result.fields.summary or ""
+        if (
+            issue.id in description
+            or issue.title == summary
+            or re.search(
+                r"\[[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':\\|,.<>/?]*] "
+                + issue.upstream_title,
+                summary,
+            )
+        ):
+            username = find_username(issue, config)
+            search = check_comments_for_duplicate(client, result, username)
+            filtered_results.append(search if search else result)
+
+    return filtered_results if filtered_results else results
 
 
 def find_username(_issue, config):
@@ -315,16 +419,15 @@ def check_comments_for_duplicate(client, result, username):
     :param jira.client.JIRA client: JIRA client
     :param jira.resource.Issue result: JIRA issue
     :param string username: Username of JIRA user
-    :returns: True if duplicate comment was not found or JIRA issue if \
-              we were able to find it
-    :rtype: Bool or jira.resource.Issue
+    :returns: duplicate JIRA issue or None
+    :rtype: jira.resource.Issue or None
     """
     for comment in client.comments(result):
         search = re.search(r"Marking as duplicate of (\w*)-(\d*)", comment.body)
         if search and comment.author.name == username:
             issue_id = search.groups()[0] + "-" + search.groups()[1]
             return client.issue(issue_id)
-    return True
+    return None
 
 
 def _find_comment_in_jira(comment, j_comments):
@@ -336,6 +439,11 @@ def _find_comment_in_jira(comment, j_comments):
     :returns: Item/None
     :rtype: jira.resource.Comment/None
     """
+    if comment["date_created"] < UPDATE_DATE:
+        # If the comment date is prior to the update_date, we should not try to
+        # touch the comment; return the item as is.
+        return comment
+
     formatted_comment = _comment_format(comment)
     legacy_formatted_comment = _comment_format_legacy(comment)
     for item in j_comments:
@@ -351,13 +459,6 @@ def _find_comment_in_jira(comment, j_comments):
                 item.update(body=formatted_comment)
                 log.info("Updated one comment")
                 # Now we can just return the item
-                return item
-            else:
-                # Else they are equal and we can return the item
-                return item
-        if comment["date_created"] < UPDATE_DATE:
-            # If the comment date is prior to the update_date,
-            # we should not try to touch the comment
             return item
     return None
 
@@ -378,24 +479,6 @@ def _comment_matching(g_comments, j_comments):
             g_comments,
         )
     )
-
-
-def _get_existing_jira_issue(client, issue, config):
-    """
-    Get a jira issue by the linked remote issue. \
-    This is the new supported way of doing this.
-
-    :param jira.client.JIRA client: JIRA client
-    :param sync2jira.intermediary.Issue issue: Issue object
-    :param Dict config: Config dict
-    :returns: Returns a list of matching JIRA issues if any are found
-    :rtype: List
-    """
-    results = _matching_jira_issue_query(client, issue, config)
-    if results:
-        return results[0]
-    else:
-        return None
 
 
 def _get_existing_jira_issue_legacy(client, issue):
@@ -503,7 +586,7 @@ def match_user(emails: list[str], client: jira.client.JIRA) -> Optional[str]:
 
 
 def assign_user(
-    client: jira.client.JIRA, issue: Issue, downstream: jira.Issue, remove_all=False
+    client: jira.client.JIRA, issue: Issue, downstream: JIssue, remove_all=False
 ):
     """
     Attempts to assign a JIRA issue to the correct
@@ -675,10 +758,16 @@ def _create_jira_issue(client, issue, config):
         kwargs["components"] = [dict(name=issue.downstream["component"])]
 
     for key, custom_field in custom_fields.items():
+        # If key is a field name, resolve it to an ID
+        field_id = _resolve_field_identifier(client, key)
+        if not field_id:
+            raise ValueError(
+                f"Could not resolve custom field '{key}' to an ID, skipping"
+            )
         if type(custom_field) is str:
-            kwargs[key] = custom_field.replace("[remote-link]", issue.url)
+            kwargs[field_id] = custom_field.replace("[remote-link]", issue.url)
         else:
-            kwargs[key] = custom_field
+            kwargs[field_id] = custom_field
 
     # Add labels if needed
     if "labels" in issue.downstream.keys():
@@ -690,6 +779,7 @@ def _create_jira_issue(client, issue, config):
         return None
 
     downstream = client.create_issue(**kwargs)
+    jira_cache[issue.url] = downstream.key
 
     # Add values to the Epic link, QA, and EXD-Service fields if present
     if (
@@ -697,13 +787,10 @@ def _create_jira_issue(client, issue, config):
         or issue.downstream.get("qa-contact")
         or issue.downstream.get("EXD-Service")
     ):
-        # Fetch all fields
-        all_fields = client.fields()
-        # Make a map from field name -> field id
-        name_map = {field["name"]: field["id"] for field in all_fields}
         if issue.downstream.get("epic-link"):
             # Try to get and update the custom field
-            custom_field: Optional[str] = name_map.get("Epic Link")
+
+            custom_field: Optional[str] = _get_field_id_by_name(client, "Epic Link")
             if custom_field:
                 try:
                     downstream.update({custom_field: issue.downstream["epic-link"]})
@@ -712,15 +799,19 @@ def _create_jira_issue(client, issue, config):
                         downstream,
                         f"Error adding Epic-Link: {issue.downstream['epic-link']}",
                     )
+            else:
+                log.warning("Could not resolve 'Epic Link' field name to ID")
         if issue.downstream.get("qa-contact"):
             # Try to get and update the custom field
-            custom_field = name_map.get("QA Contact")
+            custom_field = _get_field_id_by_name(client, "QA Contact")
             if custom_field:
                 downstream.update({custom_field: issue.downstream["qa-contact"]})
+            else:
+                log.warning("Could not resolve 'QA Contact' field name to ID")
         if issue.downstream.get("EXD-Service"):
             # Try to update the custom field
             exd_service_info = issue.downstream["EXD-Service"]
-            custom_field = name_map.get("EXD-Service")
+            custom_field = _get_field_id_by_name(client, "EXD-Service")
             if custom_field:
                 try:
                     downstream.update(
@@ -738,7 +829,8 @@ def _create_jira_issue(client, issue, config):
                         f"Project: {exd_service_info['guild']}\n"
                         f"Value: {exd_service_info['value']}",
                     )
-
+            else:
+                log.warning("Could not resolve 'EXD-Service' field name to ID")
     # Add upstream issue ID in comment if required
     if "upstream_id" in issue.downstream.get("issue_updates", []):
         comment = (
@@ -806,7 +898,7 @@ def _update_jira_issue(existing, issue, client, config):
     # Get fields representing project item fields in GitHub and Jira
     github_project_fields = issue.downstream.get("github_project_fields", {})
     # Only synchronize comments for listings that op-in
-    if "github_project_fields" in updates and len(github_project_fields) > 0:
+    if "github_project_fields" in updates and github_project_fields:
         log.info("Looking for GitHub project fields")
         _update_github_project_fields(
             client, existing, issue, github_project_fields, config
@@ -876,7 +968,7 @@ def _update_transition(client, existing, issue):
     # downstream JIRA ticket
 
     # First get the closed status from the config file
-    t = filter(lambda d: "transition" in d, issue.downstream.get("issue_updates", {}))
+    t = filter(lambda d: "transition" in d, issue.downstream.get("issue_updates", []))
     closed_status = next(t)["transition"]
     if (
         closed_status is not True
@@ -1075,14 +1167,21 @@ def _update_github_project_fields(
                         f"Story point field value '{fieldvalue}' is a {type(fieldvalue)}, not an 'int'"
                     )
                 continue
-            try:
-                jirafieldname = default_jira_fields["storypoints"]
-                log.info(f"Jira issue story point field name is:  '{jirafieldname}'")
-            except KeyError:
-                log.error(
+
+            field_identifier = default_jira_fields.get("storypoints")
+            if not field_identifier:
+                log.warning(
                     "Configuration error: Missing 'storypoints' in `default_jira_fields`"
                 )
                 continue
+            # Resolve the field identifier to an ID
+            jirafieldname = _resolve_field_identifier(client, field_identifier)
+            if not jirafieldname:
+                raise ValueError(
+                    f"Could not resolve custom field '{field_identifier}' to an ID, skipping"
+                )
+
+            log.debug(f"Jira issue story point field name is:  '{jirafieldname}'")
             try:
                 existing.update({jirafieldname: fieldvalue})
                 log.info("Jira issue story point update was successful")
@@ -1105,7 +1204,14 @@ def _update_github_project_fields(
                 )
                 continue
             try:
-                jirafieldname = default_jira_fields["priority"]
+                field_identifier = default_jira_fields.get("priority", "priority")
+                # Resolve to field ID (convert name to ID if needed)
+                jirafieldname = _resolve_field_identifier(client, field_identifier)
+                if not jirafieldname:
+                    log.warning(
+                        f"Could not resolve field identifier '{field_identifier}' for priority, using 'priority'"
+                    )
+                    jirafieldname = "priority"
                 log.info(
                     f"Configured Jira issue priority field name is:  '{jirafieldname}'"
                 )
@@ -1155,12 +1261,12 @@ def _update_tags(updates, existing, issue):
 
 def _build_description(issue):
     # Build the description of the JIRA issue
-    issue_updates = issue.downstream.get("issue_updates", {})
+    issue_updates = issue.downstream.get("issue_updates", [])
     description = ""
     if "description" in issue_updates:
         description = f"Upstream description: {{quote}}{issue.content}{{quote}}"
 
-    if any("transition" in item for item in issue_updates):
+    if issue.status and any("transition" in item for item in issue_updates):
         # Add the upstream issue status to the top of the description
         formatted_status = "Upstream issue status: " + issue.status
         description = formatted_status + "\n" + description

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import timedelta
 import os
 from typing import Any, Optional
 import unittest
@@ -7,6 +7,8 @@ from unittest.mock import MagicMock
 
 from jira import JIRAError
 import jira.client
+from jira.client import Issue as JIssue
+from jira.client import ResultList
 
 import sync2jira.downstream_issue as d
 from sync2jira.downstream_issue import remove_diacritics
@@ -51,7 +53,7 @@ class TestDownstreamIssue(unittest.TestCase):
         ]
         self.mock_issue.downstream = {
             "project": "mock_project",
-            "custom_fields": {"somecustumfield": "somecustumvalue"},
+            "custom_fields": {"somecustomfield": "somecustomvalue"},
             "qa-contact": "dummy@dummy.com",
             "epic-link": "DUMMY-1234",
             "EXD-Service": {"guild": "EXD-Project", "value": "EXD-Value"},
@@ -124,7 +126,7 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         # Call the function
         with self.assertRaises(Exception):
-            d.get_jira_client(issue="string", config=self.mock_config)
+            d.get_jira_client(issue="string", config=self.mock_config)  # type: ignore
 
         # Assert everything was called correctly
         mock_client.assert_not_called()
@@ -187,27 +189,216 @@ class TestDownstreamIssue(unittest.TestCase):
             "(resolution is null OR resolution = Duplicate)",
         )
 
-    @mock.patch(PATH + "execute_snowflake_query")
+    @mock.patch(PATH + "_filter_downstream_issues")
+    @mock.patch(PATH + "_get_existing_jira_issue_query")
     @mock.patch("jira.client.JIRA")
-    def test_get_existing_newstyle(self, client, mock_snowflake):
-        config = self.mock_config
+    def test_get_existing_newstyle(self, mock_client, mock_get_query, mock_filter):
+        """
+        This tests '_get_existing_jira_issue' function.
+        """
+        mock_issue_1: JIssue = MagicMock(spec=JIssue, name="mock_issue_1")
+        mock_issue_1.key = "MOCK-1"
+        mock_issue_1.fields = MagicMock()
+        mock_issue_1.fields.updated = "2025-11-30T00:00:10.0+0000"
+        mock_issue_2: JIssue = MagicMock(spec=JIssue, name="mock_issue_2")
+        mock_issue_2.key = "MOCK-2"
+        mock_issue_2.fields = MagicMock()
+        mock_issue_2.fields.updated = "2025-11-30T00:02:00.0+0000"
+        mock_issue_3: JIssue = MagicMock(spec=JIssue, name="mock_issue_3")
+        mock_issue_3.key = "MOCK-3"
+        mock_issue_3.fields = MagicMock()
+        mock_issue_3.fields.updated = "2025-11-30T00:00:00.0+0000"
 
-        issue = MagicMock()
-        issue.downstream = {"key": "value"}
-        issue.title = "A title, a title..."
-        issue.url = "http://threebean.org"
-        mock_results_of_query = MagicMock()
-        mock_results_of_query.fields.summary = "A title, a title..."
-
-        client.return_value.search_issues.return_value = [mock_results_of_query]
-        mock_snowflake.return_value = [("SYNC2JIRA-123",)]
-        result = d._get_existing_jira_issue(jira.client.JIRA(), issue, config)
-        # Ensure that we get the mock_result_of_query as a result
-        self.assertEqual(result, mock_results_of_query)
-
-        client.return_value.search_issues.assert_called_once_with(
-            "key in (SYNC2JIRA-123)"
+        scenarios = (
+            {
+                "scenario": "_get_existing_jira_issue_query returns None",
+                "jira_results": None,
+                "search_issues": None,
+                "filter_results": None,
+                "expected": None,
+            },
+            {
+                "scenario": "Jira search returns one item",
+                "jira_results": "mock issue key query string",
+                "search_issues": ResultList[JIssue]((mock_issue_1,)),
+                "filter_results": None,
+                "expected": mock_issue_1,
+            },
+            {
+                "scenario": "_filter_downstream_issues returns one item",
+                "jira_results": "mock issue key query string",
+                "search_issues": ResultList[JIssue](
+                    (mock_issue_1, mock_issue_2, mock_issue_3)
+                ),
+                "filter_results": ResultList[JIssue]((mock_issue_3,)),
+                "expected": mock_issue_3,
+            },
+            {
+                "scenario": "_filter_downstream_issues returns multiple items",
+                "jira_results": "mock issue key query string",
+                "search_issues": ResultList[JIssue](
+                    (mock_issue_1, mock_issue_2, mock_issue_3)
+                ),
+                "filter_results": ResultList[JIssue](
+                    (mock_issue_1, mock_issue_2, mock_issue_3)
+                ),
+                "expected": mock_issue_2,  # Most-recently updated
+            },
         )
+
+        for x in scenarios:
+            d.jira_cache = d.UrlCache()  # Clear the cache
+            mock_get_query.return_value = x["jira_results"]
+            mock_client.search_issues.return_value = x["search_issues"]
+            mock_filter.return_value = x["filter_results"]
+            result = d._get_existing_jira_issue(
+                client=mock_client, issue=self.mock_issue, config=self.mock_config
+            )
+            self.assertEqual(result, x["expected"])
+            if x["expected"]:
+                self.assertEqual(d.jira_cache[self.mock_issue.url], x["expected"].key)
+
+    @mock.patch(PATH + "execute_snowflake_query")
+    def test_get_existing_jira_issue_query(self, mock_snowflake):
+        scenarios = (
+            {
+                "jira_cache": {self.mock_issue.url: "issue_key"},
+                "snowflake": (),
+                "expected": "key in (issue_key)",
+            },
+            {
+                "jira_cache": {},
+                "snowflake": (),
+                "expected": None,
+            },
+            {
+                "jira_cache": {},
+                "snowflake": (("issue_key",),),
+                "expected": "key in (issue_key)",
+            },
+            {
+                "jira_cache": {},
+                "snowflake": (
+                    ("issue_key_1",),
+                    ("issue_key_2",),
+                    ("issue_key_3",),
+                ),
+                "expected": "key in (issue_key_1,issue_key_2,issue_key_3)",
+            },
+        )
+
+        for x in scenarios:
+            d.jira_cache = x["jira_cache"]
+            mock_snowflake.return_value = x["snowflake"]
+            result = d._get_existing_jira_issue_query(self.mock_issue)
+            self.assertEqual(result, x["expected"])
+
+    @mock.patch(PATH + "find_username")
+    @mock.patch(PATH + "check_comments_for_duplicate")
+    @mock.patch("jira.client.JIRA")
+    def test_filter_downstream_issues(
+        self,
+        mock_client,
+        mock_check_comments_for_duplicate,
+        _mock_find_username,
+    ):
+        self.mock_issue.upstream_title = "issue upstream title"
+
+        # These issues will be included by the filter, each for a different reason.
+        issue_included_1 = MagicMock(spec=JIssue, name="issue_included_1")
+        issue_included_1.fields = MagicMock()
+        issue_included_1.fields.description = (
+            f"contains {self.mock_issue.id} in description"
+        )
+        issue_included_1.fields.summary = "but doesn't match either title or regex"
+        issue_included_2 = MagicMock(spec=JIssue, name="issue_included_2")
+        issue_included_2.fields = MagicMock()
+        issue_included_2.fields.description = "missing issue ID"
+        issue_included_2.fields.summary = self.mock_issue.title  # Summary matches title
+        issue_included_3 = MagicMock(spec=JIssue, name="issue_included_3")
+        issue_included_3.fields = MagicMock()
+        issue_included_3.fields.description = "missing issue ID"
+        issue_included_3.fields.summary = (
+            f"[mock] {self.mock_issue.upstream_title} regex match"
+        )
+
+        # These issues will be excluded by the filter.
+        issue_excluded_1 = MagicMock(spec=JIssue, name="issue_excluded_1")
+        issue_excluded_1.fields = MagicMock()
+        issue_excluded_1.fields.description = "missing issue ID"
+        issue_excluded_1.fields.summary = f"doesn't match either title or regex"
+        issue_excluded_2 = MagicMock(spec=JIssue, name="issue_excluded_2")
+        issue_excluded_2.fields = MagicMock()
+        issue_excluded_2.fields.description = "also missing issue ID"
+        issue_excluded_2.fields.summary = f"also doesn't match either title or regex"
+        issue_excluded_3 = MagicMock(spec=JIssue, name="issue_excluded_3")
+        issue_excluded_3.fields = MagicMock()
+        issue_excluded_3.fields.description = "missing issue ID, also"
+        issue_excluded_3.fields.summary = f"doesn't match either title or regex either"
+
+        scenarios = (
+            {
+                "scenario": "Empty input",
+                "results_in": ResultList[JIssue](),
+                "check_comments_rv": None,
+                "expected": ResultList[JIssue](),
+            },
+            {
+                "scenario": "Single input gets filtered out but returned in lieu of empty output",
+                "results_in": ResultList[JIssue]((issue_excluded_1,)),
+                "check_comments_rv": None,
+                "expected": ResultList[JIssue]((issue_excluded_1,)),
+            },
+            {
+                "scenario": "Single input gets selected but is not a duplicate",
+                "results_in": ResultList[JIssue]((issue_included_1,)),
+                "check_comments_rv": None,
+                "expected": ResultList[JIssue]((issue_included_1,)),
+            },
+            {
+                "scenario": "Single input gets selected but is a duplicate",
+                "results_in": ResultList[JIssue]((issue_included_1,)),
+                "check_comments_rv": issue_excluded_1,
+                "expected": ResultList[JIssue]((issue_excluded_1,)),
+            },
+            {
+                "scenario": "Multiple input gets filtered out but returned in lieu of empty output",
+                "results_in": ResultList[JIssue](
+                    (issue_excluded_1, issue_excluded_2, issue_excluded_3)
+                ),
+                "check_comments_rv": None,
+                "expected": ResultList[JIssue](
+                    (issue_excluded_1, issue_excluded_2, issue_excluded_3)
+                ),
+            },
+            {
+                "scenario": "Multiple input get selected with no duplicates",
+                "results_in": ResultList[JIssue](
+                    (issue_included_1, issue_included_2, issue_included_3)
+                ),
+                "check_comments_rv": None,
+                "expected": ResultList[JIssue](
+                    (issue_included_1, issue_included_2, issue_included_3)
+                ),
+            },
+            {
+                "scenario": "Multiple input get selected with all duplicates",
+                "results_in": ResultList[JIssue](
+                    (issue_included_1, issue_included_2, issue_included_3)
+                ),
+                "check_comments_rv": issue_excluded_1,
+                "expected": ResultList[JIssue](
+                    (issue_excluded_1, issue_excluded_1, issue_excluded_1)
+                ),
+            },
+        )
+
+        for x in scenarios:
+            mock_check_comments_for_duplicate.return_value = x["check_comments_rv"]
+            result = d._filter_downstream_issues(
+                x["results_in"], self.mock_issue, mock_client, self.mock_config
+            )
+            self.assertListEqual(result, x["expected"])
 
     @mock.patch("jira.client.JIRA")
     def test_upgrade_oldstyle_jira_issue(self, client):
@@ -460,6 +651,7 @@ class TestDownstreamIssue(unittest.TestCase):
             {"name": "Epic Link", "id": "customfield_1"},
             {"name": "QA Contact", "id": "customfield_2"},
             {"name": "EXD-Service", "id": "customfield_3"},
+            {"name": "somecustomfield", "id": "customfield_4"},
         ]
 
         # Call the function
@@ -471,7 +663,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.create_issue.assert_called_with(
             issuetype={"name": "Bug"},
             project={"key": "mock_project"},
-            somecustumfield="somecustumvalue",
+            customfield_4="somecustomvalue",
             description=(
                 "[1234] Upstream Reporter: mock_user\n"
                 "Upstream issue status: Open\n"
@@ -594,6 +786,12 @@ class TestDownstreamIssue(unittest.TestCase):
         """
         # Set up return values
         mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {"name": "Epic Link", "id": "customfield_1"},
+            {"name": "QA Contact", "id": "customfield_2"},
+            {"name": "EXD-Service", "id": "customfield_3"},
+            {"name": "somecustomfield", "id": "customfield_4"},
+        ]
         self.mock_issue.downstream["issue_updates"] = []
 
         # Call the function
@@ -605,7 +803,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.create_issue.assert_called_with(
             issuetype={"name": "Bug"},
             project={"key": "mock_project"},
-            somecustumfield="somecustumvalue",
+            customfield_4="somecustomvalue",
             description="[1234] Upstream Reporter: mock_user\n",
             summary="mock_title",
         )
@@ -1392,48 +1590,6 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert everything was called correctly
         self.assertEqual(response, ["this_is_a_tag"])
 
-    @mock.patch(PATH + "find_username")
-    @mock.patch(PATH + "check_comments_for_duplicate")
-    @mock.patch("jira.client.JIRA")
-    @mock.patch(PATH + "execute_snowflake_query")
-    def test_matching_jira_issue_query(
-        self,
-        mock_snowflake,
-        mock_client,
-        mock_check_comments_for_duplicates,
-        mock_find_username,
-    ):
-        """
-        This tests '_matching_jira_query' function
-        """
-        # Set up return values
-        mock_downstream_issue = MagicMock()
-        self.mock_issue.upstream_title = "mock_upstream_title"
-        mock_downstream_issue.fields.description = self.mock_issue.id
-        bad_downstream_issue = MagicMock()
-        bad_downstream_issue.fields.description = "bad"
-        bad_downstream_issue.fields.summary = "bad"
-        mock_client.search_issues.return_value = [
-            mock_downstream_issue,
-            bad_downstream_issue,
-        ]
-        mock_check_comments_for_duplicates.return_value = True
-        mock_find_username.return_value = "mock_username"
-        mock_snowflake.return_value = [("SYNC2JIRA-123",)]
-
-        # Call the function
-        response = d._matching_jira_issue_query(
-            client=mock_client, issue=self.mock_issue, config=self.mock_config
-        )
-
-        # Assert everything was called correctly
-        self.assertEqual(response, [mock_downstream_issue])
-        mock_client.search_issues.assert_called_with("key in (SYNC2JIRA-123)")
-        mock_check_comments_for_duplicates.assert_called_with(
-            mock_client, mock_downstream_issue, "mock_username"
-        )
-        mock_find_username.assert_called_with(self.mock_issue, self.mock_config)
-
     def test_find_username(self):
         """
         Tests 'find_username' function
@@ -1477,24 +1633,27 @@ class TestDownstreamIssue(unittest.TestCase):
         # Set up return values
         mock_comment_format.return_value = "mock_comment_body"
         mock_comment_format_legacy.return_value = "mock_legacy_comment_body"
-        mock_jira_comment = MagicMock()
-        mock_jira_comment.raw = {"body": "mock_legacy_comment_body"}
         mock_comment = {
             "id": "12345",
-            "date_created": datetime(2019, 8, 8, tzinfo=timezone.utc),
+            "date_created": d.UPDATE_DATE,
         }
+        mock_jira_comment_nm1 = MagicMock()
+        mock_jira_comment_nm1.raw = {"body": "mock_legacy_comment_body_non-match-1"}
+        mock_jira_comment_match = MagicMock()
+        mock_jira_comment_match.raw = {"body": "mock_legacy_comment_body"}
+        mock_jira_comment_nm2 = MagicMock()
+        mock_jira_comment_nm2.raw = {"body": "mock_legacy_comment_body_non-match-2"}
 
         # Call the function
-        response = d._find_comment_in_jira(mock_comment, [mock_jira_comment])
-
-        # Assert everything was called correctly
-        mock_comment_format_legacy.assert_called_with(mock_comment)
-        mock_comment_format.assert_called_with(mock_comment)
-        self.assertEqual(response, mock_jira_comment)
+        response = d._find_comment_in_jira(
+            mock_comment,
+            [mock_jira_comment_nm1, mock_jira_comment_match, mock_jira_comment_nm2],
+        )
+        self.assertEqual(response, mock_jira_comment_match)
 
     @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_format_legacy")
-    def test_find_comment_in_jira_id(
+    def test_find_comment_in_jira_id_update(
         self, mock_comment_format_legacy, mock_comment_format
     ):
         """
@@ -1503,20 +1662,64 @@ class TestDownstreamIssue(unittest.TestCase):
         # Set up return values
         mock_comment_format.return_value = "mock_comment_body"
         mock_comment_format_legacy.return_value = "mock_legacy_comment_body"
-        mock_jira_comment = MagicMock()
-        mock_jira_comment.raw = {"body": "12345"}
         mock_comment = {
             "id": "12345",
-            "date_created": datetime(2019, 8, 8, tzinfo=timezone.utc),
+            "date_created": d.UPDATE_DATE,
         }
+        mock_jira_comment_nm1 = MagicMock()
+        mock_jira_comment_nm1.raw = {"body": "1234_X"}
+        mock_jira_comment_match = MagicMock()
+        mock_jira_comment_match.raw = {"body": "12345"}
+        mock_jira_comment_nm2 = MagicMock()
+        mock_jira_comment_nm2.raw = {"body": "1234_Y"}
 
         # Call the function
-        response = d._find_comment_in_jira(mock_comment, [mock_jira_comment])
+        response = d._find_comment_in_jira(
+            mock_comment,
+            [mock_jira_comment_nm1, mock_jira_comment_match, mock_jira_comment_nm2],
+        )
+        self.assertEqual(response, mock_jira_comment_match)
 
-        # Assert everything was called correctly
-        mock_comment_format_legacy.assert_called_with(mock_comment)
-        mock_comment_format.assert_called_with(mock_comment)
-        self.assertEqual(response, mock_jira_comment)
+        # Assert everything was (not) called correctly
+        mock_jira_comment_nm1.update.assert_not_called()
+        mock_jira_comment_match.update.assert_called_with(
+            body=mock_comment_format.return_value
+        )
+        mock_jira_comment_nm2.update.assert_not_called()
+
+    @mock.patch(PATH + "_comment_format")
+    @mock.patch(PATH + "_comment_format_legacy")
+    def test_find_comment_in_jira_id_no_update(
+        self, mock_comment_format_legacy, mock_comment_format
+    ):
+        """
+        This function tests '_find_comment_in_jira' where we match an ID
+        """
+        # Set up return values
+        mock_comment_format.return_value = "mock_comment_body_12345"
+        mock_comment_format_legacy.return_value = "mock_legacy_comment_body"
+        mock_comment = {
+            "id": "12345",
+            "date_created": d.UPDATE_DATE,
+        }
+        mock_jira_comment_nm1 = MagicMock()
+        mock_jira_comment_nm1.raw = {"body": "1234_X"}
+        mock_jira_comment_match = MagicMock()
+        mock_jira_comment_match.raw = {"body": "mock_comment_body_12345"}
+        mock_jira_comment_nm2 = MagicMock()
+        mock_jira_comment_nm2.raw = {"body": "1234_Y"}
+
+        # Call the function
+        response = d._find_comment_in_jira(
+            mock_comment,
+            [mock_jira_comment_nm1, mock_jira_comment_match, mock_jira_comment_nm2],
+        )
+        self.assertEqual(response, mock_jira_comment_match)
+
+        # Assert everything was (not) called correctly
+        mock_jira_comment_nm1.update.assert_not_called()
+        mock_jira_comment_match.update.assert_not_called()
+        mock_jira_comment_nm2.update.assert_not_called()
 
     @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_format_legacy")
@@ -1533,39 +1736,64 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_jira_comment.raw = {"body": "old_comment"}
         mock_comment = {
             "id": "12345",
-            "date_created": datetime(2019, 1, 1, tzinfo=timezone.utc),
+            "date_created": d.UPDATE_DATE - timedelta(days=1),
         }
 
         # Call the function
         response = d._find_comment_in_jira(mock_comment, [mock_jira_comment])
+        self.assertEqual(response, mock_comment)
 
-        # Assert everything was called correctly
-        mock_comment_format_legacy.assert_called_with(mock_comment)
-        mock_comment_format.assert_called_with(mock_comment)
-        self.assertEqual(response, mock_jira_comment)
+        # Assert everything was (not) called correctly
+        mock_comment_format_legacy.assert_not_called()
+        mock_comment_format.assert_not_called()
 
     @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_format_legacy")
-    def test_find_comment_in_jira_none(
+    def test_find_comment_in_jira_no_match(
         self, mock_comment_format_legacy, mock_comment_format
     ):
         """
-        This function tests '_find_comment_in_jira' where we return None
+        This function tests '_find_comment_in_jira' where none match
         """
         # Set up return values
         mock_comment_format.return_value = "mock_comment_body"
         mock_comment_format_legacy.return_value = "mock_legacy_comment_body"
         mock_comment = {
             "id": "12345",
-            "date_created": datetime(2019, 1, 1, tzinfo=timezone.utc),
+            "date_created": d.UPDATE_DATE,
+        }
+        mock_jira_comment_1 = MagicMock()
+        mock_jira_comment_1.raw = {"body": "comment 1"}
+        mock_jira_comment_2 = MagicMock()
+        mock_jira_comment_2.raw = {"body": "comment 2"}
+        mock_jira_comment_3 = MagicMock()
+        mock_jira_comment_3.raw = {"body": "comment 3"}
+
+        # Call the function
+        response = d._find_comment_in_jira(
+            mock_comment,
+            [mock_jira_comment_1, mock_jira_comment_2, mock_jira_comment_3],
+        )
+        self.assertEqual(response, None)
+
+    @mock.patch(PATH + "_comment_format")
+    @mock.patch(PATH + "_comment_format_legacy")
+    def test_find_comment_in_jira_empty_list(
+        self, mock_comment_format_legacy, mock_comment_format
+    ):
+        """
+        This function tests '_find_comment_in_jira' where we pass in an empty list of comments
+        """
+        # Set up return values
+        mock_comment_format.return_value = "mock_comment_body"
+        mock_comment_format_legacy.return_value = "mock_legacy_comment_body"
+        mock_comment = {
+            "id": "12345",
+            "date_created": d.UPDATE_DATE,
         }
 
         # Call the function
         response = d._find_comment_in_jira(mock_comment, [])
-
-        # Assert everything was called correctly
-        mock_comment_format_legacy.assert_called_with(mock_comment)
-        mock_comment_format.assert_called_with(mock_comment)
         self.assertEqual(response, None)
 
     def test_check_jira_status_false(self):
@@ -1761,6 +1989,229 @@ class TestDownstreamIssue(unittest.TestCase):
             actual = remove_diacritics(text)
             self.assertEqual(actual, expected)
 
+    def test_get_field_id_by_name(self):
+        """Test _get_field_id_by_name function"""
+        # Clear cache first
+        d.jira_cache.clear()
+
+        mock_client = MagicMock()
+        mock_client.fields.return_value = [
+            {"name": "Story Points", "id": "customfield_12345"},
+            {"name": "Epic Link", "id": "customfield_67890"},
+        ]
+
+        # Test field found - fetches and caches
+        result = d._get_field_id_by_name(mock_client, "Story Points")
+        self.assertEqual(result, "customfield_12345")
+        mock_client.fields.assert_called_once()
+
+        # Test cache - should use cache, not fetch again
+        result = d._get_field_id_by_name(mock_client, "Epic Link")
+        self.assertEqual(result, "customfield_67890")
+        self.assertEqual(mock_client.fields.call_count, 1)
+
+        # Test standard field from cache - should not call fields() again
+        result = d._get_field_id_by_name(mock_client, "priority")
+        self.assertEqual(result, "priority")
+        self.assertEqual(mock_client.fields.call_count, 1)  # Still only called once
+
+        # verify standard fields were seeded in cache
+        self.assertEqual(d.field_name_cache.get("priority"), "priority")
+        self.assertEqual(d.field_name_cache.get("assignee"), "assignee")
+        self.assertEqual(d.field_name_cache.get("summary"), "summary")
+        self.assertEqual(d.field_name_cache.get("description"), "description")
+
+        # Test field not found - will fetch again since not in cache
+        result = d._get_field_id_by_name(mock_client, "Non Existent Field")
+        self.assertIsNone(result)
+        self.assertEqual(mock_client.fields.call_count, 2)
+
+    @mock.patch("sync2jira.downstream_issue._get_field_id_by_name")
+    def test_resolve_field_identifier(self, mock_get_field_id_by_name):
+        """Test _resolve_field_identifier function"""
+
+        mock_client = MagicMock()
+
+        # Test customfield ID - should return as-is
+        result = d._resolve_field_identifier(mock_client, "customfield_99999")
+        self.assertEqual(result, "customfield_99999")
+        mock_get_field_id_by_name.assert_not_called()
+
+        mock_get_field_id_by_name.reset_mock()
+
+        # Test standard field - should return as-is
+        mock_get_field_id_by_name.return_value = "priority"
+        result = d._resolve_field_identifier(mock_client, "priority")
+        self.assertEqual(result, "priority")
+        mock_get_field_id_by_name.assert_called_once_with(mock_client, "priority")
+
+        # Test field name - should convert to ID
+        mock_get_field_id_by_name.return_value = "customfield_12345"
+        result = d._resolve_field_identifier(mock_client, "Story Points")
+        self.assertEqual(result, "customfield_12345")
+        self.assertEqual(mock_get_field_id_by_name.call_count, 2)
+        mock_get_field_id_by_name.assert_any_call(mock_client, "Story Points")
+
+    def test_get_field_id_by_name_exception(self):
+        """Test _get_field_id_by_name when client.fields() raises an exception"""
+        # Clear cache first
+        d.field_name_cache.clear()
+
+        mock_client = MagicMock()
+        mock_client.fields.side_effect = Exception("Connection error")
+
+        # Call function
+        with self.assertRaises(Exception) as context:
+            result = d._get_field_id_by_name(mock_client, "Story Points")
+
+        # Assert
+        self.assertEqual(str(context.exception), "Connection error")
+        mock_client.fields.assert_called_once()
+        expected_cache = {
+            "priority": "priority",
+            "assignee": "assignee",
+            "summary": "summary",
+            "description": "description",
+        }
+        self.assertDictEqual(d.field_name_cache, expected_cache)
+
+    @mock.patch(PATH + "_update_jira_issue")
+    @mock.patch(PATH + "attach_link")
+    @mock.patch("jira.client.JIRA")
+    def test_create_jira_issue_epic_link_field_not_found(
+        self, mock_client, mock_attach_link, mock_update_jira_issue
+    ):
+        """Test _create_jira_issue when Epic Link field cannot be resolved"""
+        # Set up return values
+        mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {"name": "QA Contact", "id": "customfield_2"},
+            {"name": "EXD-Service", "id": "customfield_3"},
+            # Note: Epic Link is NOT in the fields list
+        ]
+
+        # Call the function
+        response = d._create_jira_issue(
+            client=mock_client, issue=self.mock_issue, config=self.mock_config
+        )
+
+        # Assert response is the mock downstream issue
+        self.assertEqual(response, self.mock_downstream)
+        mock_client.create_issue.assert_called_once()
+
+    @mock.patch("jira.client.JIRA")
+    def test_update_github_project_fields_storypoints_resolution_failure(
+        self, mock_client
+    ):
+        """Test _update_github_project_fields raises ValueError when storypoints field cannot be resolved"""
+        github_project_fields = {"storypoints": {"gh_field": "Estimate"}}
+        jira_fields = self.mock_config["sync2jira"]["default_jira_fields"]
+        original_storypoints = jira_fields["storypoints"]
+        jira_fields["storypoints"] = "Story Points"
+        # Set up mock - storypoints field identifier doesn't exist in JIRA
+        # Note: The field from default_jira_fields.storypoints doesn't exist
+        mock_client.fields.return_value = [{"name": "Priority", "id": "priority"}]
+
+        # Clear cache to force fresh lookup
+        d.field_name_cache.clear()
+
+        # Call function - should raise ValueError
+        with self.assertRaises(ValueError) as context:
+            d._update_github_project_fields(
+                mock_client,
+                self.mock_downstream,
+                self.mock_issue,
+                github_project_fields,
+                self.mock_config,
+            )
+
+        # Assert error message contains diagnostic information
+        error_msg = str(context.exception)
+        self.assertIn("story points", error_msg.lower())
+        self.assertIn("Could not resolve", error_msg)
+        # Issue should not be updated
+        self.mock_downstream.update.assert_not_called()
+        # Restore original config
+        self.mock_config["sync2jira"]["default_jira_fields"][
+            "storypoints"
+        ] = original_storypoints
+
+    @mock.patch(PATH + "_update_jira_issue")
+    @mock.patch(PATH + "attach_link")
+    @mock.patch(PATH + "change_status")
+    @mock.patch("jira.client.JIRA")
+    def test_create_jira_issue_with_component_and_labels(
+        self, mock_client, mock_change_status, mock_attach_link, mock_update_jira_issue
+    ):
+        """Test _create_jira_issue with component and labels"""
+        # Clear cache first
+        d.jira_cache.clear()
+
+        # Set up return values
+        mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {"name": "Epic Link", "id": "customfield_1"},
+            {"name": "QA Contact", "id": "customfield_2"},
+            {"name": "EXD-Service", "id": "customfield_3"},
+        ]
+
+        # Add component and labels to issue
+        self.mock_issue.downstream["component"] = "test-component"
+        self.mock_issue.downstream["labels"] = ["label1", "label2"]
+
+        # Call the function
+        response = d._create_jira_issue(
+            client=mock_client, issue=self.mock_issue, config=self.mock_config
+        )
+
+        # Assert component and labels are included
+        mock_client.create_issue.assert_called_once()
+        call_kwargs = mock_client.create_issue.call_args[1]
+        self.assertEqual(call_kwargs["components"], [{"name": "test-component"}])
+        self.assertEqual(call_kwargs["labels"], ["label1", "label2"])
+        self.assertEqual(response, self.mock_downstream)
+
+    @mock.patch(PATH + "_update_jira_issue")
+    @mock.patch(PATH + "attach_link")
+    @mock.patch(PATH + "change_status")
+    @mock.patch("jira.client.JIRA")
+    def test_create_jira_issue_with_default_status_and_upstream_id(
+        self, mock_client, mock_change_status, mock_attach_link, mock_update_jira_issue
+    ):
+        """Test _create_jira_issue with default_status and upstream_id comment"""
+        # Clear cache first
+        d.jira_cache.clear()
+
+        # Set up return values
+        mock_client.create_issue.return_value = self.mock_downstream
+        mock_client.fields.return_value = [
+            {"name": "Epic Link", "id": "customfield_1"},
+            {"name": "QA Contact", "id": "customfield_2"},
+            {"name": "EXD-Service", "id": "customfield_3"},
+        ]
+
+        # Add default_status and upstream_id to issue
+        self.mock_issue.downstream["default_status"] = "In Progress"
+        self.mock_issue.downstream["issue_updates"].append("upstream_id")
+        self.mock_issue.upstream = "github"
+        self.mock_issue.upstream_id = "123"
+
+        # Call the function
+        response = d._create_jira_issue(
+            client=mock_client, issue=self.mock_issue, config=self.mock_config
+        )
+
+        # Assert default_status and upstream_id comment are handled
+        mock_client.create_issue.assert_called_once()
+        mock_change_status.assert_called_once_with(
+            mock_client, self.mock_downstream, "In Progress", self.mock_issue
+        )
+        mock_client.add_comment.assert_called_with(
+            self.mock_downstream,
+            f"Creating issue for [github-#123|{self.mock_issue.url}]",
+        )
+        self.assertEqual(response, self.mock_downstream)
+
     @mock.patch(PATH + "snowflake.connector.connect")
     @mock.patch.dict(
         os.environ,
@@ -1891,3 +2342,78 @@ class TestDownstreamIssue(unittest.TestCase):
             "Either SNOWFLAKE_PRIVATE_KEY_FILE or SNOWFLAKE_PAT must be set",
             str(context.exception),
         )
+
+    def test_UrlCache(self):
+        """Test UrlCache class
+
+        Show that, as we add items to the cache, the size of the cache never
+        exceeds the maximum, even when it is full; then show that the
+        overflow removed items in FIFO order, and that the last-inserted items
+        are still in the cache.
+        """
+        cache = d.UrlCache()
+        for i in range(cache.MAX_SIZE * 2):
+            self.assertLessEqual(len(cache), cache.MAX_SIZE)
+            cache[str(i)] = i
+        for i in range(cache.MAX_SIZE):
+            self.assertNotIn(str(i), cache)
+        for i in range(cache.MAX_SIZE, cache.MAX_SIZE * 2):
+            self.assertIn(str(i), cache)
+
+    @mock.patch(PATH + "_update_github_project_fields")
+    @mock.patch(PATH + "_update_title")
+    @mock.patch(PATH + "_update_description")
+    @mock.patch(PATH + "_update_comments")
+    @mock.patch(PATH + "_update_tags")
+    @mock.patch(PATH + "_update_fixVersion")
+    @mock.patch(PATH + "_update_transition")
+    @mock.patch(PATH + "_update_assignee")
+    @mock.patch(PATH + "_update_on_close")
+    @mock.patch("jira.client.JIRA")
+    def test_update_jira_issue_github_project_fields_early_exit(
+        self,
+        mock_client,
+        mock_update_on_close,
+        mock_update_assignee,
+        mock_update_transition,
+        mock_update_fixVersion,
+        mock_update_tags,
+        mock_update_comments,
+        mock_update_description,
+        mock_update_title,
+        mock_update_github_project_fields,
+    ):
+        """
+        Test '_update_jira_issue' early exit when github_project_fields is not in updates
+        or when github_project_fields is empty/None.
+        """
+        scenarios = (
+            # Test case 1: github_project_fields not in updates
+            {
+                "issue_updates": ["comments", "title"],  # No "github_project_fields"
+                "github_project_fields": {"storypoints": {"gh_field": "Estimate"}},
+            },
+            # Test case 2: github_project_fields is empty dict
+            {
+                "issue_updates": ["comments", "title", "github_project_fields"],
+                "github_project_fields": {},  # Empty dict
+            },
+            # Test case 3: github_project_fields is None
+            {
+                "issue_updates": ["comments", "title", "github_project_fields"],
+                "github_project_fields": None,
+            },
+        )
+
+        for s in scenarios:
+            self.mock_issue.downstream = s
+            d._update_jira_issue(
+                existing=self.mock_downstream,
+                issue=self.mock_issue,
+                client=mock_client,
+                config=self.mock_config,
+            )
+            # Assert _update_github_project_fields was not called
+            mock_update_github_project_fields.assert_not_called()
+            # Reset mock
+            mock_update_github_project_fields.reset_mock()

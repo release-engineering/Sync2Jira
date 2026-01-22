@@ -2,7 +2,7 @@
 
 [![Documentation Status](https://readthedocs.org/projects/sync2jira/badge/?version=main)](https://sync2jira.readthedocs.io/en/main/?badge=main)
 [![Coverage Status](https://coveralls.io/repos/github/release-engineering/Sync2Jira/badge.svg?branch=main)](https://coveralls.io/github/release-engineering/Sync2Jira?branch=main)
-![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)
+![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)
 
 ## Overview
 
@@ -39,7 +39,7 @@ Sync2Jira is a service that listens to activity on upstream GitHub repositories 
 
 ### Prerequisites
 
-- Python 3.9+
+- Python 3.12+
 - API access (via Personal Access Token) to a Jira Data Center instance
 - GitHub API token
 - Fedora messaging environment (for production)
