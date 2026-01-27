@@ -202,6 +202,12 @@ if issue.status and any("transition" in item for item in issue_updates):
 ___
 
 <b>Pattern 6: Keep tests focused and maintainable: assert the right behavior (not incidental implementation details), mock helper functions instead of re-testing internals, prefer consistent patching patterns (e.g., decorators/patch.dict), and improve readability by using local variables when formatting tools create noise.
+
+This pattern addresses several aspects of writing maintainable tests:
+- Unit test assertions should test intended (visible) behaviors and not implementation details. The external behavior is what we care about, and we want to leave the internals free to be refactored or rearchitected.
+- We should be conscious of what constitutes the "unit" that we are testing. In most cases, it is simpler to test a single function with its subroutines replaced by mocks. However, this is not always the case, and so the approach should generally reflect whatever is most expedient.
+- Be consistent about how we patch things, so that readers and subsequent developers are not surprised and don't have to embrace a new idiom for each test they encounter.
+- When Black makes the code less readable, feel free to use tricks like introducing local variables or using single strings (which Black won't break) or putting breaks in strings (which Python will automatically re-join) to restore readability.
 </b>
 
 Example code before:
