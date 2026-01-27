@@ -21,3 +21,4 @@ fedmsg.d/sync2jira.py
 *.pyc
 __pycache__
 .vscode/settings.json
+.worktrees/
