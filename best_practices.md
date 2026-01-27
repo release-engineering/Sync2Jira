@@ -1,5 +1,7 @@
 
-<b>Pattern 1: Add explicit unit tests for each early-exit/guard branch introduced in a PR (especially for None/empty config values), so behavior is specified and regressions are caught.
+<b>Pattern 1: Unit tests should aspire to provide 100% coverage of the code. All normal-execution paths, including early-exit/guard conditionals, should be exercised. While it is not strictly necessary to exercise every error case, all cases which can be reasonably tested should be.
+
+Changes to the code which create new functions or branches should include unit tests which provide coverage for those paths. As a general rule, it should not be the case that a PR causes the overall coverage to be reduced (although, changes which add no uncovered code but which delete more code than they add can have this effect, but these are unusual).
 </b>
 
 Example code before:
