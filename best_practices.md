@@ -48,6 +48,11 @@ def test_sync_fields_happy_path_updates_fields(mocker):
 ___
 
 <b>Pattern 2: Do not silently continue after failures in critical integration paths (e.g., building Jira field caches, Snowflake connectivity, custom-field resolution); log and re-raise (or raise a clear ValueError) so the run fails loudly and predictably.
+
+There are three parts to emphasize:
+- Do not attempt to continue after a critical failure
+- Instead, raise an exception which will propagate back to the base of the stack which will cause the tool to discard the current event and continue with the next one: we want the tool to recover and continue running, if possible and reasonable, but we don't want to perform any heroic measures on the part of any single event. (Having the tool hard-crash is generally unuseful, because the infrastructure will restart it, the restart will open a new log, and the original context will be lost.)
+- Log information required to understand and address the failure, either at the point of failure or via the raised exception, which will be logged when the stack is unwound.
 </b>
 
 Example code before:
