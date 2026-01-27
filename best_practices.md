@@ -97,6 +97,12 @@ def resolve_field_id(client, name):
 ___
 
 <b>Pattern 3: Keep try/except blocks minimal and scoped to the single call that can reasonably fail; prefer context managers for resources, and avoid broad excepts that mask unrelated bugs.
+
+The implementation of `try` blocks should be focused on the actions of the `except` clauses: there should be only "one thing" which can go wrong in the body of the `try` block, so that which exceptions are to be caught and what their respective actions should be is clear. Statements which are related to the contents of the `try` block should be placed before or after the block and not included in it, to avoid the possibility of them raising unexpected errors which might trigger erroneous handling.
+
+Similarly, the targets of `except` clauses should be as specific and explicit as reasonably possible. Using hierarchical exception classes is an excellent approach to simplifying exception handling which allows a single clause to handle any of a set of related exceptions.
+
+Context managers can be a superb alternative to `try` blocks.
 </b>
 
 Example code before:
