@@ -201,35 +201,7 @@ if issue.status and any("transition" in item for item in issue_updates):
 
 ___
 
-<b>Pattern 6: Cache stable identifiers (e.g., Jira issue key/ID) rather than ORM/resource objects, and refresh/fetch the current object when needed to avoid stale data.
-</b>
-
-Example code before:
-```
-cache[url] = jira_issue_obj  # mutable/stale ORM object
-
-def get_issue(url):
-    return cache.get(url)
-```
-
-Example code after:
-```
-cache[url] = jira_issue_key  # stable identifier
-
-def get_issue(client, url):
-    key = cache.get(url)
-    return client.issue(key) if key else None
-```
-
-<details><summary>Examples for relevant past discussions:</summary>
-
-- https://github.com/release-engineering/Sync2Jira/pull/398#discussion_r2569771392
-</details>
-
-
-___
-
-<b>Pattern 7: Keep tests focused and maintainable: assert the right behavior (not incidental implementation details), mock helper functions instead of re-testing internals, prefer consistent patching patterns (e.g., decorators/patch.dict), and improve readability by using local variables when formatting tools create noise.
+<b>Pattern 6: Keep tests focused and maintainable: assert the right behavior (not incidental implementation details), mock helper functions instead of re-testing internals, prefer consistent patching patterns (e.g., decorators/patch.dict), and improve readability by using local variables when formatting tools create noise.
 </b>
 
 Example code before:
