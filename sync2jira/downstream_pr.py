@@ -222,13 +222,9 @@ def update_jira(client, config, pr):
         # add it.
         pr.jira_key = matcher(pr.content, pr.comments)
 
-    if not pr.jira_key:
-        create_pr_issue = pr.downstream.get("create_pr_issue", False)
-        if create_pr_issue:
-            # Convert PR to Issue-like object for creation
-            _create_jira_issue_from_pr(client, pr, config)
-        else:
-            log.info("No JIRA key found in PR, skipping.")
+    create_pr_issue = pr.downstream.get("create_pr_issue", False)
+    if not pr.jira_key and not create_pr_issue:
+        log.info("No JIRA key found in PR, skipping.")
         return
 
     response: ResultList[JIRAIssue] = client.search_issues(f"Key = {pr.jira_key}")
@@ -238,7 +234,11 @@ def update_jira(client, config, pr):
         update_jira_issue(response[0], pr, client)
         log.info(f"Done syncing PR {pr.url}")
     elif len(response) == 0:
-        log.info(f"No issue found for referenced key, {pr.jira_key}")
+        if create_pr_issue:
+            # Convert PR to Issue-like object for creation
+            _create_jira_issue_from_pr(client, pr, config)
+        else:
+            log.info(f"No issue found for referenced key, {pr.jira_key}")
     else:
         log.warning(
             f"Unexpectedly received {len(response)} matches for JIRA issue {pr.jira_key}"
