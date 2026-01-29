@@ -427,14 +427,68 @@ class TestDownstreamPR(unittest.TestCase):
     @mock.patch(PATH + "update_jira_issue")
     @mock.patch(PATH + "matcher")
     @mock.patch(PATH + "d_issue")
-    def test_update_jira_create_pr_issue_disabled_no_key(
+    def test_update_jira_with_no_key_create_enabled_no_issue(
         self,
         mock_d_issue,
         mock_matcher,
         mock_update_jira_issue,
         mock_create_jira_issue_from_pr,
     ):
-        """Test 'update_jira' when create_pr_issue is disabled and no JIRA key is found."""
+        """Test 'update_jira' when no JIRA key is found, issue creation is
+        enabled, and the issue is not found.
+        """
+        # Set up return values
+        mock_d_issue.check_jira_status.return_value = True
+        mock_matcher.return_value = self.mock_pr.jira_key = None
+        self.mock_pr.downstream = {"create_pr_issue": True}
+        mock_d_issue.get_existing_jira_issue.return_value = None
+
+        # Call the function
+        d.update_jira(self.mock_client, self.mock_config, self.mock_pr)
+
+        # Assert everything was called correctly
+        mock_update_jira_issue.assert_not_called()
+        mock_create_jira_issue_from_pr.assert_called()
+
+    @mock.patch(PATH + "_create_jira_issue_from_pr")
+    @mock.patch(PATH + "update_jira_issue")
+    @mock.patch(PATH + "matcher")
+    @mock.patch(PATH + "d_issue")
+    def test_update_jira_with_no_key_create_enabled_issue_exists(
+        self,
+        mock_d_issue,
+        mock_matcher,
+        mock_update_jira_issue,
+        mock_create_jira_issue_from_pr,
+    ):
+        """Test 'update_jira' when no JIRA key is found, issue creation is
+        enabled, and the issue exists.
+        """
+        # Set up return values
+        mock_d_issue.check_jira_status.return_value = True
+        mock_matcher.return_value = self.mock_pr.jira_key = None
+        self.mock_pr.downstream = {"create_pr_issue": True}
+        mock_d_issue.get_existing_jira_issue.return_value = self.mock_existing
+
+        # Call the function
+        d.update_jira(self.mock_client, self.mock_config, self.mock_pr)
+
+        # Assert everything was called correctly
+        mock_update_jira_issue.assert_called()
+        mock_create_jira_issue_from_pr.assert_not_called()
+
+    @mock.patch(PATH + "_create_jira_issue_from_pr")
+    @mock.patch(PATH + "update_jira_issue")
+    @mock.patch(PATH + "matcher")
+    @mock.patch(PATH + "d_issue")
+    def test_update_jira_with_no_key_create_disabled(
+        self,
+        mock_d_issue,
+        mock_matcher,
+        mock_update_jira_issue,
+        mock_create_jira_issue_from_pr,
+    ):
+        """Test 'update_jira' when no JIRA key is found and issue creation is disabled."""
         # Set up return values
         mock_d_issue.check_jira_status.return_value = True
         mock_matcher.return_value = self.mock_pr.jira_key = None
@@ -443,8 +497,7 @@ class TestDownstreamPR(unittest.TestCase):
         # Call the function
         d.update_jira(self.mock_client, self.mock_config, self.mock_pr)
 
-        # Assert everything was called correctly:  should exit without calling subroutines
-        self.mock_client.search_issues.assert_not_called()
+        # Assert everything was (not) called correctly
         mock_update_jira_issue.assert_not_called()
         mock_create_jira_issue_from_pr.assert_not_called()
 
@@ -452,7 +505,30 @@ class TestDownstreamPR(unittest.TestCase):
     @mock.patch(PATH + "update_jira_issue")
     @mock.patch(PATH + "matcher")
     @mock.patch(PATH + "d_issue")
-    def test_update_jira_with_key_found(
+    def test_update_jira_with_no_key_create_unspecified(
+        self,
+        mock_d_issue,
+        mock_matcher,
+        mock_update_jira_issue,
+        mock_create_jira_issue_from_pr,
+    ):
+        """Test 'update_jira' when no JIRA key is found and issue creation is unspecified."""
+        # Set up return values
+        mock_d_issue.check_jira_status.return_value = True
+        mock_matcher.return_value = self.mock_pr.jira_key = None
+
+        # Call the function
+        d.update_jira(self.mock_client, self.mock_config, self.mock_pr)
+
+        # Assert everything was (not) called correctly
+        mock_update_jira_issue.assert_not_called()
+        mock_create_jira_issue_from_pr.assert_not_called()
+
+    @mock.patch(PATH + "_create_jira_issue_from_pr")
+    @mock.patch(PATH + "update_jira_issue")
+    @mock.patch(PATH + "matcher")
+    @mock.patch(PATH + "d_issue")
+    def test_update_jira_with_key_found_and_unique_issue(
         self,
         mock_d_issue,
         mock_matcher,
@@ -475,20 +551,17 @@ class TestDownstreamPR(unittest.TestCase):
     @mock.patch(PATH + "update_jira_issue")
     @mock.patch(PATH + "matcher")
     @mock.patch(PATH + "d_issue")
-    def test_update_jira_with_key_not_found_no_create(
+    def test_update_jira_with_key_found_and_no_issue(
         self,
         mock_d_issue,
         mock_matcher,
         mock_update_jira_issue,
         mock_create_jira_issue_from_pr,
     ):
-        """Test 'update_jira' when JIRA key is found, the issue is not found,
-        and issue creation is not enabled.
-        """
+        """Test 'update_jira' when JIRA key is found and the issue is not found."""
         # Set up return values
         mock_d_issue.check_jira_status.return_value = True
         mock_matcher.return_value = self.mock_pr.jira_key
-        self.mock_pr.downstream = {"create_pr_issue": False}
         self.mock_client.search_issues.return_value = []
 
         # Call the function
@@ -502,41 +575,14 @@ class TestDownstreamPR(unittest.TestCase):
     @mock.patch(PATH + "update_jira_issue")
     @mock.patch(PATH + "matcher")
     @mock.patch(PATH + "d_issue")
-    def test_update_jira_with_key_not_found_create(
+    def test_update_jira_with_key_found_and_multiple_issues(
         self,
         mock_d_issue,
         mock_matcher,
         mock_update_jira_issue,
         mock_create_jira_issue_from_pr,
     ):
-        """Test 'update_jira' when JIRA key is found, the issue is not found,
-        and issue creation is enabled.
-        """
-        # Set up return values
-        mock_d_issue.check_jira_status.return_value = True
-        mock_matcher.return_value = self.mock_pr.jira_key
-        self.mock_client.search_issues.return_value = []
-        self.mock_pr.downstream = {"create_pr_issue": True}
-
-        # Call the function
-        d.update_jira(self.mock_client, self.mock_config, self.mock_pr)
-
-        # Assert everything was called correctly
-        mock_update_jira_issue.assert_not_called()
-        mock_create_jira_issue_from_pr.assert_called()
-
-    @mock.patch(PATH + "_create_jira_issue_from_pr")
-    @mock.patch(PATH + "update_jira_issue")
-    @mock.patch(PATH + "matcher")
-    @mock.patch(PATH + "d_issue")
-    def test_update_jira_multiple_issues(
-        self,
-        mock_d_issue,
-        mock_matcher,
-        mock_update_jira_issue,
-        mock_create_jira_issue_from_pr,
-    ):
-        """Test 'update_jira' when the search returns multiple issues."""
+        """Test 'update_jira' when JIRA key is found and the search returns multiple issues."""
         # Set up return values
         mock_d_issue.check_jira_status.return_value = True
         mock_matcher.return_value = self.mock_pr.jira_key
