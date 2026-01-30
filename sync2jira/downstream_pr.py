@@ -225,8 +225,11 @@ def update_jira(client, config, pr):
     if not pr.jira_key:
         create_pr_issue = pr.downstream.get("create_pr_issue", False)
         if create_pr_issue:
-            # Convert PR to Issue-like object for creation
-            _create_jira_issue_from_pr(client, pr, config)
+            if existing := d_issue.get_existing_jira_issue(client, pr, config):
+                log.info(f"Found existing JIRA issue {existing.key} for PR {pr.url}")
+                update_jira_issue(existing, pr, client)
+            else:
+                _create_jira_issue_from_pr(client, pr, config)
         else:
             log.info("No JIRA key found in PR, skipping.")
         return

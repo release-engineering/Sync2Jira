@@ -191,7 +191,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch("jira.client.JIRA")
     def test_get_existing_newstyle(self, mock_client, mock_get_query, mock_filter):
         """
-        This tests '_get_existing_jira_issue' function.
+        This tests 'get_existing_jira_issue' function.
         """
         mock_issue_1: JIssue = MagicMock(spec=JIssue, name="mock_issue_1")
         mock_issue_1.key = "MOCK-1"
@@ -248,7 +248,7 @@ class TestDownstreamIssue(unittest.TestCase):
             mock_get_query.return_value = x["jira_results"]
             mock_client.search_issues.return_value = x["search_issues"]
             mock_filter.return_value = x["filter_results"]
-            result = d._get_existing_jira_issue(
+            result = d.get_existing_jira_issue(
                 client=mock_client, issue=self.mock_issue, config=self.mock_config
             )
             self.assertEqual(result, x["expected"])
@@ -893,7 +893,7 @@ class TestDownstreamIssue(unittest.TestCase):
             self.assertEqual(actual, expected, f"In scenario {scenario}")
 
     @mock.patch(PATH + "get_jira_client")
-    @mock.patch(PATH + "_get_existing_jira_issue")
+    @mock.patch(PATH + "get_existing_jira_issue")
     @mock.patch(PATH + "_update_jira_issue")
     @mock.patch(PATH + "_create_jira_issue")
     @mock.patch("jira.client.JIRA")
@@ -930,7 +930,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_existing_jira_issue_legacy.assert_not_called()
 
     @mock.patch(PATH + "get_jira_client")
-    @mock.patch(PATH + "_get_existing_jira_issue")
+    @mock.patch(PATH + "get_existing_jira_issue")
     @mock.patch(PATH + "_update_jira_issue")
     @mock.patch(PATH + "_create_jira_issue")
     @mock.patch("jira.client.JIRA")
@@ -965,7 +965,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_existing_jira_issue_legacy.assert_not_called()
 
     @mock.patch(PATH + "get_jira_client")
-    @mock.patch(PATH + "_get_existing_jira_issue")
+    @mock.patch(PATH + "get_existing_jira_issue")
     @mock.patch(PATH + "_update_jira_issue")
     @mock.patch(PATH + "_create_jira_issue")
     @mock.patch("jira.client.JIRA")

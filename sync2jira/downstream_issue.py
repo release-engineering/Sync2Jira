@@ -294,7 +294,7 @@ def get_jira_client(issue, config):
     return client
 
 
-def _get_existing_jira_issue(client, issue, config):
+def get_existing_jira_issue(client, issue, config):
     """
     Get a jira issue by the linked remote issue.
 
@@ -1414,7 +1414,7 @@ def update_jira(client, config, issue):
     # First, check to see if we have a matching issue using the new method.
     # If we do, then bail out.  No sync needed.
     log.info("Looking for matching downstream issue via new method.")
-    existing = _get_existing_jira_issue(client, issue, config)
+    existing = get_existing_jira_issue(client, issue, config)
     if existing:
         # If we found an existing JIRA issue already
         log.info("Found existing, matching downstream %r.", existing.key)
