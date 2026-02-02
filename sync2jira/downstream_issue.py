@@ -291,6 +291,7 @@ def get_jira_client(issue, config):
         raise Exception("No configured jira_instance for issue")
 
     client = jira.client.JIRA(**config["sync2jira"]["jira"][jira_instance])
+    client.session()  # This raises an exception if authentication was not successful
     return client
 
 
