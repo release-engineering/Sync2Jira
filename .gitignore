@@ -22,3 +22,4 @@ fedmsg.d/sync2jira.py
 __pycache__
 .vscode/settings.json
 .worktrees/
+.agentready
