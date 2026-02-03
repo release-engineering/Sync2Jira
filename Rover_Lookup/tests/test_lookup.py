@@ -73,7 +73,7 @@ class TestGithubUsernameToEmails:
         mock_conn.search.assert_called_once()
         search_args = mock_conn.search.call_args
         filter_part = "rhatSocialURL=Github->https://github.com/test-user"
-        expected_filter = f"(|({filter_part}) ({filter_part}/))"
+        expected_filter = f"(|({filter_part})({filter_part}/))"
         assert search_args[1]["search_filter"] == expected_filter
         assert "rhatPrimaryMail" in search_args[1]["attributes"]
         assert "mail" in search_args[1]["attributes"]

@@ -58,7 +58,7 @@ def github_username_to_emails(
     # so look for those, too.
     github_url = f"https://github.com/{github_username}"
     filter_clause = f"rhatSocialURL=Github->{github_url}"
-    ldap_filter = f"(|({filter_clause}) ({filter_clause}/))"
+    ldap_filter = f"(|({filter_clause})({filter_clause}/))"
 
     # Attributes to retrieve (email fields)
     attributes = ["rhatPrimaryMail", "mail", "rhatPreferredAlias"]
