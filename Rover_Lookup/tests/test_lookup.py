@@ -72,10 +72,9 @@ class TestGithubUsernameToEmails:
         # Verify LDAP query was called correctly
         mock_conn.search.assert_called_once()
         search_args = mock_conn.search.call_args
-        assert (
-            search_args[1]["search_filter"]
-            == "(rhatSocialURL=Github->https://github.com/test-user)"
-        )
+        filter_part = "rhatSocialURL=Github->https://github.com/test-user"
+        expected_filter = f"(|({filter_part}) ({filter_part}/))"
+        assert search_args[1]["search_filter"] == expected_filter
         assert "rhatPrimaryMail" in search_args[1]["attributes"]
         assert "mail" in search_args[1]["attributes"]
         assert "rhatPreferredAlias" in search_args[1]["attributes"]
