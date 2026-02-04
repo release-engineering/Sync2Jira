@@ -311,6 +311,17 @@ def get_existing_jira_issue(client, issue, config):
     if not jql:
         return None
     results: ResultList[JIssue] = client.search_issues(jql)
+    if not results:
+        # It is _possible_ that the downstream issue exists (i.e., we did hit
+        # it in the cache or in Snowflake) but the Jira search cannot find it.
+        # (This happens when the issue has been archived.)  Fail as gracefully
+        # as we can here, but our caller will probably create it again.
+        log.warning(
+            "Previously-existing downstream issue %s not found for upstream issue %s.",
+            issue.id,
+            issue.url,
+        )
+        return None
 
     # If there is more than one issue, remove duplicates and filter the list
     # down to one.
