@@ -254,3 +254,94 @@ class TestUpstreamPR(unittest.TestCase):
             self.mock_config["sync2jira"]["filters"]["github"]["org/repo"]["labels"],
             ["custom_tag", "another_tag", "and_another"],
         )
+
+    @mock.patch("sync2jira.intermediary.PR.from_github")
+    def test_handle_github_message_filtering(self, mock_pr_from_github):
+        """
+        Test 'handle_github_message' filtering for labels, milestone, and other fields.
+        Tests all three filtering conditions in one test case.
+        """
+        # Test 1: Bad label - PR should be filtered out
+        self.mock_github_message_body["pull_request"]["labels"] = [
+            {"name": "bad_label"}
+        ]
+
+        response = u.handle_github_message(
+            body=self.mock_github_message_body,
+            config=self.mock_config,
+            suffix="mock_suffix",
+        )
+
+        mock_pr_from_github.assert_not_called()
+        self.assertEqual(None, response)
+
+        # Reset for next test
+        mock_pr_from_github.reset_mock()
+        self.mock_github_message_body["pull_request"]["labels"] = [
+            {"name": "custom_tag"}
+        ]
+
+        # Test 2: Bad milestone - PR should be filtered out
+        self.mock_config["sync2jira"]["filters"]["github"]["org/repo"][
+            "milestone"
+        ] = 123
+        self.mock_github_message_body["pull_request"]["milestone"] = {"number": 456}
+
+        response = u.handle_github_message(
+            body=self.mock_github_message_body,
+            config=self.mock_config,
+            suffix="mock_suffix",
+        )
+
+        mock_pr_from_github.assert_not_called()
+        self.assertEqual(None, response)
+
+        # Reset for next test
+        mock_pr_from_github.reset_mock()
+        del self.mock_config["sync2jira"]["filters"]["github"]["org/repo"]["milestone"]
+        self.mock_github_message_body["pull_request"]["milestone"] = {
+            "title": "mock_milestone"
+        }
+
+        # Test 3: Bad other field (filter1) - PR should be filtered out
+        self.mock_github_message_body["pull_request"]["filter1"] = "filter2"
+
+        response = u.handle_github_message(
+            body=self.mock_github_message_body,
+            config=self.mock_config,
+            suffix="mock_suffix",
+        )
+
+        mock_pr_from_github.assert_not_called()
+        self.assertEqual(None, response)
+
+    @mock.patch(PATH + "Github")
+    @mock.patch("sync2jira.intermediary.PR.from_github")
+    def test_handle_github_message_filtering_passes(
+        self, mock_pr_from_github, mock_github
+    ):
+        """
+        Test 'handle_github_message' when all filters pass (labels, milestone, other fields).
+        """
+        # Set up filters with all three types
+        self.mock_config["sync2jira"]["filters"]["github"]["org/repo"]["milestone"] = 1
+        self.mock_github_message_body["pull_request"]["milestone"] = {
+            "number": 1,
+            "title": "mock_milestone",
+        }
+
+        # Set up return values
+        mock_pr_from_github.return_value = "Successful Call!"
+        mock_github.return_value = self.mock_github_client
+
+        # Call function
+        response = u.handle_github_message(
+            body=self.mock_github_message_body,
+            config=self.mock_config,
+            suffix="mock_suffix",
+        )
+
+        # Assert that PR was processed (all filters passed)
+        mock_pr_from_github.assert_called_once()
+        mock_github.assert_called_with("mock_token")
+        self.assertEqual("Successful Call!", response)

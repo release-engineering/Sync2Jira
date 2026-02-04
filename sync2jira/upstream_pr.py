@@ -49,7 +49,35 @@ def handle_github_message(body, config, suffix):
         log.debug("%r not in Github PR map: %r", upstream, mapped_repos.keys())
         return None
 
+    _filter = config["sync2jira"].get("filters", {}).get("github", {}).get(upstream, {})
+
     pr = body["pull_request"]
+    for key, expected in _filter.items():
+        if key == "labels":
+            # special handling for label: we look for it in the list of PR labels
+            actual = {label["name"] for label in pr.get("labels", [])}
+            if actual.isdisjoint(expected):
+                log.debug("Labels %s not found on PR: %s", expected, upstream)
+                return None
+        elif key == "milestone":
+            # special handling for milestone: use the number
+            milestone = pr.get(key) or {}  # Key might exist with value `None`
+            actual = milestone.get("number")
+            if expected != actual:
+                log.debug("Milestone %s not set on PR: %s", expected, upstream)
+                return None
+        else:
+            # direct comparison
+            actual = pr.get(key)
+            if actual != expected:
+                log.debug(
+                    "Actual %r %r != expected %r on PR %s",
+                    key,
+                    actual,
+                    expected,
+                    upstream,
+                )
+                return None
     github_client = Github(config["sync2jira"]["github_token"])
     reformat_github_pr(pr, upstream, github_client)
     return i.PR.from_github(upstream, pr, suffix, config)
