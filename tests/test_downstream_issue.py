@@ -238,6 +238,13 @@ class TestDownstreamIssue(unittest.TestCase):
                 "expected": None,
             },
             {
+                "scenario": "Jira search returns no items",
+                "jira_results": "mock issue key query string",
+                "search_issues": ResultList[JIssue](()),
+                "filter_results": None,
+                "expected": None,
+            },
+            {
                 "scenario": "Jira search returns one item",
                 "jira_results": "mock issue key query string",
                 "search_issues": ResultList[JIssue]((mock_issue_1,)),
