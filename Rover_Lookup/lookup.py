@@ -54,8 +54,11 @@ def github_username_to_emails(
 
     # Construct the LDAP filter to match the GitHub "Professional Social Media" URL.
     # The rhatSocialURL field contains values like "Github->https://github.com/username".
+    # However, 5% of the entries include a trailing slash (which GitHub accepts),
+    # so look for those, too.
     github_url = f"https://github.com/{github_username}"
-    ldap_filter = f"(rhatSocialURL=Github->{github_url})"
+    filter_clause = f"rhatSocialURL=Github->{github_url}"
+    ldap_filter = f"(|({filter_clause})({filter_clause}/))"
 
     # Attributes to retrieve (email fields)
     attributes = ["rhatPrimaryMail", "mail", "rhatPreferredAlias"]
