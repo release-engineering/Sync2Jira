@@ -110,6 +110,51 @@ ghquery = """
 """
 
 
+def _apply_github_filters(item, _filter, upstream, item_type="issue"):
+    """
+    Apply GitHub filters (labels, milestone, other fields) to an item.
+
+    :param dict item: GitHub issue or PR data
+    :param dict _filter: Filter configuration
+    :param str upstream: Upstream repository name
+    :param str item_type: Type of item for logging ("issue" or "PR")
+    :returns: True if item passes all filters, False otherwise
+    :rtype: bool
+    """
+    for key, expected in _filter.items():
+        if key == "labels":
+            # special handling for label: we look for it in the list of labels
+            actual = {label["name"] for label in item.get("labels", [])}
+            if actual.isdisjoint(expected):
+                log.debug(
+                    "Labels %s not found on %s: %s", expected, upstream, item_type
+                )
+                return False
+        elif key == "milestone":
+            # special handling for milestone: use the number
+            milestone = item.get(key) or {}  # Key might exist with value `None`
+            actual = milestone.get("number")
+            if expected != actual:
+                log.debug(
+                    "Milestone %s not set on %s: %s", expected, upstream, item_type
+                )
+                return False
+        else:
+            # direct comparison
+            actual = item.get(key)
+            if actual != expected:
+                log.debug(
+                    "Actual %r %r != expected %r on %s %s",
+                    key,
+                    actual,
+                    expected,
+                    upstream,
+                    item_type,
+                )
+                return False
+    return True
+
+
 def handle_github_message(body, config, is_pr=False):
     """
     Handle GitHub message from FedMsg.
@@ -140,33 +185,8 @@ def handle_github_message(body, config, is_pr=False):
     _filter = config["sync2jira"].get("filters", {}).get("github", {}).get(upstream, {})
 
     issue = body["issue"]
-    for key, expected in _filter.items():
-        if key == "labels":
-            # special handling for label: we look for it in the list of msg labels
-            actual = {label["name"] for label in issue["labels"]}
-            if actual.isdisjoint(expected):
-                log.debug("Labels %s not found on issue: %s", expected, upstream)
-                return None
-        elif key == "milestone":
-            # special handling for milestone: use the number
-            milestone = issue.get(key) or {}  # Key might exist with value `None`
-            actual = milestone.get("number")
-            if expected != actual:
-                log.debug("Milestone %s not set on issue: %s", expected, upstream)
-                return None
-        else:
-            # direct comparison
-            actual = issue.get(key)
-            if actual != expected:
-                log.debug(
-                    "Actual %r %r != expected %r on issue %s",
-                    key,
-                    actual,
-                    expected,
-                    upstream,
-                )
-                return None
-
+    if not _apply_github_filters(issue, _filter, upstream, "issue"):
+        return None
     if is_pr and not issue.get("closed_at"):
         log.debug(
             "%r is a pull request.  Ignoring.", issue.get("html_url", "<missing URL>")
