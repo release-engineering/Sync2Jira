@@ -49,10 +49,8 @@ def handle_github_message(body, config, suffix):
         log.debug("%r not in Github PR map: %r", upstream, mapped_repos.keys())
         return None
 
-    _filter = config["sync2jira"].get("filters", {}).get("github", {}).get(upstream, {})
-
     pr = body["pull_request"]
-    if not u_issue._apply_github_filters(pr, _filter, upstream, item_type="PR"):
+    if not u_issue.passes_github_filters(pr, config, upstream, item_type="PR"):
         return None
     github_client = Github(config["sync2jira"]["github_token"])
     reformat_github_pr(pr, upstream, github_client)

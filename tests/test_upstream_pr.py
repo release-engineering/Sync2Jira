@@ -345,3 +345,43 @@ class TestUpstreamPR(unittest.TestCase):
         mock_pr_from_github.assert_called_once()
         mock_github.assert_called_with("mock_token")
         self.assertEqual("Successful Call!", response)
+
+    @mock.patch("sync2jira.upstream_pr.u_issue.passes_github_filters")
+    @mock.patch("sync2jira.intermediary.PR.from_github")
+    def test_handle_github_message_filter_returns_false(
+        self, mock_pr_from_github, mock_passes
+    ):
+        """When passes_github_filters returns False, handle_github_message returns None."""
+        mock_passes.return_value = False
+
+        response = u.handle_github_message(
+            body=self.mock_github_message_body,
+            config=self.mock_config,
+            suffix="mock_suffix",
+        )
+
+        mock_passes.assert_called_once()
+        mock_pr_from_github.assert_not_called()
+        self.assertIsNone(response)
+
+    @mock.patch(PATH + "Github")
+    @mock.patch("sync2jira.upstream_pr.u_issue.passes_github_filters")
+    @mock.patch("sync2jira.intermediary.PR.from_github")
+    def test_handle_github_message_filter_returns_true(
+        self, mock_pr_from_github, mock_passes, mock_github
+    ):
+        """When passes_github_filters returns True, handle_github_message proceeds to PR.from_github."""
+        mock_passes.return_value = True
+        mock_pr_from_github.return_value = "Successful Call!"
+        mock_github.return_value = self.mock_github_client
+
+        response = u.handle_github_message(
+            body=self.mock_github_message_body,
+            config=self.mock_config,
+            suffix="mock_suffix",
+        )
+
+        mock_passes.assert_called_once()
+        mock_pr_from_github.assert_called_once()
+        mock_github.assert_called_with("mock_token")
+        self.assertEqual("Successful Call!", response)

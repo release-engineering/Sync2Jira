@@ -110,7 +110,7 @@ ghquery = """
 """
 
 
-def _apply_github_filters(item, _filter, upstream, item_type="issue"):
+def passes_github_filters(item, config, upstream, item_type="issue"):
     """
     Apply GitHub filters (labels, milestone, other fields) to an item.
 
@@ -121,7 +121,11 @@ def _apply_github_filters(item, _filter, upstream, item_type="issue"):
     :returns: True if item passes all filters, False otherwise
     :rtype: bool
     """
-    for key, expected in _filter.items():
+    filter_config = (
+        config["sync2jira"].get("filters", {}).get("github", {}).get(upstream, {})
+    )
+
+    for key, expected in filter_config.items():
         if key == "labels":
             # special handling for label: we look for it in the list of labels
             actual = {label["name"] for label in item.get("labels", [])}
@@ -182,10 +186,8 @@ def handle_github_message(body, config, is_pr=False):
         )
         return None
 
-    _filter = config["sync2jira"].get("filters", {}).get("github", {}).get(upstream, {})
-
     issue = body["issue"]
-    if not _apply_github_filters(issue, _filter, upstream, "issue"):
+    if not passes_github_filters(issue, config, upstream, "issue"):
         return None
     if is_pr and not issue.get("closed_at"):
         log.debug(
