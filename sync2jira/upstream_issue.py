@@ -124,6 +124,18 @@ def passes_github_filters(item, config, upstream, item_type="issue"):
     filter_config = (
         config["sync2jira"].get("filters", {}).get("github", {}).get(upstream, {})
     )
+    mapped_repos = config["sync2jira"]["map"]["github"]
+    if upstream not in mapped_repos:
+        log.debug("%r not in Github map: %r", upstream, mapped_repos.keys())
+        return None
+    key = "pullrequest" if item_type == "PR" else "issue"
+    if key not in mapped_repos[upstream].get("sync", []):
+        log.debug(
+            "%r not in Github sync map: %r",
+            key,
+            mapped_repos[upstream].get("sync", []),
+        )
+        return None
 
     for key, expected in filter_config.items():
         if key == "labels":
@@ -173,21 +185,8 @@ def handle_github_message(body, config, is_pr=False):
     repo = body["repository"]["name"]
     upstream = "{owner}/{repo}".format(owner=owner, repo=repo)
 
-    mapped_repos = config["sync2jira"]["map"]["github"]
-    if upstream not in mapped_repos:
-        log.debug("%r not in Github map: %r", upstream, mapped_repos.keys())
-        return None
-    key = "pullrequest" if is_pr else "issue"
-    if key not in mapped_repos[upstream].get("sync", []):
-        log.debug(
-            "%r not in Github sync map: %r",
-            key,
-            mapped_repos[upstream].get("sync", []),
-        )
-        return None
-
     issue = body["issue"]
-    if not passes_github_filters(issue, config, upstream, "issue"):
+    if not passes_github_filters(issue, config, upstream, item_type="issue"):
         return None
     if is_pr and not issue.get("closed_at"):
         log.debug(
