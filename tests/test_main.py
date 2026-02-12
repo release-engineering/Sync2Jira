@@ -1,7 +1,11 @@
 import unittest
 import unittest.mock as mock
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+import requests
+
+import sync2jira.jira_auth as jira_auth_module
+from sync2jira.jira_auth import build_jira_client_kwargs
 import sync2jira.main as m
 
 PATH = "sync2jira.main."
@@ -366,3 +370,107 @@ class TestMain(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_d.sync_with_jira.assert_called_with("dummy_issue", self.mock_config)
+
+
+class TestJiraAuth(unittest.TestCase):
+    """Tests for Jira auth: PAT and OAuth2 (build_jira_client_kwargs)."""
+
+    def setUp(self):
+        """Clear OAuth2 token cache so tests don't reuse tokens from other tests."""
+        jira_auth_module._oauth2_token_cache.clear()
+
+    def test_jira_auth_pat_with_basic_auth(self):
+        """PAT with basic_auth succeeds."""
+        config = {
+            "options": {"server": "https://jira.example.com", "verify": True},
+            "basic_auth": ("user", "pass"),
+        }
+        kwargs = build_jira_client_kwargs(config)
+        self.assertEqual(kwargs["basic_auth"], ("user", "pass"))
+        self.assertEqual(kwargs["options"], config["options"])
+
+    def test_jira_auth_pat_missing_both(self):
+        """PAT with neither token_auth nor basic_auth raises ValueError."""
+        config = {
+            "options": {"server": "https://jira.example.com"},
+        }
+        with self.assertRaises(ValueError) as ctx:
+            build_jira_client_kwargs(config)
+        self.assertIn("token_auth or basic_auth", str(ctx.exception))
+
+    @patch("sync2jira.jira_auth.requests.post")
+    def test_jira_auth_oauth2_cache(self, mock_post):
+        """OAuth2 second call reuses cached token (no second request)."""
+        mock_post.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "access_token": "cached_token",
+                "expires_in": 3600,
+            },
+            raise_for_status=MagicMock(),
+        )
+        config = {
+            "options": {"server": "https://site.atlassian.net"},
+            "auth_method": "oauth2",
+            "oauth2": {"client_id": "cid", "client_secret": "csecret"},
+        }
+        kwargs1 = build_jira_client_kwargs(config)
+        kwargs2 = build_jira_client_kwargs(config)
+        self.assertEqual(kwargs1["token_auth"], "cached_token")
+        self.assertEqual(kwargs2["token_auth"], "cached_token")
+        mock_post.assert_called_once()
+
+    @patch("sync2jira.jira_auth.time.time")
+    @patch("sync2jira.jira_auth.requests.post")
+    def test_jira_auth_oauth2_refresh(self, mock_post, mock_time):
+        """OAuth2 expired token triggers new token fetch."""
+        mock_time.return_value = 1000.0
+        mock_post.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "access_token": "new_token",
+                "expires_in": 60,
+            },
+            raise_for_status=MagicMock(),
+        )
+        config = {
+            "options": {"server": "https://site.atlassian.net"},
+            "auth_method": "oauth2",
+            "oauth2": {"client_id": "cid", "client_secret": "csecret"},
+        }
+        # First call populates cache (expires at 1000 + 60 = 1060)
+        build_jira_client_kwargs(config)
+        # Advance time past expiry (e.g. 2000)
+        mock_time.return_value = 2000.0
+        kwargs = build_jira_client_kwargs(config)
+        self.assertEqual(kwargs["token_auth"], "new_token")
+        self.assertEqual(mock_post.call_count, 2)
+
+    def test_jira_auth_oauth2_missing_credentials(self):
+        """OAuth2 missing client_id or client_secret raises ValueError."""
+        base = {
+            "options": {"server": "https://site.atlassian.net"},
+            "auth_method": "oauth2",
+        }
+        for oauth2_cfg in [
+            {},
+            {"client_id": "cid"},
+            {"client_secret": "csecret"},
+        ]:
+            config = {**base, "oauth2": oauth2_cfg}
+            with self.assertRaises(ValueError) as ctx:
+                build_jira_client_kwargs(config)
+            self.assertIn("client_id and oauth2.client_secret", str(ctx.exception))
+
+    @patch("sync2jira.jira_auth.requests.post")
+    def test_jira_auth_oauth2_request_failure(self, mock_post):
+        """OAuth2 token request failure raises ValueError."""
+        mock_post.side_effect = requests.RequestException("network error")
+        config = {
+            "options": {"server": "https://site.atlassian.net"},
+            "auth_method": "oauth2",
+            "oauth2": {"client_id": "cid", "client_secret": "csecret"},
+        }
+        with self.assertRaises(ValueError) as ctx:
+            build_jira_client_kwargs(config)
+        self.assertIn("OAuth 2.0 token request failed", str(ctx.exception))
