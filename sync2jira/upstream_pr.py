@@ -41,7 +41,6 @@ def handle_github_message(body, config, suffix):
     repo = body["repository"]["name"]
     upstream = "{owner}/{repo}".format(owner=owner, repo=repo)
 
-
     pr = body["pull_request"]
     if not u_issue.passes_github_filters(pr, config, upstream, item_type="PR"):
         return None
