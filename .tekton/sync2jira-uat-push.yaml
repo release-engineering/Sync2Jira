@@ -1,0 +1,36 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://github.com/release-engineering/Sync2Jira?rev={{revision}}
+    build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/target_branch: '{{target_branch}}'
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
+      == "uat-instance"
+  creationTimestamp: null
+  labels:
+    appstudio.openshift.io/application: sync2jira
+    appstudio.openshift.io/component: sync2jira-uat
+    pipelines.appstudio.openshift.io/type: build
+  name: sync2jira-uat-on-push
+  namespace: sync2jira-tenant
+spec:
+  params:
+  - name: git-url
+    value: '{{source_url}}'
+  - name: revision
+    value: '{{revision}}'
+  - name: output-image
+    value: quay.io/redhat-user-workloads/sync2jira-tenant/sync2jira-uat:{{revision}}
+  - name: dockerfile
+    value: Dockerfile
+  pipelineRef:
+    name: build-pipeline
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-sync2jira-uat
+  workspaces:
+  - name: git-auth
+    secret:
+      secretName: '{{ git_auth_secret }}'
+status: {}
