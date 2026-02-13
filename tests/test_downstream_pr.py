@@ -35,7 +35,7 @@ class TestDownstreamPR(unittest.TestCase):
                 "jira": {
                     "mock_jira_instance": {"mock_jira": "mock_jira"},
                     "another_jira_instance": {
-                        "token_auth": "mock_token",
+                        "basic_auth": ("email", "mock_token"),
                         "options": {"server": "mock_server"},
                     },
                 },
