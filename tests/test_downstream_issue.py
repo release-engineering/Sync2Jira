@@ -34,11 +34,11 @@ class TestDownstreamIssue(unittest.TestCase):
                 "default_jira_fields": {"storypoints": "customfield_12310243"},
                 "jira": {
                     "mock_jira_instance": {
-                        "token_auth": "mock_token",
+                        "basic_auth": ("email", "token"),
                         "options": {"server": "mock_server"},
                     },
                     "another_jira_instance": {
-                        "token_auth": "mock_token",
+                        "basic_auth": ("email", "token"),
                         "options": {"server": "mock_server"},
                     },
                 },
@@ -167,7 +167,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert everything was called correctly (kwargs from build_jira_client_kwargs)
         mock_client.assert_called_with(
-            token_auth="mock_token", options={"server": "mock_server"}
+            basic_auth=("email", "token"), options={"server": "mock_server"}
         )
         mock_jira_instance.session.assert_called_once()
         self.assertEqual(mock_jira_instance, response)
@@ -190,7 +190,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert the client was created but failed authentication
         mock_client.assert_called_with(
-            token_auth="mock_token", options={"server": "mock_server"}
+            basic_auth=("email", "token"), options={"server": "mock_server"}
         )
         mock_jira_instance.session.assert_called_once()
 

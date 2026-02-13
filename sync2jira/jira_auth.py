@@ -1,5 +1,5 @@
 # This file is part of sync2jira.
-# Copyright (C) 2016 Red Hat, Inc.
+# Copyright (C) 2026 Red Hat, Inc.
 #
 # sync2jira is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -18,17 +18,23 @@
 """
 Jira authentication helpers.
 
-Supports two authentication methods, selectable per Jira instance in config:
-- PAT (Personal Access Token / API token): use ``auth_method: "pat"`` and
-  ``token_auth`` or ``basic_auth``.
-- OAuth 2.0 2-Legged (2LO) with Atlassian service account: use
-  ``auth_method: "oauth2"`` and ``oauth2`` with ``client_id`` and
-  ``client_secret``.
+This module's interface: pass a Jira instance config dict to
+:func:`build_jira_client_kwargs`; the config may include ``auth_method``
+(one of :const:`AUTH_METHOD_PAT` or :const:`AUTH_METHOD_OAUTH2`, default if
+omitted is :const:`AUTH_METHOD_PAT`), and credentials as described below.
+We ignore or remove config keys that do not apply to the chosen auth method
+and validate their values as needed.
+
+- **PAT (Personal Access Token / API token)**: set ``auth_method`` to
+  :const:`AUTH_METHOD_PAT` and provide ``basic_auth`` in the config.
+- **OAuth 2.0 2-Legged (2LO)** with Atlassian service account: set
+  ``auth_method`` to :const:`AUTH_METHOD_OAUTH2` and provide an ``oauth2``
+  dict with ``client_id`` and ``client_secret``.
 """
 
 import logging
 import time
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, NamedTuple, Tuple
 
 import requests
 
@@ -41,20 +47,28 @@ DEFAULT_OAUTH2_TOKEN_URL = "https://auth.atlassian.com/oauth/token"
 AUTH_METHOD_PAT = "pat"
 AUTH_METHOD_OAUTH2 = "oauth2"
 
-# OAuth2 token cache: key (client_id, client_secret, token_url) -> (token, expires_at).
-# Reused across syncs so we don't request a new token per issue/PR. No lock (single-threaded).
-_oauth2_token_cache: Dict[Tuple[str, str, str], Tuple[str, float]] = {}
-
 # Refresh token this many seconds before expiry (e.g. 5 min)
 OAUTH2_TOKEN_REFRESH_BUFFER_SECONDS = 300
+
+
+class OAuth2CachedToken(NamedTuple):
+    """OAuth2 access token and its expiry timestamp (seconds since epoch)."""
+
+    token: str
+    expires_at: float
+
+
+# OAuth2 token cache: key (client_id, client_secret, token_url) -> OAuth2CachedToken.
+# Reused across syncs so we don't request a new token per issue/PR. No lock (single-threaded).
+_oauth2_token_cache: Dict[Tuple[str, str, str], OAuth2CachedToken] = {}
 
 
 def _fetch_oauth2_token(
     client_id: str,
     client_secret: str,
     token_url: str = DEFAULT_OAUTH2_TOKEN_URL,
-) -> Tuple[str, int]:
-    """Request a new OAuth2 access token. Returns (access_token, expires_in_seconds)."""
+) -> OAuth2CachedToken:
+    """Request a new OAuth2 access token. Returns token and expiry timestamp."""
     response = requests.post(
         token_url,
         json={
@@ -71,7 +85,7 @@ def _fetch_oauth2_token(
     if not access_token:
         raise ValueError("OAuth 2.0 token response did not contain access_token")
     expires_in = int(data.get("expires_in", 3600))
-    return access_token, expires_in
+    return OAuth2CachedToken(access_token, time.time() + expires_in)
 
 
 def _get_oauth2_token(
@@ -82,29 +96,21 @@ def _get_oauth2_token(
     """Return a valid OAuth2 token, reusing cache if not expired (with refresh buffer)."""
     key = (client_id, client_secret, token_url)
     now = time.time()
-    entry = _oauth2_token_cache.get(key)
-    if entry:
-        token, expires_at = entry
-        if now < expires_at - OAUTH2_TOKEN_REFRESH_BUFFER_SECONDS:
-            return token
-    token, expires_in = _fetch_oauth2_token(
+    if entry := _oauth2_token_cache.get(key):
+        if now < entry.expires_at - OAUTH2_TOKEN_REFRESH_BUFFER_SECONDS:
+            return entry.token
+    cached = _fetch_oauth2_token(
         client_id=client_id,
         client_secret=client_secret,
         token_url=token_url,
     )
-    _oauth2_token_cache[key] = (token, now + expires_in)
-    return token
+    _oauth2_token_cache[key] = cached
+    return cached.token
 
 
 def build_jira_client_kwargs(jira_instance_config: Dict[str, Any]) -> Dict[str, Any]:
     """
     Build keyword arguments for jira.client.JIRA() from a jira instance config.
-
-    Supports:
-    - PAT: ``auth_method: "pat"`` (or omitted) with ``token_auth`` or
-      ``basic_auth`` and ``options``.
-    - OAuth 2LO: ``auth_method: "oauth2"`` with ``oauth2`` (client_id,
-      client_secret, optional token_url) and ``options``.
 
     :param jira_instance_config: One entry from config["sync2jira"]["jira"].
     :returns: Dict suitable for JIRA(**kwargs).
@@ -116,7 +122,7 @@ def build_jira_client_kwargs(jira_instance_config: Dict[str, Any]) -> Dict[str, 
     auth_method = kwargs.pop("auth_method", AUTH_METHOD_PAT)
 
     if auth_method == AUTH_METHOD_OAUTH2:
-        oauth2_cfg = kwargs.pop("oauth2", None) or {}
+        oauth2_cfg = kwargs.pop("oauth2", {}) or {}
         if not isinstance(oauth2_cfg, dict):
             raise ValueError("oauth2 must be a dict with client_id and client_secret")
         client_id = oauth2_cfg.get("client_id")
@@ -135,17 +141,15 @@ def build_jira_client_kwargs(jira_instance_config: Dict[str, Any]) -> Dict[str, 
             )
         except requests.RequestException as e:
             log.error("OAuth 2.0 token request failed: %s", e)
-            raise ValueError(f"OAuth 2.0 token request failed: {e}") from e
+            raise
         kwargs["token_auth"] = access_token
         return kwargs
 
     if auth_method == AUTH_METHOD_PAT:
-        # PAT: keep token_auth or basic_auth and options as-is; remove oauth2
+        # PAT: keep basic_auth and options as-is; remove oauth2
         kwargs.pop("oauth2", None)
-        if "basic_auth" not in kwargs and "token_auth" not in kwargs:
-            raise ValueError(
-                "PAT auth requires token_auth or basic_auth in the jira instance config"
-            )
+        if "basic_auth" not in kwargs:
+            raise ValueError("PAT auth requires basic_auth in the jira instance config")
         return kwargs
 
     raise ValueError(
