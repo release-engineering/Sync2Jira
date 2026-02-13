@@ -41,16 +41,11 @@ def handle_github_message(body, config, suffix):
     repo = body["repository"]["name"]
     upstream = "{owner}/{repo}".format(owner=owner, repo=repo)
 
-    mapped_repos = config["sync2jira"]["map"]["github"]
-    if upstream not in mapped_repos:
-        log.debug("%r not in Github map: %r", upstream, mapped_repos.keys())
-        return None
-    elif "pullrequest" not in mapped_repos[upstream].get("sync", []):
-        log.debug("%r not in Github PR map: %r", upstream, mapped_repos.keys())
-        return None
-
     pr = body["pull_request"]
-    github_client = Github(config["sync2jira"]["github_token"])
+    if not u_issue.passes_github_filters(pr, config, upstream, item_type="PR"):
+        return None
+    token = config["sync2jira"].get("github_token")
+    github_client = Github(token, retry=5)
     reformat_github_pr(pr, upstream, github_client)
     return i.PR.from_github(upstream, pr, suffix, config)
 
