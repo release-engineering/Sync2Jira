@@ -54,12 +54,46 @@ The config file is made up of multiple parts
                 'server': 'https://some_jira_server_somewhere.com',
                 'verify': True,
             },
-            'token_auth': 'YOUR_API_TOKEN',
+            'basic_auth': ('your-email@example.com', 'YOUR_API_TOKEN'),
         },
     },
 
 * Here you can configure multiple JIRA instances if you have projects with differing downstream JIRA instances.
-  Ensure to name them appropriately, in name of the JIRA instance above is `example`.
+  Ensure to name them appropriately; in the example above the JIRA instance name is `example`.
+
+* You can choose authentication method per instance with ``auth_method``:
+
+  * **PAT (Personal Access Token)** – default. Set ``auth_method: 'pat'`` and use
+    ``basic_auth`` (email and API token, e.g. for Jira Cloud):
+
+    .. code-block:: python
+
+        'example': {
+            'options': {'server': 'https://jira.example.com', 'verify': True},
+            'auth_method': 'pat',
+            'basic_auth': (
+                  'email',
+                  'API Token'
+                ),
+        },
+
+  * **OAuth 2.0 (2LO, service account)** – Set ``auth_method: 'oauth2'`` and provide
+    ``oauth2`` with Atlassian client ID and secret (e.g. from a service account):
+
+    .. code-block:: python
+
+        'example': {
+            'options': {'server': 'https://your-domain.atlassian.net', 'verify': True},
+            'auth_method': 'oauth2',
+            'oauth2': {
+                'client_id': 'YOUR_CLIENT_ID',
+                'client_secret': 'YOUR_CLIENT_SECRET',
+                # optional: 'token_url': 'https://auth.atlassian.com/oauth/token',
+            },
+        },
+
+  If ``auth_method`` is omitted, **PAT is assumed**. To use OAuth 2.0, set
+  ``auth_method`` to ``'oauth2'`` and provide the ``oauth2`` block.
 
 .. code-block:: python
 
