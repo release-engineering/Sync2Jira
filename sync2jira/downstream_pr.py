@@ -28,6 +28,7 @@ import pypandoc
 # Local Modules
 import sync2jira.downstream_issue as d_issue
 from sync2jira.intermediary import Issue, matcher
+from sync2jira.jira_auth import invalidate_oauth2_cache_for_config
 
 log = logging.getLogger("sync2jira")
 
@@ -200,6 +201,16 @@ def sync_with_jira(pr, config):
                 log.info("[PR] Jira retry failed; aborting")
                 raise
 
+            # The error may be due to expired/revoked auth. Invalidate OAuth2
+            # cache so the next get_jira_client fetches a new token (no-op for PAT).
+            jira_instance = pr.downstream.get(
+                "jira_instance",
+                config["sync2jira"].get("default_jira_instance"),
+            )
+            if jira_instance:
+                invalidate_oauth2_cache_for_config(
+                    config["sync2jira"]["jira"][jira_instance]
+                )
             # The error is probably because our access has expired; refresh it
             # and try again.
             log.info("[PR] Jira request failed; refreshing the Jira client")

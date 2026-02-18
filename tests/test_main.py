@@ -5,7 +5,10 @@ from unittest.mock import MagicMock, patch
 import requests
 
 import sync2jira.jira_auth as jira_auth_module
-from sync2jira.jira_auth import build_jira_client_kwargs
+from sync2jira.jira_auth import (
+    build_jira_client_kwargs,
+    invalidate_oauth2_cache_for_config,
+)
 import sync2jira.main as m
 
 PATH = "sync2jira.main."
@@ -482,3 +485,31 @@ class TestJiraAuth(unittest.TestCase):
         with self.assertRaises(requests.RequestException) as ctx:
             build_jira_client_kwargs(config)
         self.assertIn("network error", str(ctx.exception))
+
+    @patch("sync2jira.jira_auth.requests.post")
+    def test_jira_auth_invalidate_oauth2_clears_cache(self, mock_post):
+        """invalidate_oauth2_cache_for_config clears OAuth2 cache; next build fetches new token."""
+
+        def make_response(access_token):
+            return MagicMock(
+                status_code=200,
+                json=lambda t=access_token: {"access_token": t, "expires_in": 3600},
+                raise_for_status=MagicMock(),
+            )
+
+        mock_post.side_effect = [
+            make_response("cached_token"),
+            make_response("new_token_after_invalidate"),
+        ]
+        config = {
+            "options": {"server": "https://site.atlassian.net"},
+            "auth_method": "oauth2",
+            "oauth2": {"client_id": "cid", "client_secret": "csecret"},
+        }
+        build_jira_client_kwargs(config)
+        build_jira_client_kwargs(config)
+        mock_post.assert_called_once()
+        invalidate_oauth2_cache_for_config(config)
+        kwargs = build_jira_client_kwargs(config)
+        self.assertEqual(kwargs["token_auth"], "new_token_after_invalidate")
+        self.assertEqual(mock_post.call_count, 2)

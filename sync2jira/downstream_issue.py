@@ -36,7 +36,10 @@ import snowflake.connector
 
 import Rover_Lookup
 from sync2jira.intermediary import Issue, PR
-from sync2jira.jira_auth import build_jira_client_kwargs
+from sync2jira.jira_auth import (
+    build_jira_client_kwargs,
+    invalidate_oauth2_cache_for_config,
+)
 
 load_dotenv()
 # The date the service was upgraded
@@ -1401,6 +1404,16 @@ def sync_with_jira(issue, config):
             if retry:
                 log.info("[Issue] Jira retry failed; aborting")
                 raise
+            # The error may be due to expired/revoked auth. Invalidate OAuth2
+            # cache so the next get_jira_client fetches a new token (no-op for PAT).
+            jira_instance = issue.downstream.get(
+                "jira_instance",
+                config["sync2jira"].get("default_jira_instance"),
+            )
+            if jira_instance:
+                invalidate_oauth2_cache_for_config(
+                    config["sync2jira"]["jira"][jira_instance]
+                )
 
             # The error is probably because our access has expired; refresh it
             # and try again.
