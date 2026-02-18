@@ -10,19 +10,38 @@ Want to quickly get started working with Sync2Jira? Follow these steps:
 
         'github_token': 'YOUR_TOKEN',
 
-3. Enter relevant JIRA information
+3. Enter relevant JIRA information. **PAT (default):** use ``basic_auth``. **OAuth 2.0:**
+   set ``auth_method`` to ``'oauth2'`` and provide ``oauth2.client_id`` and
+   ``oauth2.client_secret`` (see :doc:`config-file` for full options).
+
     .. code-block:: python
 
         'default_jira_instance': 'example',
-        # This should be the username of the account corresponding with `token_auth` below.
-        'jira_username': 'your-bot-account',
+        'jira_username': 'your-bot-account',  # optional, for duplicate detection
         'jira': {
             'example': {
                 'options': {
                     'server': 'https://some_jira_server_somewhere.com',
                     'verify': True,
                 },
-                'token_auth': 'YOUR_TOKEN',
+                'auth_method': 'pat',
+                'basic_auth': ('your-email@example.com', 'YOUR_API_TOKEN'),
+            },
+        },
+
+    For OAuth 2.0 (e.g. Atlassian service account), use instead:
+
+    .. code-block:: python
+
+        'example': {
+            'options': {
+                'server': 'https://your-domain.atlassian.net',
+                'verify': True,
+            },
+            'auth_method': 'oauth2',
+            'oauth2': {
+                'client_id': 'YOUR_CLIENT_ID',
+                'client_secret': 'YOUR_CLIENT_SECRET',
             },
         },
 

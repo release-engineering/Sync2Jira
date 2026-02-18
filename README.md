@@ -40,7 +40,9 @@ Sync2Jira is a service that listens to activity on upstream GitHub repositories 
 ### Prerequisites
 
 - Python 3.12+
-- API access (via Personal Access Token) to a Jira Data Center instance
+- JIRA API access using one of:
+  - **PAT (Personal Access Token / API token)**: email + API token (e.g. Jira Cloud)
+  - **OAuth 2.0 (2LO)**: Atlassian service account client ID and secret
 - GitHub API token
 - Fedora messaging environment (for production)
 
@@ -89,7 +91,15 @@ config = {
                     'server': 'https://your-jira.example.com',
                     'verify': True,
                 },
-                'token_auth': 'your_jira_token',
+                # Use 'pat' (default) or 'oauth2'
+                'auth_method': 'pat',
+                # For OAuth 2.0: set auth_method to 'oauth2' and uncomment:
+                # 'oauth2': {
+                #     'client_id': 'YOUR_CLIENT_ID',
+                #     'client_secret': 'YOUR_CLIENT_SECRET',
+                # },
+                # For PAT: email and API token (e.g. Jira Cloud)
+                'basic_auth': ('your-email@example.com', 'YOUR_JIRA_API_TOKEN'),
             },
         },
         
@@ -125,12 +135,14 @@ config = {
 | Option | Description | Default |
 |--------|-------------|---------|
 | `github_token` | GitHub API token for authentication | Required |
-| `jira` | JIRA instance configurations | Required |
+| `jira` | JIRA instance configs (per-instance: PAT via `basic_auth` or OAuth 2.0 via `oauth2`) | Required |
 | `map` | Repository-to-project mappings | Required |
 | `testing` | Enable dry-run mode (no actual changes) | `False` |
 | `initialize` | Sync all existing issues on startup | `False` |
 | `filters` | Filter issues by labels, milestones, etc. | `{}` |
 | `admins` | List of admin users for notifications | `[]` |
+
+**JIRA authentication:** Each JIRA instance can use **PAT** (``auth_method: 'pat'``, with ``basic_auth``: email + API token) or **OAuth 2.0** (``auth_method: 'oauth2'``, with ``oauth2``: ``client_id`` and ``client_secret`` from an Atlassian service account). See the `Configuration Reference <https://sync2jira.readthedocs.io/en/main/config-file.html>`_ for details.
 
 ## Usage
 
