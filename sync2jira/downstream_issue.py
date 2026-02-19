@@ -293,8 +293,7 @@ def get_jira_client(issue, config):
 
     client_kwargs = build_jira_client_kwargs(config["sync2jira"]["jira"][jira_instance])
     client = jira.client.JIRA(**client_kwargs)
-    # Validate authentication (server_info uses a non-deprecated endpoint; /rest/auth/1/session is deprecated)
-    client.server_info()
+    client.server_info()  # This raises an exception if authentication was not successful
     return client
 
 
