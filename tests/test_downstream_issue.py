@@ -158,7 +158,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_issue = MagicMock(spec=Issue)
         mock_issue.downstream = {"jira_instance": "mock_jira_instance"}
         mock_jira_instance = MagicMock()
-        mock_jira_instance.session.return_value = None
+        mock_jira_instance.server_info.return_value = None
         mock_client.return_value = mock_jira_instance
 
         # Call the function
@@ -169,7 +169,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.assert_called_with(
             basic_auth=("email", "token"), options={"server": "mock_server"}
         )
-        mock_jira_instance.session.assert_called_once()
+        mock_jira_instance.server_info.assert_called_once()
         self.assertEqual(mock_jira_instance, response)
 
     @mock.patch("jira.client.JIRA")
@@ -181,7 +181,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_issue = MagicMock(spec=Issue)
         mock_issue.downstream = {"jira_instance": "mock_jira_instance"}
         mock_jira_instance = MagicMock()
-        mock_jira_instance.session.side_effect = JIRAError("Authentication failed")
+        mock_jira_instance.server_info.side_effect = JIRAError("Authentication failed")
         mock_client.return_value = mock_jira_instance
 
         # Call the function and expect it to raise JIRAError
@@ -192,7 +192,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.assert_called_with(
             basic_auth=("email", "token"), options={"server": "mock_server"}
         )
-        mock_jira_instance.session.assert_called_once()
+        mock_jira_instance.server_info.assert_called_once()
 
     @mock.patch("jira.client.JIRA")
     def test_get_existing_legacy(self, client):
