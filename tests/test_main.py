@@ -506,10 +506,11 @@ class TestJiraAuth(unittest.TestCase):
             "auth_method": "oauth2",
             "oauth2": {"client_id": "cid", "client_secret": "csecret"},
         }
-        build_jira_client_kwargs(config)
-        build_jira_client_kwargs(config)
-        mock_post.assert_called_once()
+        kwargs1 = build_jira_client_kwargs(config)
+        self.assertEqual(kwargs1["token_auth"], "cached_token")
+        kwargs2 = build_jira_client_kwargs(config)
+        self.assertEqual(kwargs2["token_auth"], "cached_token")
         invalidate_oauth2_cache_for_config(config)
-        kwargs = build_jira_client_kwargs(config)
-        self.assertEqual(kwargs["token_auth"], "new_token_after_invalidate")
+        kwargs3 = build_jira_client_kwargs(config)
+        self.assertEqual(kwargs3["token_auth"], "new_token_after_invalidate")
         self.assertEqual(mock_post.call_count, 2)

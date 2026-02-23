@@ -157,26 +157,20 @@ def build_jira_client_kwargs(jira_instance_config: Dict[str, Any]) -> Dict[str, 
     )
 
 
-def invalidate_oauth2_cache_for_config(jira_instance_config: Dict[str, Any]) -> None:
+def invalidate_oauth2_cache_for_config(jira_instance_config: Dict[str, Any]):
     """
     Invalidate the OAuth2 token cache for the given Jira instance config.
 
-    If the config uses OAuth2, the cached token (if any) is removed so the next
-    client build will request a new token. Use this when Jira has rejected a
-    request (e.g. JIRAError) so a retry does not reuse a revoked or invalid token.
-
-    If the config uses PAT or is invalid, this is a no-op.
+    If the config has oauth2 credentials, the cached token (if any) is removed so
+    the next client build will request a new token. Use this when Jira has
+    rejected a request (e.g. JIRAError) so a retry does not reuse a revoked or
+    invalid token.
     """
-    auth_method = jira_instance_config.get("auth_method", AUTH_METHOD_PAT)
-    if auth_method != AUTH_METHOD_OAUTH2:
-        return
-    oauth2_cfg = jira_instance_config.get("oauth2") or {}
-    if not isinstance(oauth2_cfg, dict):
+    oauth2_cfg = jira_instance_config.get("oauth2")
+    if not oauth2_cfg or not isinstance(oauth2_cfg, dict):
         return
     client_id = oauth2_cfg.get("client_id")
     client_secret = oauth2_cfg.get("client_secret")
-    if not client_id or not client_secret:
-        return
     token_url = oauth2_cfg.get("token_url", DEFAULT_OAUTH2_TOKEN_URL)
     key = (client_id, client_secret, token_url)
     _oauth2_token_cache.pop(key, None)

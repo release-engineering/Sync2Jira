@@ -266,12 +266,14 @@ def _comment_format_legacy(comment):
     )
 
 
-def get_jira_client(issue, config):
+def get_jira_client(issue, config, invalidate_oauth2_cache=False):
     """
     Function to match and create JIRA client.
 
     :param sync2jira.intermediary.Issue issue: Issue object
     :param dict config: Config dict
+    :param bool invalidate_oauth2_cache: If True, clear OAuth2 token cache for this
+        instance before building the client (e.g. after a JIRAError on retry).
     :returns: Matching JIRA client
     :rtype: jira.client.JIRA
     """
@@ -294,7 +296,10 @@ def get_jira_client(issue, config):
         log.error("No jira_instance for issue and there is no default in the config")
         raise Exception("No configured jira_instance for issue")
 
-    client_kwargs = build_jira_client_kwargs(config["sync2jira"]["jira"][jira_instance])
+    jira_instance_config = config["sync2jira"]["jira"][jira_instance]
+    if invalidate_oauth2_cache:
+        invalidate_oauth2_cache_for_config(jira_instance_config)
+    client_kwargs = build_jira_client_kwargs(jira_instance_config)
     client = jira.client.JIRA(**client_kwargs)
     client.server_info()  # This raises an exception if authentication was not successful
     return client
@@ -1404,21 +1409,10 @@ def sync_with_jira(issue, config):
             if retry:
                 log.info("[Issue] Jira retry failed; aborting")
                 raise
-            # The error may be due to expired/revoked auth. Invalidate OAuth2
-            # cache so the next get_jira_client fetches a new token (no-op for PAT).
-            jira_instance = issue.downstream.get(
-                "jira_instance",
-                config["sync2jira"].get("default_jira_instance"),
-            )
-            if jira_instance:
-                invalidate_oauth2_cache_for_config(
-                    config["sync2jira"]["jira"][jira_instance]
-                )
-
-            # The error is probably because our access has expired; refresh it
-            # and try again.
+            # The error may be due to expired/revoked auth. Ask get_jira_client to
+            # invalidate OAuth2 cache so the next call fetches a new token (no-op for PAT).
             log.info("[Issue] Jira request failed; refreshing the Jira client")
-            client = get_jira_client(issue, config)
+            client = get_jira_client(issue, config, invalidate_oauth2_cache=True)
 
         # Retry the update
         retry = True
