@@ -194,6 +194,35 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         mock_jira_instance.server_info.assert_called_once()
 
+    @mock.patch(PATH + "invalidate_oauth2_cache_for_config")
+    @mock.patch("jira.client.JIRA")
+    def test_get_jira_client_invalidate_oauth2_cache(
+        self, mock_jira_class, mock_invalidate
+    ):
+        """
+        get_jira_client(..., invalidate_oauth2_cache=True) calls
+        invalidate_oauth2_cache_for_config with the jira instance config before
+        building the client.
+        """
+        mock_issue = MagicMock(spec=Issue)
+        mock_issue.downstream = {"jira_instance": "mock_jira_instance"}
+        mock_jira_instance = MagicMock()
+        mock_jira_instance.session.return_value = None
+        mock_jira_class.return_value = mock_jira_instance
+
+        response = d.get_jira_client(
+            issue=mock_issue,
+            config=self.mock_config,
+            invalidate_oauth2_cache=True,
+        )
+
+        expected_config = self.mock_config["sync2jira"]["jira"]["mock_jira_instance"]
+        mock_invalidate.assert_called_once_with(expected_config)
+        mock_jira_class.assert_called_once_with(
+            basic_auth=("email", "token"), options={"server": "mock_server"}
+        )
+        self.assertEqual(response, mock_jira_instance)
+
     @mock.patch("jira.client.JIRA")
     def test_get_existing_legacy(self, client):
         """
