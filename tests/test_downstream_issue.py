@@ -135,18 +135,40 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.assert_not_called()
 
     @mock.patch("jira.client.JIRA")
-    def test_get_jira_client_not_instance(self, mock_client):
+    def test_get_jira_client_no_instance(self, mock_client):
         """
-        This tests 'get_jira_client' function there is no JIRA instance
+        This tests 'get_jira_client' function when there is no JIRA instance
         """
-        # Set up return values
-        self.mock_issue.downstream = {}
+        config_no_default = {
+            "sync2jira": {
+                **self.mock_config["sync2jira"],
+                "default_jira_instance": None,
+            },
+        }
+        mock_issue = Issue(
+            source="github",
+            title="t",
+            url="https://example.com/1",
+            upstream="owner/repo",
+            comments=[],
+            config=config_no_default,
+            tags=[],
+            fixVersion=[],
+            priority=None,
+            content="",
+            reporter={},
+            assignee=[],
+            status="Open",
+            id_="1",
+            storypoints=None,
+            upstream_id="1",
+            issue_type=None,
+            downstream={"project": "dummy"},
+        )
+        with self.assertRaises(Exception) as cm:
+            d.get_jira_client(issue=mock_issue, config=config_no_default)
 
-        # Call the function
-        with self.assertRaises(Exception):
-            d.get_jira_client(issue=self.mock_issue, config=self.mock_config)
-
-        # Assert everything was called correctly
+        self.assertEqual(str(cm.exception), "No configured jira_instance for issue")
         mock_client.assert_not_called()
 
     @mock.patch("jira.client.JIRA")
