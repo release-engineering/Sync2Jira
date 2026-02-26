@@ -7,4 +7,4 @@ omit =
     sync2jira/mailer.py
     continuous-deployment/continuous_deployment.py
 
-fail_under = 70
+fail_under = 98
