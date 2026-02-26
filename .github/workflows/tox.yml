@@ -29,3 +29,4 @@ jobs:
 
       - name: Coveralls
         uses: AndreMiras/coveralls-python-action@develop
+        continue-on-error: true
