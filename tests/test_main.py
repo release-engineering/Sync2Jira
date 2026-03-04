@@ -457,6 +457,17 @@ class TestJiraAuth(unittest.TestCase):
         self.assertEqual(kwargs["token_auth"], "refreshed_token")
         self.assertEqual(mock_post.call_count, 2)
 
+    def test_jira_auth_oauth2_not_dict(self):
+        """OAuth2 config value that is not a dict raises ValueError."""
+        config = {
+            "options": {"server": "https://site.atlassian.net"},
+            "auth_method": "oauth2",
+            "oauth2": "invalid",  # not a dict, so branch around token fetch is taken
+        }
+        with self.assertRaises(ValueError) as ctx:
+            build_jira_client_kwargs(config)
+        self.assertIn("oauth2 must be a dict", str(ctx.exception))
+
     def test_jira_auth_oauth2_missing_credentials(self):
         """OAuth2 missing client_id or client_secret raises ValueError."""
         base = {
