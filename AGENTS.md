@@ -72,7 +72,7 @@ GitHub Event → Fedora Message Bus → sync2jira → Upstream Handler → Inter
 **sync2jira/intermediary.py**: Platform-agnostic data models
 - `Issue` and `PR` classes represent upstream items in a normalized way
 - Factory methods (`from_github()`) convert between GitHub format and internal representation
-- `matcher()` function extracts JIRA ticket references from PR descriptions/comments (e.g., "JIRA: FACTORY-1234")
+- `matcher()` function extracts JIRA ticket reference from the first instance of the magic cookie (e.g., "JIRA: FACTORY-1234") found when searching through comments in reverse order, falling back to the PR description if not found in comments (allowing later comments to override earlier ones)
 
 **sync2jira/upstream_*.py**: GitHub event processors
 - `upstream_issue.py`: Processes GitHub issue events, converts to intermediary objects
@@ -81,7 +81,6 @@ GitHub Event → Fedora Message Bus → sync2jira → Upstream Handler → Inter
 - `upstream_pr.py`: Processes GitHub PR events
 - Filters items based on config (checks if repo is mapped, if issue/PR sync is enabled, applies custom filters)
 - Handles API calls to fetch full issue/PR data when needed
-- Manages upstream rate limiting (and does a less than spectactular job at it)
 
 **sync2jira/downstream_*.py**: JIRA interaction layer
 - `downstream_issue.py`: Creates/updates JIRA issues from intermediary objects
@@ -100,7 +99,7 @@ Sync2Jira supplements downstream JIRA issues with additional metadata from GitHu
 - **Purpose**: Enriches JIRA issues with custom field data from GitHub Projects that isn't available in standard GitHub issue events
 - **GraphQL API**: Uses GitHub's GraphQL API to fetch project field values (upstream_issue.py:32-111)
 - **Supported fields**: priority (mapped to JIRA priority) and storypoints (mapped to JIRA story points)
-- **Configuration**: Requires `github_project_number`, `github_project_fields`, and `github_project_fields` in `issue_updates`
+- **Configuration**: Requires the `github_project_fields` configuration key and the `"github_project_fields"` entry in the `issue_updates` key. The `github_project_number` key is optional (needed only for disambiguation when issues belong to multiple projects)
 - **Field mapping**: Supports custom mappings (e.g., GitHub "P0" → JIRA "Blocker")
 
 Example configuration:
