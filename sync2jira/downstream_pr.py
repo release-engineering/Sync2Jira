@@ -200,10 +200,10 @@ def sync_with_jira(pr, config):
                 log.info("[PR] Jira retry failed; aborting")
                 raise
 
-            # The error is probably because our access has expired; refresh it
-            # and try again.
+            # The error may be due to expired/revoked auth. Ask get_jira_client to
+            # invalidate OAuth2 cache so the next call fetches a new token (no-op for PAT).
             log.info("[PR] Jira request failed; refreshing the Jira client")
-            client = d_issue.get_jira_client(pr, config)
+            client = d_issue.get_jira_client(pr, config, invalidate_oauth2_cache=True)
 
         # Retry the update
         retry = True

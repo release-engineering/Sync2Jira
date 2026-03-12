@@ -33,9 +33,12 @@ class TestDownstreamIssue(unittest.TestCase):
                 "jira_username": "mock_user",
                 "default_jira_fields": {"storypoints": "customfield_12310243"},
                 "jira": {
-                    "mock_jira_instance": {"mock_jira": "mock_jira"},
+                    "mock_jira_instance": {
+                        "basic_auth": ("email", "token"),
+                        "options": {"server": "mock_server"},
+                    },
                     "another_jira_instance": {
-                        "token_auth": "mock_token",
+                        "basic_auth": ("email", "token"),
                         "options": {"server": "mock_server"},
                     },
                 },
@@ -132,18 +135,40 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.assert_not_called()
 
     @mock.patch("jira.client.JIRA")
-    def test_get_jira_client_not_instance(self, mock_client):
+    def test_get_jira_client_no_instance(self, mock_client):
         """
-        This tests 'get_jira_client' function there is no JIRA instance
+        This tests 'get_jira_client' function when there is no JIRA instance
         """
-        # Set up return values
-        self.mock_issue.downstream = {}
+        config_no_default = {
+            "sync2jira": {
+                **self.mock_config["sync2jira"],
+                "default_jira_instance": None,
+            },
+        }
+        mock_issue = Issue(
+            source="github",
+            title="t",
+            url="https://example.com/1",
+            upstream="owner/repo",
+            comments=[],
+            config=config_no_default,
+            tags=[],
+            fixVersion=[],
+            priority=None,
+            content="",
+            reporter={},
+            assignee=[],
+            status="Open",
+            id_="1",
+            storypoints=None,
+            upstream_id="1",
+            issue_type=None,
+            downstream={"project": "dummy"},
+        )
+        with self.assertRaises(Exception) as cm:
+            d.get_jira_client(issue=mock_issue, config=config_no_default)
 
-        # Call the function
-        with self.assertRaises(Exception):
-            d.get_jira_client(issue=self.mock_issue, config=self.mock_config)
-
-        # Assert everything was called correctly
+        self.assertEqual(str(cm.exception), "No configured jira_instance for issue")
         mock_client.assert_not_called()
 
     @mock.patch("jira.client.JIRA")
@@ -155,16 +180,18 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_issue = MagicMock(spec=Issue)
         mock_issue.downstream = {"jira_instance": "mock_jira_instance"}
         mock_jira_instance = MagicMock()
-        mock_jira_instance.session.return_value = None
+        mock_jira_instance.server_info.return_value = None
         mock_client.return_value = mock_jira_instance
 
         # Call the function
 
         response = d.get_jira_client(issue=mock_issue, config=self.mock_config)
 
-        # Assert everything was called correctly
-        mock_client.assert_called_with(mock_jira="mock_jira")
-        mock_jira_instance.session.assert_called_once()
+        # Assert everything was called correctly (kwargs from build_jira_client_kwargs)
+        mock_client.assert_called_with(
+            basic_auth=("email", "token"), options={"server": "mock_server"}
+        )
+        mock_jira_instance.server_info.assert_called_once()
         self.assertEqual(mock_jira_instance, response)
 
     @mock.patch("jira.client.JIRA")
@@ -176,7 +203,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_issue = MagicMock(spec=Issue)
         mock_issue.downstream = {"jira_instance": "mock_jira_instance"}
         mock_jira_instance = MagicMock()
-        mock_jira_instance.session.side_effect = JIRAError("Authentication failed")
+        mock_jira_instance.server_info.side_effect = JIRAError("Authentication failed")
         mock_client.return_value = mock_jira_instance
 
         # Call the function and expect it to raise JIRAError
@@ -184,8 +211,39 @@ class TestDownstreamIssue(unittest.TestCase):
             d.get_jira_client(issue=mock_issue, config=self.mock_config)
 
         # Assert the client was created but failed authentication
-        mock_client.assert_called_with(mock_jira="mock_jira")
-        mock_jira_instance.session.assert_called_once()
+        mock_client.assert_called_with(
+            basic_auth=("email", "token"), options={"server": "mock_server"}
+        )
+        mock_jira_instance.server_info.assert_called_once()
+
+    @mock.patch(PATH + "invalidate_oauth2_cache_for_config")
+    @mock.patch("jira.client.JIRA")
+    def test_get_jira_client_invalidate_oauth2_cache(
+        self, mock_jira_class, mock_invalidate
+    ):
+        """
+        get_jira_client(..., invalidate_oauth2_cache=True) calls
+        invalidate_oauth2_cache_for_config with the jira instance config before
+        building the client.
+        """
+        mock_issue = MagicMock(spec=Issue)
+        mock_issue.downstream = {"jira_instance": "mock_jira_instance"}
+        mock_jira_instance = MagicMock()
+        mock_jira_instance.session.return_value = None
+        mock_jira_class.return_value = mock_jira_instance
+
+        response = d.get_jira_client(
+            issue=mock_issue,
+            config=self.mock_config,
+            invalidate_oauth2_cache=True,
+        )
+
+        expected_config = self.mock_config["sync2jira"]["jira"]["mock_jira_instance"]
+        mock_invalidate.assert_called_once_with(expected_config)
+        mock_jira_class.assert_called_once_with(
+            basic_auth=("email", "token"), options={"server": "mock_server"}
+        )
+        self.assertEqual(response, mock_jira_instance)
 
     @mock.patch("jira.client.JIRA")
     def test_get_existing_legacy(self, client):
