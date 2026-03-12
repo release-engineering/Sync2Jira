@@ -82,7 +82,7 @@ class UrlCache(dict):
     limited number of entries -- excess entries are deleted in FIFO order.
     """
 
-    MAX_SIZE = 1000
+    MAX_SIZE = 20000
 
     def __setitem__(self, key, value):
         while len(self) >= self.MAX_SIZE:

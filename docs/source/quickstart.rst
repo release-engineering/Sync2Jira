@@ -17,7 +17,7 @@ Want to quickly get started working with Sync2Jira? Follow these steps:
     .. code-block:: python
 
         'default_jira_instance': 'example',
-        'jira_username': 'your-bot-account',  # optional, for duplicate detection
+        'jira_username': 'your-bot-account', 
         'jira': {
             'example': {
                 'options': {
