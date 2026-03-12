@@ -295,6 +295,49 @@ def get_jira_client(issue, config):
     return client
 
 
+def _get_existing_jira_issue_remote_link_fallback(client, issue, config):
+    """
+    Fallback: find a JIRA issue by remote link URL using JQL Search Extensions
+    (remoteLinkUrl). Only used when cache/Snowflake did not yield a key and
+    config sync2jira.use_remote_link_jql_fallback is True. Requires the
+    JQL Search Extensions app to be installed on the Jira instance.
+
+    :param jira.client.JIRA client: JIRA client
+    :param sync2jira.intermediary.Issue issue: Issue object
+    :param Dict config: Config dict
+    :returns: JIRA issue if one is found, else None
+    :rtype: JIssue or None
+    """
+    if not validate_github_url(issue.url):
+        return None
+    # Escape " and \ for use inside JQL double-quoted string
+    url_escaped = issue.url.replace("\\", "\\\\").replace('"', '\\"')
+    jql = f'remoteLinkUrl = "{url_escaped}"'
+    try:
+        results = client.search_issues(jql)
+    except JIRAError as e:
+        # App may not be installed or JQL not supported
+        log.debug(
+            "remoteLinkUrl JQL fallback failed (JQL Search Extensions may not be installed): %s",
+            e,
+        )
+        return None
+    if not results:
+        return None
+    if len(results) > 1:
+        results = _filter_downstream_issues(results, issue, client, config)
+        if len(results) > 1:
+            results.sort(
+                key=lambda x: datetime.strptime(
+                    x.fields.updated, "%Y-%m-%dT%H:%M:%S.%f+0000"
+                ),
+                reverse=True,
+            )
+            results = ResultList[JIssue]((results[0],))
+    jira_cache[issue.url] = results[0].key
+    return results[0]
+
+
 def get_existing_jira_issue(client, issue, config):
     """
     Get a jira issue by the linked remote issue.
@@ -309,6 +352,15 @@ def get_existing_jira_issue(client, issue, config):
     # Fetch the Jira issue objects using the key list.
     jql = _get_existing_jira_issue_query(issue)
     if not jql:
+        # Fallback: find by remote link URL via JQL Search Extensions (remoteLinkUrl)
+        if config["sync2jira"].get("use_remote_link_jql_fallback", False):
+            match = _get_existing_jira_issue_remote_link_fallback(client, issue, config)
+            if match:
+                log.debug(
+                    "Found existing issue via remoteLinkUrl JQL fallback for %s",
+                    issue.url,
+                )
+                return match
         return None
     results: ResultList[JIssue] = client.search_issues(jql)
     if not results:
