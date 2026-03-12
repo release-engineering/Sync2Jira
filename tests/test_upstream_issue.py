@@ -767,3 +767,92 @@ class TestUpstreamIssue(unittest.TestCase):
             self.assertIsNone(result)
             # Reset mock
             mock_requests_post.reset_mock()
+
+    def test_passes_github_filters(self):
+        """
+        Test passes_github_filters for labels, milestone, and other fields.
+        Tests all filtering conditions in one test case.
+        """
+        upstream = "org/repo"
+        self.mock_config["sync2jira"]["filters"]["github"][upstream] = {
+            "filter1": "filter1",
+            "labels": ["custom_tag"],
+            "milestone": 1,
+        }
+
+        # Test 1: Bad label - should return False
+        item = {
+            "labels": [{"name": "bad_label"}],
+            "milestone": {"number": 1},
+            "filter1": "filter1",
+        }
+        self.assertFalse(
+            u.passes_github_filters(item, self.mock_config, upstream, item_type="issue")
+        )
+
+        # Test 2: Bad milestone - should return False
+        item = {
+            "labels": [{"name": "custom_tag"}],
+            "milestone": {"number": 456},
+            "filter1": "filter1",
+        }
+        self.assertFalse(
+            u.passes_github_filters(item, self.mock_config, upstream, item_type="issue")
+        )
+
+        # Test 3: Bad other field (filter1) - should return False
+        item = {
+            "labels": [{"name": "custom_tag"}],
+            "milestone": {"number": 1},
+            "filter1": "filter2",
+        }
+        self.assertFalse(
+            u.passes_github_filters(item, self.mock_config, upstream, item_type="issue")
+        )
+
+        # Test 4: All filters pass - should return True
+        item = {
+            "labels": [{"name": "custom_tag"}],
+            "milestone": {"number": 1},
+            "filter1": "filter1",
+        }
+        self.assertTrue(
+            u.passes_github_filters(item, self.mock_config, upstream, item_type="issue")
+        )
+
+        # Test 5: Config specifies only labels; item has matching label (wrong milestone/filter1 ignored) → True
+        self.mock_config["sync2jira"]["filters"]["github"][upstream] = {
+            "labels": ["custom_tag"]
+        }
+        item = {
+            "labels": [{"name": "custom_tag"}],
+            "milestone": {"number": 999},
+            "filter1": "wrong",
+        }
+        self.assertTrue(
+            u.passes_github_filters(item, self.mock_config, upstream, item_type="issue")
+        )
+
+        # Test 6: Config specifies only milestone; item has matching milestone (wrong label/filter1 ignored) → True
+        self.mock_config["sync2jira"]["filters"]["github"][upstream] = {"milestone": 1}
+        item = {
+            "labels": [{"name": "bad_label"}],
+            "milestone": {"number": 1},
+            "filter1": "wrong",
+        }
+        self.assertTrue(
+            u.passes_github_filters(item, self.mock_config, upstream, item_type="issue")
+        )
+
+        # Test 7: Config specifies only filter1; item has matching filter1 (wrong label/milestone ignored) → True
+        self.mock_config["sync2jira"]["filters"]["github"][upstream] = {
+            "filter1": "filter1"
+        }
+        item = {
+            "labels": [{"name": "bad_label"}],
+            "milestone": {"number": 999},
+            "filter1": "filter1",
+        }
+        self.assertTrue(
+            u.passes_github_filters(item, self.mock_config, upstream, item_type="issue")
+        )
