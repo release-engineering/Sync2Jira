@@ -61,7 +61,7 @@ The config file is made up of multiple parts
 * Here you can configure multiple JIRA instances if you have projects with differing downstream JIRA instances.
   Ensure to name them appropriately; in the example above the JIRA instance name is `example`.
 
-* You can choose authentication method per instance with ``auth_method``:
+* You can choose the authentication method per instance with ``auth_method``:
 
   * **PAT (Personal Access Token)** – default. Set ``auth_method: 'pat'`` and use
     ``basic_auth`` (email and API token, e.g. for Jira Cloud):

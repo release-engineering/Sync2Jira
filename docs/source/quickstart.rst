@@ -32,18 +32,19 @@ Want to quickly get started working with Sync2Jira? Follow these steps:
     For OAuth 2.0 (e.g. Atlassian service account), use instead:
 
     .. code-block:: python
-
-        'example': {
-            'options': {
-                'server': 'https://your-domain.atlassian.net',
-                'verify': True,
+        'jira':{
+            'example': {
+                'options': {
+                    'server': 'https://your-domain.atlassian.net',
+                    'verify': True,
+                },
+                'auth_method': 'oauth2',
+                'oauth2': {
+                    'client_id': 'YOUR_CLIENT_ID',
+                    'client_secret': 'YOUR_CLIENT_SECRET',
+                },
             },
-            'auth_method': 'oauth2',
-            'oauth2': {
-                'client_id': 'YOUR_CLIENT_ID',
-                'client_secret': 'YOUR_CLIENT_SECRET',
-            },
-        },
+        }
 
     .. note:: You might have to set verify to False
 

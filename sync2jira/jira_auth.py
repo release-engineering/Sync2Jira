@@ -20,7 +20,7 @@ Jira authentication helpers.
 
 This module's interface: pass a Jira instance config dict to
 :func:`build_jira_client_kwargs`; the config may include ``auth_method``
-(one of :const:`AUTH_METHOD_PAT` or :const:`AUTH_METHOD_OAUTH2`, default if
+(one of :const:`AUTH_METHOD_PAT` or :const:`AUTH_METHOD_OAUTH2`; the default if
 omitted is :const:`AUTH_METHOD_PAT`), and credentials as described below.
 We ignore or remove config keys that do not apply to the chosen auth method
 and validate their values as needed.
@@ -66,7 +66,7 @@ _oauth2_token_cache: Dict[Tuple[str, str, str], OAuth2CachedToken] = {}
 def _fetch_oauth2_token(
     client_id: str,
     client_secret: str,
-    token_url: str = DEFAULT_OAUTH2_TOKEN_URL,
+    token_url: str,
 ) -> OAuth2CachedToken:
     """Request a new OAuth2 access token. Returns token and expiry timestamp."""
     response = requests.post(

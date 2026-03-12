@@ -91,15 +91,14 @@ config = {
                     'server': 'https://your-jira.example.com',
                     'verify': True,
                 },
-                # Use 'pat' (default) or 'oauth2'
-                'auth_method': 'pat',
-                # For OAuth 2.0: set auth_method to 'oauth2' and uncomment:
+                'auth_method': 'pat',    # Use 'pat' (default) or 'oauth2'
+                # For PAT: email and API token (e.g. Jira Cloud)
+                'basic_auth': ('your-email@example.com', 'YOUR_JIRA_API_TOKEN'),
+                # For OAuth 2.0: set auth_method to 'oauth2' and replace 'basic_auth' with:
                 # 'oauth2': {
                 #     'client_id': 'YOUR_CLIENT_ID',
                 #     'client_secret': 'YOUR_CLIENT_SECRET',
                 # },
-                # For PAT: email and API token (e.g. Jira Cloud)
-                'basic_auth': ('your-email@example.com', 'YOUR_JIRA_API_TOKEN'),
             },
         },
         
@@ -142,7 +141,7 @@ config = {
 | `filters` | Filter issues by labels, milestones, etc. | `{}` |
 | `admins` | List of admin users for notifications | `[]` |
 
-**JIRA authentication:** Each JIRA instance can use **PAT** (``auth_method: 'pat'``, with ``basic_auth``: email + API token) or **OAuth 2.0** (``auth_method: 'oauth2'``, with ``oauth2``: ``client_id`` and ``client_secret`` from an Atlassian service account). See the `Configuration Reference <https://sync2jira.readthedocs.io/en/main/config-file.html>`_ for details.
+**JIRA authentication:** Each JIRA instance can use **PAT** (``auth_method: 'pat'``, with ``basic_auth``: email + API token) or **OAuth 2.0** (``auth_method: 'oauth2'``, with ``oauth2``: ``client_id`` and ``client_secret`` from an Atlassian service account). See the [Configuration Reference](https://sync2jira.readthedocs.io/en/main/config-file.html) for details.
 
 ## Usage
 

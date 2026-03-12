@@ -50,15 +50,14 @@ config = {
                     'server': 'https://some_jira_server_somewhere.com',
                     'verify': True,
                 },
-                # Use 'pat' (default) or 'oauth2'
-                'auth_method': 'pat',
-                # For OAuth 2.0: set auth_method to 'oauth2' and use:
+                'auth_method': 'pat',    # Use 'pat' (default) or 'oauth2'
+                # For PAT: email and API token (e.g. Jira Cloud)
+                'basic_auth': ('your-email@example.com', 'YOUR_JIRA_API_TOKEN'),
+                # For OAuth 2.0: set auth_method to 'oauth2' and replace 'basic_auth' with:
                 # 'oauth2': {
                 #     'client_id': 'YOUR_CLIENT_ID',
                 #     'client_secret': 'YOUR_CLIENT_SECRET',
                 # },
-                # For PAT: email and API token (e.g. Jira Cloud)
-                'basic_auth': ('your-email@example.com', 'YOUR_JIRA_API_TOKEN'),
             },
         },
         'default_jira_fields': {
