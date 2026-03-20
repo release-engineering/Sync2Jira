@@ -516,6 +516,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user = MagicMock()
         mock_user.displayName = "mock_assignee"
         mock_user.key = "mock_user_key"
+        mock_user.accountId = "mock-account-id-assign"
         mock_client.search_users.return_value = [mock_user]
         mock_client.assign_issue.return_value = True
         mock_rover_lookup.return_value = ["mock_user@redhat.com"]
@@ -525,11 +526,11 @@ class TestDownstreamIssue(unittest.TestCase):
             issue=self.mock_issue, downstream=self.mock_downstream, client=mock_client
         )
 
-        # Assert that all calls mocked were called properly
+        # Assert that all calls mocked were called properly (Jira Cloud: accountId)
         self.mock_downstream.update.assert_called_with(
-            {"assignee": {"name": mock_user.name}}
+            {"assignee": {"accountId": mock_user.accountId}}
         )
-        mock_client.search_users.assert_called_with(user="mock_user@redhat.com")
+        mock_client.search_users.assert_called_with(query="mock_user@redhat.com")
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
@@ -542,6 +543,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user = MagicMock()
         mock_user.displayName = "mock_assignee"
         mock_user.key = "mock_user_key"
+        mock_user.accountId = "mock-account-id-diacritics"
         mock_client.search_users.return_value = [mock_user]
         mock_client.assign_issue.return_value = True
         mock_rover_lookup.return_value = ["mock_user@redhat.com"]
@@ -555,9 +557,9 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert that all calls mocked were called properly
         self.mock_downstream.update.assert_called_with(
-            {"assignee": {"name": mock_user.name}}
+            {"assignee": {"accountId": mock_user.accountId}}
         )
-        mock_client.search_users.assert_called_with(user="mock_user@redhat.com")
+        mock_client.search_users.assert_called_with(query="mock_user@redhat.com")
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
@@ -572,11 +574,13 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_user.name = "mock_assignee_name"
         mock_user.emailAddress = "mock_user@redhat.com"
         mock_user.key = "mock_user_key"
+        mock_user.accountId = "mock-account-id-multi"
         mock_user2 = MagicMock()
         mock_user2.displayName = "mock_assignee2"
         mock_user2.name = "mock_assignee2_name"
         mock_user2.emailAddress = "wrong_mock_user@redhat.com"
         mock_user2.key = "mock_user2_key"
+        mock_user2.accountId = "mock-account-id-2"
         mock_client.search_users.return_value = [
             mock_user,
             mock_user2,
@@ -608,9 +612,9 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert that all calls mocked were called properly
         self.mock_downstream.update.assert_called_with(
-            {"assignee": {"name": mock_user.name}}
+            {"assignee": {"accountId": mock_user.accountId}}
         )
-        mock_client.search_users.assert_called_with(user="mock_user@redhat.com")
+        mock_client.search_users.assert_called_with(query="mock_user@redhat.com")
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")
@@ -658,7 +662,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert that all calls mocked were called properly
         mock_client.assign_issue.assert_called_with(1234, "mock_owner")
-        mock_client.search_users.assert_called_with(user="no_match@redhat.com")
+        mock_client.search_users.assert_called_with(query="no_match@redhat.com")
 
     @mock.patch("Rover_Lookup.github_username_to_emails")
     @mock.patch("jira.client.JIRA")

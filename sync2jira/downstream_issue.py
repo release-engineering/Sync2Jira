@@ -23,7 +23,7 @@ import logging
 import operator
 import os
 import re
-from typing import Any, Optional, Union
+from typing import Any, Dict, Optional, Union
 import unicodedata
 
 from dotenv import load_dotenv
@@ -568,38 +568,49 @@ def _upgrade_jira_issue(client, downstream, issue, config):
     attach_link(client, downstream, remote_link)
 
 
-def match_user(emails: list[str], client: jira.client.JIRA) -> Optional[str]:
-    """Match an upstream user to an assignable downstream user and return the
-    downstream username; return None on failure.
+def match_user(emails: list[str], client: jira.client.JIRA) -> Optional[Dict[str, str]]:
+    """Match an upstream user to an assignable downstream Jira user.
+
+    Returns a dict with ``name`` (display name) and ``accountId`` for Jira Cloud,
+    or None on failure.
     """
 
     for email in emails:
         # Get a list from Jira of users that match the supplied email address.
-        users = client.search_users(user=email)
+        # Use query= for Jira Cloud (GDPR strict mode rejects the username param).
+        users = client.search_users(query=email)
 
         if not users:
             continue
 
         if len(users) == 1:
-            # TODO:  We should probably return the ID here, instead.
-            return users[0].name
+            u = users[0]
+            aid = getattr(u, "accountId", None)
+            return {
+                "name": getattr(u, "displayName", None) or "",
+                "accountId": aid,
+            }
 
         limit = 5
         log.warning(
             "Found %d Jira users for %r:  %s%s",
             len(users),
             email,
-            ", ".join(u.name for u in users[0:limit]),
+            ", ".join(getattr(u, "displayName", None) for u in users[0:limit]),
             "..." if len(users) > limit else "",
         )
         for user in users:
-            # This condition _should_ be true for *all* entries returned, in
-            # which case we'll just return the first entry; however it appears
-            # that sometimes Jira returns _all_ assignable users, so do our own
-            # filtering.
-            if user.emailAddress == email:
-                log.info("Found matching user: %r", user.name)
-                return user.name
+            # Filter by email when present (can be omitted in Cloud when hidden).
+            if getattr(user, "emailAddress", None) == email:
+                log.info(
+                    "Found matching user: %r",
+                    getattr(user, "displayName", None),
+                )
+                aid = getattr(user, "accountId", None)
+                return {
+                    "name": getattr(user, "displayName", None) or "",
+                    "accountId": aid,
+                }
         else:
             log.warning("Found no Jira user which matches %r", email)
 
@@ -637,11 +648,11 @@ def assign_user(
             continue
 
         # Try to match the upstream assignee's emails to a Jira user
-        match_name = match_user(emails, client)
-        if match_name:
-            # Assign the downstream issue to the matched user
-            downstream.update({"assignee": {"name": match_name}})
-            log.info("Assigned %s to %r", downstream.key, match_name)
+        matched = match_user(emails, client)
+        if matched and matched.get("accountId"):
+            # Jira Cloud assigns by accountId
+            downstream.update({"assignee": {"accountId": matched["accountId"]}})
+            log.info("Assigned %s to %r", downstream.key, matched.get("name"))
             return
 
     if issue.assignee:

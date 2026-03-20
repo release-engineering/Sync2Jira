@@ -41,12 +41,13 @@ def format_comment(pr, pr_suffix, client):
     :return: Formatted comment
     :rtype: String
     """
-    # Find the pr.reporters JIRA username
-    ret = client.search_users(pr.reporter)
+    # Find the pr.reporter's Jira user (use query= for Jira Cloud GDPR strict mode).
+    ret = client.search_users(query=pr.reporter)
     # Loop through ret till we find a match
     for user in ret:
         if user.displayName == pr.reporter:
-            reporter = f"[~{user.key}]"
+            aid = getattr(user, "accountId", None)
+            reporter = f"[~{aid}]"
             break
     else:
         reporter = pr.reporter
