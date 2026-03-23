@@ -335,7 +335,7 @@ class TestDownstreamPR(unittest.TestCase):
         self.mock_client.search_users.assert_called_with(query="mock_reporter")
         self.assertEqual(
             response,
-            "[~mock-atlassian-account-id] mentioned this issue in merge request [mock_title| mock_url].",
+            "[~accountId:mock-atlassian-account-id] mentioned this issue in merge request [mock_title| mock_url].",
         )
 
     def test_format_comment_open_no_user_found(self):

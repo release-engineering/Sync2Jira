@@ -45,9 +45,9 @@ def format_comment(pr, pr_suffix, client):
     ret = client.search_users(query=pr.reporter)
     # Loop through ret till we find a match
     for user in ret:
-        if user.displayName == pr.reporter:
+        if getattr(user, "displayName", "") == pr.reporter:
             aid = getattr(user, "accountId", None)
-            reporter = f"[~{aid}]"
+            reporter = f"[~accountId:{aid}]"
             break
     else:
         reporter = pr.reporter

@@ -585,10 +585,9 @@ def match_user(emails: list[str], client: jira.client.JIRA) -> Optional[Dict[str
 
         if len(users) == 1:
             u = users[0]
-            aid = getattr(u, "accountId", None)
             return {
-                "name": getattr(u, "displayName", None) or "",
-                "accountId": aid,
+                "name": getattr(u, "displayName", None) or "<name-not-available>",
+                "accountId": getattr(u, "accountId", None),
             }
 
         limit = 5
@@ -596,21 +595,19 @@ def match_user(emails: list[str], client: jira.client.JIRA) -> Optional[Dict[str
             "Found %d Jira users for %r:  %s%s",
             len(users),
             email,
-            ", ".join(getattr(u, "displayName", None) for u in users[0:limit]),
+            ", ".join(
+                getattr(u, "displayName", "<name-not-available>")
+                for u in users[0:limit]
+            ),
             "..." if len(users) > limit else "",
         )
         for user in users:
             # Filter by email when present (can be omitted in Cloud when hidden).
             if getattr(user, "emailAddress", None) == email:
-                log.info(
-                    "Found matching user: %r",
-                    getattr(user, "displayName", None),
-                )
+                name = getattr(user, "displayName", None) or "<no-name-available>"
                 aid = getattr(user, "accountId", None)
-                return {
-                    "name": getattr(user, "displayName", None) or "",
-                    "accountId": aid,
-                }
+                log.info("Found matching user: %r", name)
+                return {"name": name, "accountId": aid}
         else:
             log.warning("Found no Jira user which matches %r", email)
 
@@ -649,10 +646,15 @@ def assign_user(
 
         # Try to match the upstream assignee's emails to a Jira user
         matched = match_user(emails, client)
-        if matched and matched.get("accountId"):
+        if matched and matched["accountId"]:
             # Jira Cloud assigns by accountId
             downstream.update({"assignee": {"accountId": matched["accountId"]}})
-            log.info("Assigned %s to %r", downstream.key, matched.get("name"))
+            log.info(
+                "Assigned %s to %r",
+                downstream.key,
+                matched["name"],
+                matched["accountId"],
+            )
             return
 
     if issue.assignee:
