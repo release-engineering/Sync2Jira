@@ -650,7 +650,7 @@ def assign_user(
             # Jira Cloud assigns by accountId
             downstream.update({"assignee": {"accountId": matched["accountId"]}})
             log.info(
-                "Assigned %s to %r",
+                "Assigned %s to %r,%r",
                 downstream.key,
                 matched["name"],
                 matched["accountId"],
