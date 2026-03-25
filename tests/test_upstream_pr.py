@@ -122,7 +122,7 @@ class TestUpstreamPR(unittest.TestCase):
             },
             "mock_suffix",
             self.mock_config,
-            action=None,
+            None,
         )
         mock_github.assert_called_with("mock_token", retry=5)
         self.assertEqual("Successful Call!", response)
@@ -201,7 +201,6 @@ class TestUpstreamPR(unittest.TestCase):
             },
             "open",
             self.mock_config,
-            action=None,
         )
         self.mock_github_client.get_repo.assert_called_with("org/repo")
         self.mock_github_repo.get_pull.assert_called_with(number="1234")

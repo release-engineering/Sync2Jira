@@ -255,14 +255,13 @@ class TestIntermediary(unittest.TestCase):
         """Flat topic: suffix from webhook action (+ merged when closed); else open."""
         mock_matcher.return_value = "JIRA-1"
         flat = "github.pull_request"
-        _omit_action = object()
         cases = (
             ("closed with merge", {"merged": True}, "closed", "merged"),
             ("closed without merge", {"merged": False}, "closed", "closed"),
             ("reopened", {}, "reopened", "reopened"),
             ("opened", {}, "opened", "open"),
             ("edited maps to open", {}, "edited", "open"),
-            ("missing action", {}, _omit_action, "open"),
+            ("missing action", {}, None, "open"),
         )
         for name, pr_extra, action, expected in cases:
             with self.subTest(name):
@@ -273,7 +272,7 @@ class TestIntermediary(unittest.TestCase):
                     suffix=flat,
                     config=self.mock_config,
                 )
-                if action is not _omit_action:
+                if action is not None:
                     base_kw["action"] = action
                 response = i.PR.from_github(**base_kw)
                 self.assertEqual(response.suffix, expected)

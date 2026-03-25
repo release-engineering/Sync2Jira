@@ -215,19 +215,15 @@ class PR(object):
         # Match to a JIRA
         match = matcher(pr.get("body"), comments)
 
-        _lifecycle = frozenset({"open", "merged", "closed", "reopened"})
+        lifecycle = frozenset({"open", "merged", "closed", "reopened"})
         if action:
             if action == "reopened":
                 suffix = "reopened"
             elif action == "closed":
                 suffix = "merged" if pr.get("merged") else "closed"
-            elif action == "opened":
-                suffix = "open"
             else:
                 suffix = "open"
-        elif suffix in _lifecycle:
-            pass
-        else:
+        elif suffix not in lifecycle:
             suffix = "open"
 
         # Return our PR object
