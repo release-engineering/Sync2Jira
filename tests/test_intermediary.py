@@ -256,20 +256,22 @@ class TestIntermediary(unittest.TestCase):
         mock_matcher.return_value = "JIRA-1"
         flat = "github.pull_request"
         cases = (
-            ("closed with merge", {"merged": True}, "closed", "merged"),
-            ("closed without merge", {"merged": False}, "closed", "closed"),
-            ("reopened", {}, "reopened", "reopened"),
-            ("opened", {}, "opened", "open"),
-            ("edited maps to open", {}, "edited", "open"),
-            ("missing action", {}, None, "open"),
+            ("closed with merge", {"merged": True}, "closed", "merged", flat),
+            ("closed without merge", {"merged": False}, "closed", "closed", flat),
+            ("reopened", {}, "reopened", "reopened", flat),
+            ("opened", {}, "opened", "open", flat),
+            ("edited maps to open", {}, "edited", "open", flat),
+            ("missing action flat topic", {}, None, "open", flat),
+            ("missing action preserves closed", {}, None, "closed", "closed"),
+            ("missing action preserves merged", {}, None, "merged", "merged"),
         )
-        for name, pr_extra, action, expected in cases:
+        for name, pr_extra, action, expected, suffix in cases:
             with self.subTest(name):
                 pr = {**self.mock_github_pr, **pr_extra}
                 base_kw = dict(
                     upstream="github",
                     pr=pr,
-                    suffix=flat,
+                    suffix=suffix,
                     config=self.mock_config,
                 )
                 if action is not None:
