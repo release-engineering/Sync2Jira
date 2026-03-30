@@ -122,6 +122,7 @@ class TestUpstreamPR(unittest.TestCase):
             },
             "mock_suffix",
             self.mock_config,
+            None,
         )
         mock_github.assert_called_with("mock_token", retry=5)
         self.assertEqual("Successful Call!", response)

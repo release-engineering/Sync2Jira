@@ -201,7 +201,7 @@ class PR(object):
         return "[%s] %s" % (self.upstream, self._title)
 
     @classmethod
-    def from_github(cls, upstream, pr, suffix, config):
+    def from_github(cls, upstream, pr, suffix, config, action=None):
         """Helper function to create an intermediary PR object."""
         # Set our upstream source
         upstream_source = "github"
@@ -215,15 +215,16 @@ class PR(object):
         # Match to a JIRA
         match = matcher(pr.get("body"), comments)
 
-        # Figure out what state we're transitioning too
-        if "reopened" in suffix:
-            suffix = "reopened"
-        elif "closed" in suffix:
-            # Check if we're merging or closing
-            if pr["merged"]:
-                suffix = "merged"
+        lifecycle = frozenset({"open", "merged", "closed", "reopened"})
+        if action:
+            if action == "reopened":
+                suffix = "reopened"
+            elif action == "closed":
+                suffix = "merged" if pr.get("merged") else "closed"
             else:
-                suffix = "closed"
+                suffix = "open"
+        elif suffix not in lifecycle:
+            suffix = "open"
 
         # Return our PR object
         return cls(

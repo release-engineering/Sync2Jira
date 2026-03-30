@@ -227,18 +227,15 @@ class TestIntermediary(unittest.TestCase):
 
     @mock.patch(PATH + "matcher")
     def test_from_github_pr_reopen(self, mock_matcher):
-        """
-        This tests the message from GitHub for a PR
-        """
-        # Set up return values
+        """PR reopen uses webhook action, not topic suffix."""
         mock_matcher.return_value = "JIRA-1234"
 
-        # Call the function
         response = i.PR.from_github(
             upstream="github",
             pr=self.mock_github_pr,
-            suffix="reopened",
+            suffix="github.pull_request",
             config=self.mock_config,
+            action="reopened",
         )
 
         # Assert that we made the calls correctly
@@ -252,6 +249,35 @@ class TestIntermediary(unittest.TestCase):
         mock_matcher.assert_called_with(
             self.mock_github_pr["body"], self.mock_github_pr["comments"]
         )
+
+    @mock.patch(PATH + "matcher")
+    def test_from_github_pr_flat_topic_normalizes_suffix(self, mock_matcher):
+        """Flat topic: suffix from webhook action (+ merged when closed); else open."""
+        mock_matcher.return_value = "JIRA-1"
+        flat = "github.pull_request"
+        cases = (
+            ("closed with merge", {"merged": True}, "closed", "merged", flat),
+            ("closed without merge", {"merged": False}, "closed", "closed", flat),
+            ("reopened", {}, "reopened", "reopened", flat),
+            ("opened", {}, "opened", "open", flat),
+            ("edited maps to open", {}, "edited", "open", flat),
+            ("missing action flat topic", {}, None, "open", flat),
+            ("missing action preserves closed", {}, None, "closed", "closed"),
+            ("missing action preserves merged", {}, None, "merged", "merged"),
+        )
+        for name, pr_extra, action, expected, suffix in cases:
+            with self.subTest(name):
+                pr = {**self.mock_github_pr, **pr_extra}
+                base_kw = dict(
+                    upstream="github",
+                    pr=pr,
+                    suffix=suffix,
+                    config=self.mock_config,
+                )
+                if action is not None:
+                    base_kw["action"] = action
+                response = i.PR.from_github(**base_kw)
+                self.assertEqual(response.suffix, expected)
 
     def test_matcher(self):
         """This tests the matcher function"""

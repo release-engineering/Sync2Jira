@@ -47,7 +47,7 @@ def handle_github_message(body, config, suffix):
     token = config["sync2jira"].get("github_token")
     github_client = Github(token, retry=5)
     reformat_github_pr(pr, upstream, github_client)
-    return i.PR.from_github(upstream, pr, suffix, config)
+    return i.PR.from_github(upstream, pr, suffix, config, body.get("action"))
 
 
 def github_prs(upstream, config):
