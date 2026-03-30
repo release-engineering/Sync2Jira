@@ -65,11 +65,11 @@ FROM
             rl.URL AS remote_link_url,
             ji.updated
         FROM
-            JIRA_DB.MARTS.JIRA_REMOTELINK AS rl
-            INNER JOIN JIRA_DB.MARTS.JIRA_ISSUE AS ji ON ji.ID = rl.ISSUEID
+            JIRA_DB.CLOUD_MARTS.JIRA_REMOTELINK AS rl
+            INNER JOIN JIRA_DB.CLOUD_MARTS.JIRA_ISSUE AS ji ON ji.ID = rl.ISSUEID
             AND rl.TITLE = '{remote_link_title}' AND rl.URL = ?
     ) AS a
-    LEFT JOIN JIRA_DB.MARTS.JIRA_PROJECT AS p on a.project_id = p.ID
+    LEFT JOIN JIRA_DB.CLOUD_MARTS.JIRA_PROJECT AS p on a.project_id = p.ID
 """
 
 
