@@ -50,6 +50,7 @@ class TestDownstreamPR(unittest.TestCase):
         mock_user = MagicMock()
         mock_user.displayName = "mock_reporter"
         mock_user.key = "mock_key"
+        mock_user.accountId = "mock-atlassian-account-id"
         self.mock_client.search_users.return_value = [mock_user]
         self.mock_client.search_issues.return_value = ["mock_existing"]
 
@@ -331,9 +332,10 @@ class TestDownstreamPR(unittest.TestCase):
         response = d.format_comment(self.mock_pr, "open", self.mock_client)
 
         # Assert Everything was called correctly
+        self.mock_client.search_users.assert_called_with(query="mock_reporter")
         self.assertEqual(
             response,
-            "[~mock_key] mentioned this issue in merge request [mock_title| mock_url].",
+            "[~accountId:mock-atlassian-account-id] mentioned this issue in merge request [mock_title| mock_url].",
         )
 
     def test_format_comment_open_no_user_found(self):
@@ -347,6 +349,7 @@ class TestDownstreamPR(unittest.TestCase):
         response = d.format_comment(self.mock_pr, "open", self.mock_client)
 
         # Assert Everything was called correctly
+        self.mock_client.search_users.assert_called_with(query="mock_reporter")
         self.assertEqual(
             response,
             "mock_reporter mentioned this issue in merge request [mock_title| mock_url].",
