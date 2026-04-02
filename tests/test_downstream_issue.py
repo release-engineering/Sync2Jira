@@ -287,40 +287,57 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_issue_3.fields = MagicMock()
         mock_issue_3.fields.updated = "2025-11-30T00:00:00.0+0000"
 
+        def _q(keys):
+            if not keys:
+                return (), None
+            return keys, f"key in ({','.join(keys)})"
+
         scenarios = (
             {
-                "scenario": "_get_existing_jira_issue_query returns None",
-                "jira_results": None,
+                "scenario": "_get_existing_jira_issue_query returns no keys",
+                "query_return": _q(()),
                 "search_issues": None,
                 "filter_results": None,
                 "expected": None,
+                "issue_side_effect": None,
             },
             {
-                "scenario": "Jira search returns no items",
-                "jira_results": "mock issue key query string",
+                "scenario": "Jira search returns no items, direct fetch fails",
+                "query_return": _q(("MOCK-1",)),
                 "search_issues": ResultList[JIssue](()),
                 "filter_results": None,
                 "expected": None,
+                "issue_side_effect": JIRAError(),
+            },
+            {
+                "scenario": "Jira search returns no items, direct fetch succeeds",
+                "query_return": _q(("MOCK-1",)),
+                "search_issues": ResultList[JIssue](()),
+                "filter_results": None,
+                "expected": mock_issue_1,
+                "issue_side_effect": None,
             },
             {
                 "scenario": "Jira search returns one item",
-                "jira_results": "mock issue key query string",
+                "query_return": _q(("MOCK-1",)),
                 "search_issues": ResultList[JIssue]((mock_issue_1,)),
                 "filter_results": None,
                 "expected": mock_issue_1,
+                "issue_side_effect": None,
             },
             {
                 "scenario": "_filter_downstream_issues returns one item",
-                "jira_results": "mock issue key query string",
+                "query_return": _q(("MOCK-1", "MOCK-2", "MOCK-3")),
                 "search_issues": ResultList[JIssue](
                     (mock_issue_1, mock_issue_2, mock_issue_3)
                 ),
                 "filter_results": ResultList[JIssue]((mock_issue_3,)),
                 "expected": mock_issue_3,
+                "issue_side_effect": None,
             },
             {
                 "scenario": "_filter_downstream_issues returns multiple items",
-                "jira_results": "mock issue key query string",
+                "query_return": _q(("MOCK-1", "MOCK-2", "MOCK-3")),
                 "search_issues": ResultList[JIssue](
                     (mock_issue_1, mock_issue_2, mock_issue_3)
                 ),
@@ -328,14 +345,20 @@ class TestDownstreamIssue(unittest.TestCase):
                     (mock_issue_1, mock_issue_2, mock_issue_3)
                 ),
                 "expected": mock_issue_2,  # Most-recently updated
+                "issue_side_effect": None,
             },
         )
 
         for x in scenarios:
             d.jira_cache = d.UrlCache()  # Clear the cache
-            mock_get_query.return_value = x["jira_results"]
+            mock_get_query.return_value = x["query_return"]
             mock_client.search_issues.return_value = x["search_issues"]
             mock_filter.return_value = x["filter_results"]
+            if x["issue_side_effect"] is not None:
+                mock_client.issue.side_effect = x["issue_side_effect"]
+            else:
+                mock_client.issue.side_effect = None
+                mock_client.issue.return_value = mock_issue_1
             result = d.get_existing_jira_issue(
                 client=mock_client, issue=self.mock_issue, config=self.mock_config
             )
@@ -349,17 +372,17 @@ class TestDownstreamIssue(unittest.TestCase):
             {
                 "jira_cache": {self.mock_issue.url: "issue_key"},
                 "snowflake": (),
-                "expected": "key in (issue_key)",
+                "expected": (("issue_key",), "key in (issue_key)"),
             },
             {
                 "jira_cache": {},
                 "snowflake": (),
-                "expected": None,
+                "expected": ((), None),
             },
             {
                 "jira_cache": {},
                 "snowflake": (("issue_key",),),
-                "expected": "key in (issue_key)",
+                "expected": (("issue_key",), "key in (issue_key)"),
             },
             {
                 "jira_cache": {},
@@ -368,7 +391,10 @@ class TestDownstreamIssue(unittest.TestCase):
                     ("issue_key_2",),
                     ("issue_key_3",),
                 ),
-                "expected": "key in (issue_key_1,issue_key_2,issue_key_3)",
+                "expected": (
+                    ("issue_key_1", "issue_key_2", "issue_key_3"),
+                    "key in (issue_key_1,issue_key_2,issue_key_3)",
+                ),
             },
         )
 
@@ -1697,7 +1723,7 @@ class TestDownstreamIssue(unittest.TestCase):
         # Set up return values
         mock_comment = MagicMock()
         mock_comment.body = "Marking as duplicate of TEST-1234"
-        mock_comment.author.name = "mock_user"
+        mock_comment.author.displayName = "mock_user"
         mock_client.comments.return_value = [mock_comment]
         mock_client.issue.return_value = "Successful Call!"
 
