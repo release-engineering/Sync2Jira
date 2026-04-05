@@ -23,7 +23,7 @@ import logging
 import operator
 import os
 import re
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Union
 import unicodedata
 
 from dotenv import load_dotenv
@@ -316,14 +316,14 @@ def get_existing_jira_issue(client, issue, config):
     :rtype: JIssue or None
     """
 
-    issue_keys, jql = _get_existing_jira_issue_query(issue)
-    if not jql:
+    issue_keys = _get_existing_jira_issue_query(issue)
+    if not issue_keys:
         return None
+    jql = f"key in ({','.join(issue_keys)})"
     results: ResultList[JIssue] = client.search_issues(jql)
     if not results:
         # JQL/search index can lag right after create, or hide archived issues.
         # Resolve by issue key (direct GET) before giving up and duplicating.
-        results = ResultList[JIssue]()
         for key in issue_keys:
             try:
                 found = client.issue(key)
@@ -336,7 +336,7 @@ def get_existing_jira_issue(client, issue, config):
             )
             results = ResultList[JIssue]((found,))
             break
-        if not results:
+        else:
             log.warning(
                 "Downstream issue not found for upstream %s after JQL %r and direct fetch for keys %s.",
                 issue.url,
@@ -370,27 +370,25 @@ def get_existing_jira_issue(client, issue, config):
     return results[0]
 
 
-def _get_existing_jira_issue_query(
-    issue: Issue,
-) -> Tuple[tuple[str, ...], Optional[str]]:
+def _get_existing_jira_issue_query(issue: Issue) -> tuple[str, ...]:
     """
     Generate a JQL query to find downstream issues corresponding to a given
-    upstream issue.  Return empty tuple and None if no matches were found in either our local
+    upstream issue.  Return empty tuple if no matches were found in either our local
     cache or in the Dataverse.
 
     :param sync2jira.intermediary.Issue issue: Issue object
     :returns: A string containing the JQL query or None if no matches
-    :rtype: Tuple[tuple[str, ...], Optional[str]]
+    :rtype: Tuple[tuple[str, ...]
     """
     if result := jira_cache.get(issue.url):
         issue_keys = (result,)
     else:
         results = execute_snowflake_query(issue)
         if not results:
-            return (), None
+            return None
         issue_keys = tuple(row[0] for row in results)
 
-    return issue_keys, f"key in ({','.join(issue_keys)})"
+    return issue_keys
 
 
 def _filter_downstream_issues(
@@ -460,9 +458,7 @@ def check_comments_for_duplicate(client, result, username):
     for comment in client.comments(result):
         search = re.search(r"Marking as duplicate of (\w*)-(\d*)", comment.body)
         author = comment.author
-        author_label = getattr(author, "displayName", None) or getattr(
-            author, "name", None
-        )
+        author_label = getattr(author, "displayName", getattr(author, "name", None))
         if search and author_label == username:
             issue_id = search.groups()[0] + "-" + search.groups()[1]
             return client.issue(issue_id)
