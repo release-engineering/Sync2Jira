@@ -444,6 +444,13 @@ def find_username(_issue, config):
     return config["sync2jira"]["jira_username"]
 
 
+def _jira_user_display_label(user) -> Optional[str]:
+    """Best-effort display string for a Jira User (Cloud: displayName, else name)."""
+    if not user:
+        return None
+    return getattr(user, "displayName", getattr(user, "name", None))
+
+
 def check_comments_for_duplicate(client, result, username):
     """
     Checks comment of JIRA issue to see if it has been
@@ -457,8 +464,7 @@ def check_comments_for_duplicate(client, result, username):
     """
     for comment in client.comments(result):
         search = re.search(r"Marking as duplicate of (\w*)-(\d*)", comment.body)
-        author = comment.author
-        author_label = getattr(author, "displayName", getattr(author, "name", None))
+        author_label = _jira_user_display_label(comment.author)
         if search and author_label == username:
             issue_id = search.groups()[0] + "-" + search.groups()[1]
             return client.issue(issue_id)
@@ -1137,9 +1143,8 @@ def _update_assignee(client, existing, issue, overwrite):
     us_exists = bool(
         issue.assignee and issue.assignee[0] and issue.assignee[0].get("fullname")
     )
-    ds_exists = bool(existing.fields.assignee) and hasattr(
-        existing.fields.assignee, "displayName"
-    )
+    assignee = existing.fields.assignee
+    ds_exists = bool(assignee) and _jira_user_display_label(assignee) is not None
     if overwrite:
         if not ds_exists:
             # Let assign_user() figure out what to do.
@@ -1148,14 +1153,12 @@ def _update_assignee(client, existing, issue, overwrite):
             # Overwrite the downstream assignment only if it is different from
             # the upstream one.
             un = issue.assignee[0]["fullname"]
-            dn = existing.fields.assignee.displayName
+            dn = _jira_user_display_label(assignee)
             update = un != dn and remove_diacritics(un) != dn
         else:
             # Without an upstream owner, update only if the downstream is not
             # assigned to the project owner.
-            update = (
-                issue.downstream.get("owner") != existing.fields.assignee.displayName
-            )
+            update = issue.downstream.get("owner") != _jira_user_display_label(assignee)
     else:
         # We're not overwriting, so call assign_user() only if the downstream
         # doesn't already have an assignment.
