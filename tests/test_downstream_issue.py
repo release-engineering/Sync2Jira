@@ -1,5 +1,6 @@
 from datetime import timedelta
 import os
+import types
 from typing import Any, Optional
 import unittest
 import unittest.mock as mock
@@ -1704,6 +1705,21 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert everything was called correctly
         self.assertEqual(response, "mock_user")
+
+    def test_jira_user_display_label(self):
+        """
+        Covers _jira_user_display_label: falsy user guard, displayName, name fallback.
+        """
+        self.assertIsNone(d._jira_user_display_label(None))
+        self.assertIsNone(d._jira_user_display_label(""))
+        self.assertEqual(
+            d._jira_user_display_label(types.SimpleNamespace(displayName="Alice")),
+            "Alice",
+        )
+        self.assertEqual(
+            d._jira_user_display_label(types.SimpleNamespace(name="bob_only")),
+            "bob_only",
+        )
 
     @mock.patch("jira.client.JIRA")
     def test_check_comments_for_duplicates(self, mock_client):
