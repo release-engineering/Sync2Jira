@@ -269,9 +269,9 @@ class TestDownstreamIssue(unittest.TestCase):
         )
 
     @mock.patch(PATH + "_filter_downstream_issues")
-    @mock.patch(PATH + "_get_existing_jira_issue_query")
+    @mock.patch(PATH + "_get_existing_jira_issue_keys")
     @mock.patch("jira.client.JIRA")
-    def test_get_existing_newstyle(self, mock_client, mock_get_query, mock_filter):
+    def test_get_existing_newstyle(self, mock_client, mock_get_keys, mock_filter):
         """
         This tests 'get_existing_jira_issue' function.
         """
@@ -290,7 +290,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         scenarios = (
             {
-                "scenario": "_get_existing_jira_issue_query returns no keys",
+                "scenario": "_get_existing_jira_issue_keys returns no keys",
                 "query_return": (),
                 "search_issues": None,
                 "filter_results": None,
@@ -347,7 +347,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         for x in scenarios:
             d.jira_cache = d.UrlCache()  # Clear the cache
-            mock_get_query.return_value = x["query_return"]
+            mock_get_keys.return_value = x["query_return"]
             mock_client.search_issues.return_value = x["search_issues"]
             mock_filter.return_value = x["filter_results"]
             mock_client.issue.side_effect = x["issue_side_effect"]
@@ -361,7 +361,7 @@ class TestDownstreamIssue(unittest.TestCase):
                 self.assertEqual(d.jira_cache[self.mock_issue.url], x["expected"].key)
 
     @mock.patch(PATH + "execute_snowflake_query")
-    def test_get_existing_jira_issue_query(self, mock_snowflake):
+    def test_get_existing_jira_issue_keys(self, mock_snowflake):
         scenarios = (
             {
                 "jira_cache": {self.mock_issue.url: "issue_key"},
@@ -371,7 +371,7 @@ class TestDownstreamIssue(unittest.TestCase):
             {
                 "jira_cache": {},
                 "snowflake": (),
-                "expected": None,
+                "expected": (),
             },
             {
                 "jira_cache": {},
@@ -392,7 +392,7 @@ class TestDownstreamIssue(unittest.TestCase):
         for x in scenarios:
             d.jira_cache = x["jira_cache"]
             mock_snowflake.return_value = x["snowflake"]
-            result = d._get_existing_jira_issue_query(self.mock_issue)
+            result = d._get_existing_jira_issue_keys(self.mock_issue)
             self.assertEqual(result, x["expected"])
 
     @mock.patch(PATH + "find_username")
@@ -1719,6 +1719,15 @@ class TestDownstreamIssue(unittest.TestCase):
         self.assertEqual(
             d._jira_user_display_label(types.SimpleNamespace(name="bob_only")),
             "bob_only",
+        )
+        self.assertEqual(
+            d._jira_user_display_label(
+                types.SimpleNamespace(displayName="Alice", name="bob")
+            ),
+            "Alice",
+        )
+        self.assertIsNone(
+            d._jira_user_display_label(types.SimpleNamespace()),
         )
 
     @mock.patch("jira.client.JIRA")

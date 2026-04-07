@@ -316,7 +316,7 @@ def get_existing_jira_issue(client, issue, config):
     :rtype: JIssue or None
     """
 
-    issue_keys = _get_existing_jira_issue_query(issue)
+    issue_keys = _get_existing_jira_issue_keys(issue)
     if not issue_keys:
         return None
     jql = f"key in ({','.join(issue_keys)})"
@@ -370,22 +370,23 @@ def get_existing_jira_issue(client, issue, config):
     return results[0]
 
 
-def _get_existing_jira_issue_query(issue: Issue) -> tuple[str, ...]:
+def _get_existing_jira_issue_keys(issue: Issue) -> tuple[str, ...]:
     """
-    Generate a JQL query to find downstream issues corresponding to a given
-    upstream issue.  Return empty tuple if no matches were found in either our local
-    cache or in the Dataverse.
+    Retrieve downstream Jira issue keys corresponding to a given upstream issue.
+
+    The function first checks the local cache; if no cached result is found,
+    it queries Snowflake. Returns empty tuple if no matches are found.
 
     :param sync2jira.intermediary.Issue issue: Issue object
-    :returns: A string containing the JQL query or None if no matches
-    :rtype: Tuple[tuple[str, ...]
+    :returns: A tuple of Jira issue keys, or None if no matches are found
+    :rtype: Optional[Tuple[str, ...]]
     """
     if result := jira_cache.get(issue.url):
         issue_keys = (result,)
     else:
         results = execute_snowflake_query(issue)
         if not results:
-            return None
+            return ()
         issue_keys = tuple(row[0] for row in results)
 
     return issue_keys
@@ -448,7 +449,7 @@ def _jira_user_display_label(user) -> Optional[str]:
     """Best-effort display string for a Jira User (Cloud: displayName, else name)."""
     if not user:
         return None
-    return getattr(user, "displayName", getattr(user, "name", None))
+    return getattr(user, "displayName", None) or getattr(user, "name", None)
 
 
 def check_comments_for_duplicate(client, result, username):
