@@ -23,7 +23,7 @@ import logging
 import operator
 import os
 import re
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Union
 import unicodedata
 
 from dotenv import load_dotenv
@@ -316,14 +316,14 @@ def get_existing_jira_issue(client, issue, config):
     :rtype: JIssue or None
     """
 
-    issue_keys, jql = _get_existing_jira_issue_query(issue)
-    if not jql:
+    issue_keys = _get_existing_jira_issue_keys(issue)
+    if not issue_keys:
         return None
+    jql = f"key in ({','.join(issue_keys)})"
     results: ResultList[JIssue] = client.search_issues(jql)
     if not results:
         # JQL/search index can lag right after create, or hide archived issues.
         # Resolve by issue key (direct GET) before giving up and duplicating.
-        results = ResultList[JIssue]()
         for key in issue_keys:
             try:
                 found = client.issue(key)
@@ -336,7 +336,7 @@ def get_existing_jira_issue(client, issue, config):
             )
             results = ResultList[JIssue]((found,))
             break
-        if not results:
+        else:
             log.warning(
                 "Downstream issue not found for upstream %s after JQL %r and direct fetch for keys %s.",
                 issue.url,
@@ -370,27 +370,26 @@ def get_existing_jira_issue(client, issue, config):
     return results[0]
 
 
-def _get_existing_jira_issue_query(
-    issue: Issue,
-) -> Tuple[tuple[str, ...], Optional[str]]:
+def _get_existing_jira_issue_keys(issue: Issue) -> tuple[str, ...]:
     """
-    Generate a JQL query to find downstream issues corresponding to a given
-    upstream issue.  Return empty tuple and None if no matches were found in either our local
-    cache or in the Dataverse.
+    Retrieve downstream Jira issue keys corresponding to a given upstream issue.
+
+    The function first checks the local cache; if no cached result is found,
+    it queries Snowflake. Returns empty tuple if no matches are found.
 
     :param sync2jira.intermediary.Issue issue: Issue object
-    :returns: A string containing the JQL query or None if no matches
-    :rtype: Tuple[tuple[str, ...], Optional[str]]
+    :returns: A tuple of Jira issue keys, empty if no matches are found
+    :rtype: Tuple[str, ...]
     """
     if result := jira_cache.get(issue.url):
         issue_keys = (result,)
     else:
         results = execute_snowflake_query(issue)
         if not results:
-            return (), None
+            return ()
         issue_keys = tuple(row[0] for row in results)
 
-    return issue_keys, f"key in ({','.join(issue_keys)})"
+    return issue_keys
 
 
 def _filter_downstream_issues(
@@ -446,6 +445,13 @@ def find_username(_issue, config):
     return config["sync2jira"]["jira_username"]
 
 
+def _jira_user_display_label(user) -> Optional[str]:
+    """Best-effort display string for a Jira User (Cloud: displayName, else name)."""
+    if not user:
+        return None
+    return getattr(user, "displayName", None) or getattr(user, "name", None)
+
+
 def check_comments_for_duplicate(client, result, username):
     """
     Checks comment of JIRA issue to see if it has been
@@ -459,10 +465,7 @@ def check_comments_for_duplicate(client, result, username):
     """
     for comment in client.comments(result):
         search = re.search(r"Marking as duplicate of (\w*)-(\d*)", comment.body)
-        author = comment.author
-        author_label = getattr(author, "displayName", None) or getattr(
-            author, "name", None
-        )
+        author_label = _jira_user_display_label(comment.author)
         if search and author_label == username:
             issue_id = search.groups()[0] + "-" + search.groups()[1]
             return client.issue(issue_id)
@@ -1141,9 +1144,8 @@ def _update_assignee(client, existing, issue, overwrite):
     us_exists = bool(
         issue.assignee and issue.assignee[0] and issue.assignee[0].get("fullname")
     )
-    ds_exists = bool(existing.fields.assignee) and hasattr(
-        existing.fields.assignee, "displayName"
-    )
+    assignee = existing.fields.assignee
+    ds_exists = bool(assignee) and _jira_user_display_label(assignee) is not None
     if overwrite:
         if not ds_exists:
             # Let assign_user() figure out what to do.
@@ -1152,14 +1154,12 @@ def _update_assignee(client, existing, issue, overwrite):
             # Overwrite the downstream assignment only if it is different from
             # the upstream one.
             un = issue.assignee[0]["fullname"]
-            dn = existing.fields.assignee.displayName
+            dn = _jira_user_display_label(assignee)
             update = un != dn and remove_diacritics(un) != dn
         else:
             # Without an upstream owner, update only if the downstream is not
             # assigned to the project owner.
-            update = (
-                issue.downstream.get("owner") != existing.fields.assignee.displayName
-            )
+            update = issue.downstream.get("owner") != _jira_user_display_label(assignee)
     else:
         # We're not overwriting, so call assign_user() only if the downstream
         # doesn't already have an assignment.

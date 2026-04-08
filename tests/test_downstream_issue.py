@@ -1,5 +1,6 @@
 from datetime import timedelta
 import os
+import types
 from typing import Any, Optional
 import unittest
 import unittest.mock as mock
@@ -268,9 +269,9 @@ class TestDownstreamIssue(unittest.TestCase):
         )
 
     @mock.patch(PATH + "_filter_downstream_issues")
-    @mock.patch(PATH + "_get_existing_jira_issue_query")
+    @mock.patch(PATH + "_get_existing_jira_issue_keys")
     @mock.patch("jira.client.JIRA")
-    def test_get_existing_newstyle(self, mock_client, mock_get_query, mock_filter):
+    def test_get_existing_newstyle(self, mock_client, mock_get_keys, mock_filter):
         """
         This tests 'get_existing_jira_issue' function.
         """
@@ -287,15 +288,10 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_issue_3.fields = MagicMock()
         mock_issue_3.fields.updated = "2025-11-30T00:00:00.0+0000"
 
-        def _q(keys):
-            if not keys:
-                return (), None
-            return keys, f"key in ({','.join(keys)})"
-
         scenarios = (
             {
-                "scenario": "_get_existing_jira_issue_query returns no keys",
-                "query_return": _q(()),
+                "scenario": "_get_existing_jira_issue_keys returns no keys",
+                "query_return": (),
                 "search_issues": None,
                 "filter_results": None,
                 "expected": None,
@@ -303,7 +299,7 @@ class TestDownstreamIssue(unittest.TestCase):
             },
             {
                 "scenario": "Jira search returns no items, direct fetch fails",
-                "query_return": _q(("MOCK-1",)),
+                "query_return": ("MOCK-1",),
                 "search_issues": ResultList[JIssue](()),
                 "filter_results": None,
                 "expected": None,
@@ -311,7 +307,7 @@ class TestDownstreamIssue(unittest.TestCase):
             },
             {
                 "scenario": "Jira search returns no items, direct fetch succeeds",
-                "query_return": _q(("MOCK-1",)),
+                "query_return": ("MOCK-1",),
                 "search_issues": ResultList[JIssue](()),
                 "filter_results": None,
                 "expected": mock_issue_1,
@@ -319,7 +315,7 @@ class TestDownstreamIssue(unittest.TestCase):
             },
             {
                 "scenario": "Jira search returns one item",
-                "query_return": _q(("MOCK-1",)),
+                "query_return": ("MOCK-1",),
                 "search_issues": ResultList[JIssue]((mock_issue_1,)),
                 "filter_results": None,
                 "expected": mock_issue_1,
@@ -327,7 +323,7 @@ class TestDownstreamIssue(unittest.TestCase):
             },
             {
                 "scenario": "_filter_downstream_issues returns one item",
-                "query_return": _q(("MOCK-1", "MOCK-2", "MOCK-3")),
+                "query_return": ("MOCK-1", "MOCK-2", "MOCK-3"),
                 "search_issues": ResultList[JIssue](
                     (mock_issue_1, mock_issue_2, mock_issue_3)
                 ),
@@ -337,7 +333,7 @@ class TestDownstreamIssue(unittest.TestCase):
             },
             {
                 "scenario": "_filter_downstream_issues returns multiple items",
-                "query_return": _q(("MOCK-1", "MOCK-2", "MOCK-3")),
+                "query_return": ("MOCK-1", "MOCK-2", "MOCK-3"),
                 "search_issues": ResultList[JIssue](
                     (mock_issue_1, mock_issue_2, mock_issue_3)
                 ),
@@ -351,13 +347,11 @@ class TestDownstreamIssue(unittest.TestCase):
 
         for x in scenarios:
             d.jira_cache = d.UrlCache()  # Clear the cache
-            mock_get_query.return_value = x["query_return"]
+            mock_get_keys.return_value = x["query_return"]
             mock_client.search_issues.return_value = x["search_issues"]
             mock_filter.return_value = x["filter_results"]
-            if x["issue_side_effect"] is not None:
-                mock_client.issue.side_effect = x["issue_side_effect"]
-            else:
-                mock_client.issue.side_effect = None
+            mock_client.issue.side_effect = x["issue_side_effect"]
+            if not x["issue_side_effect"]:
                 mock_client.issue.return_value = mock_issue_1
             result = d.get_existing_jira_issue(
                 client=mock_client, issue=self.mock_issue, config=self.mock_config
@@ -367,22 +361,22 @@ class TestDownstreamIssue(unittest.TestCase):
                 self.assertEqual(d.jira_cache[self.mock_issue.url], x["expected"].key)
 
     @mock.patch(PATH + "execute_snowflake_query")
-    def test_get_existing_jira_issue_query(self, mock_snowflake):
+    def test_get_existing_jira_issue_keys(self, mock_snowflake):
         scenarios = (
             {
                 "jira_cache": {self.mock_issue.url: "issue_key"},
                 "snowflake": (),
-                "expected": (("issue_key",), "key in (issue_key)"),
+                "expected": ("issue_key",),
             },
             {
                 "jira_cache": {},
                 "snowflake": (),
-                "expected": ((), None),
+                "expected": (),
             },
             {
                 "jira_cache": {},
                 "snowflake": (("issue_key",),),
-                "expected": (("issue_key",), "key in (issue_key)"),
+                "expected": ("issue_key",),
             },
             {
                 "jira_cache": {},
@@ -391,17 +385,14 @@ class TestDownstreamIssue(unittest.TestCase):
                     ("issue_key_2",),
                     ("issue_key_3",),
                 ),
-                "expected": (
-                    ("issue_key_1", "issue_key_2", "issue_key_3"),
-                    "key in (issue_key_1,issue_key_2,issue_key_3)",
-                ),
+                "expected": ("issue_key_1", "issue_key_2", "issue_key_3"),
             },
         )
 
         for x in scenarios:
             d.jira_cache = x["jira_cache"]
             mock_snowflake.return_value = x["snowflake"]
-            result = d._get_existing_jira_issue_query(self.mock_issue)
+            result = d._get_existing_jira_issue_keys(self.mock_issue)
             self.assertEqual(result, x["expected"])
 
     @mock.patch(PATH + "find_username")
@@ -1714,6 +1705,30 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert everything was called correctly
         self.assertEqual(response, "mock_user")
+
+    def test_jira_user_display_label(self):
+        """
+        Covers _jira_user_display_label: falsy user guard, displayName, name fallback.
+        """
+        self.assertIsNone(d._jira_user_display_label(None))
+        self.assertIsNone(d._jira_user_display_label(""))
+        self.assertEqual(
+            d._jira_user_display_label(types.SimpleNamespace(displayName="Alice")),
+            "Alice",
+        )
+        self.assertEqual(
+            d._jira_user_display_label(types.SimpleNamespace(name="bob_only")),
+            "bob_only",
+        )
+        self.assertEqual(
+            d._jira_user_display_label(
+                types.SimpleNamespace(displayName="Alice", name="bob")
+            ),
+            "Alice",
+        )
+        self.assertIsNone(
+            d._jira_user_display_label(types.SimpleNamespace()),
+        )
 
     @mock.patch("jira.client.JIRA")
     def test_check_comments_for_duplicates(self, mock_client):
