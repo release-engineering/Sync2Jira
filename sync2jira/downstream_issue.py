@@ -378,8 +378,8 @@ def _get_existing_jira_issue_keys(issue: Issue) -> tuple[str, ...]:
     it queries Snowflake. Returns empty tuple if no matches are found.
 
     :param sync2jira.intermediary.Issue issue: Issue object
-    :returns: A tuple of Jira issue keys, or None if no matches are found
-    :rtype: Optional[Tuple[str, ...]]
+    :returns: A tuple of Jira issue keys, empty if no matches are found
+    :rtype: Tuple[str, ...]
     """
     if result := jira_cache.get(issue.url):
         issue_keys = (result,)
