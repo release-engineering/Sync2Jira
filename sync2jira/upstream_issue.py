@@ -298,11 +298,20 @@ def add_project_values(issue, upstream, headers, config):
                     # Single Select field - get name and map it
                     sp_value = item.get("name")
                     if sp_value and sp_value in sp_options:
-                        issue["storypoints"] = int(sp_options[sp_value])
+                        mapped_value = sp_options[sp_value]
+                        issue["storypoints"] = int(mapped_value)
+                    else:
+                        log.info(
+                            "Storypoints value '%s' not found in options mapping for issue %s/%s#%s",
+                            sp_value,
+                            orgname,
+                            reponame,
+                            issuenumber,
+                        )
                 else:
                     # Number field - get number directly
                     issue["storypoints"] = int(item["number"])
-            except (ValueError, KeyError) as err:
+            except (ValueError, TypeError, KeyError) as err:
                 log.info(
                     "Error while processing storypoints for issue %s/%s#%s: %s",
                     orgname,
