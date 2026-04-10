@@ -292,7 +292,16 @@ def add_project_values(issue, upstream, headers, config):
         sp_field = github_project_fields.get("storypoints", {}).get("gh_field")
         if gh_field_name == sp_field:
             try:
-                issue["storypoints"] = int(item["number"])
+                # Check if there's an options mapping (for Single Select fields)
+                sp_options = github_project_fields.get("storypoints", {}).get("options")
+                if sp_options:
+                    # Single Select field - get name and map it
+                    sp_value = item.get("name")
+                    if sp_value and sp_value in sp_options:
+                        issue["storypoints"] = int(sp_options[sp_value])
+                else:
+                    # Number field - get number directly
+                    issue["storypoints"] = int(item["number"])
             except (ValueError, KeyError) as err:
                 log.info(
                     "Error while processing storypoints for issue %s/%s#%s: %s",
