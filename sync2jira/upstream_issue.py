@@ -291,34 +291,50 @@ def add_project_values(issue, upstream, headers, config):
             continue
         sp_field = github_project_fields.get("storypoints", {}).get("gh_field")
         if gh_field_name == sp_field:
-            try:
-                # Check if there's an options mapping (for Single Select fields)
-                sp_options = github_project_fields.get("storypoints", {}).get("options")
-                if sp_options:
-                    # Single Select field - get name and map it
-                    sp_value = item.get("name")
-                    if sp_value and sp_value in sp_options:
-                        mapped_value = sp_options[sp_value]
-                        issue["storypoints"] = int(mapped_value)
-                    else:
+            # Check if there's an options mapping (for Single Select fields); if
+            # so, convert...
+            sp_options = github_project_fields.get("storypoints", {}).get("options")
+            if sp_options:
+                # Single Select field - get name and map it
+                sp_value = item.get("name")
+                if not sp_value:
+                    log.warning(
+                        "No Single Select name found for storypoints options in message for issue %s/%s#%s",
+                        orgname,
+                        reponame,
+                        issuenumber,
+                    )
+                elif (sp_number := sp_options.get(sp_value)) is None:
+                    log.info(
+                        "Storypoints value '%s' not found in options mapping for issue %s/%s#%s",
+                        sp_value,
+                        orgname,
+                        reponame,
+                        issuenumber,
+                    )
+                else:
+                    try:
+                        issue["storypoints"] = int(sp_number)
+                    except (ValueError, TypeError) as err:
                         log.info(
-                            "Storypoints value '%s' not found in options mapping for issue %s/%s#%s",
-                            sp_value,
+                            "Error while processing storypoints for issue %s/%s#%s: %s",
                             orgname,
                             reponame,
                             issuenumber,
+                            err,
                         )
-                else:
-                    # Number field - get number directly
+            else:
+                # Number field - get number directly
+                try:
                     issue["storypoints"] = int(item["number"])
-            except (ValueError, TypeError, KeyError) as err:
-                log.info(
-                    "Error while processing storypoints for issue %s/%s#%s: %s",
-                    orgname,
-                    reponame,
-                    issuenumber,
-                    err,
-                )
+                except (ValueError, TypeError, KeyError) as err:
+                    log.info(
+                        "Error while processing storypoints for issue %s/%s#%s: %s",
+                        orgname,
+                        reponame,
+                        issuenumber,
+                        err,
+                    )
             continue
 
 
