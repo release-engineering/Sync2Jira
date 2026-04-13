@@ -46,6 +46,9 @@ load_dotenv()
 # This is used to ensure legacy comments are not touched
 UPDATE_DATE = datetime(2019, 7, 9, 18, 18, 36, 480291, tzinfo=timezone.utc)
 
+# Jira REST API rejects comment bodies longer than this (characters).
+JIRA_COMMENT_BODY_MAX_CHARS = 32767
+
 log = logging.getLogger("sync2jira")
 logging.getLogger("snowflake.connector").setLevel(logging.WARNING)
 
@@ -248,6 +251,52 @@ def _comment_format(comment):
         pretty_date,
         comment["body"],
     )
+
+
+def _truncate_jira_comment_body(
+    body: str, upstream_issue_url: Optional[str] = None
+) -> str:
+    """
+    Ensure ``body`` fits Jira's comment size limit.
+
+    If truncated, prepend a notice (and optional link to the upstream GitHub issue)
+    and append a marker so readers know where to find the full thread.
+    """
+    if len(body) <= JIRA_COMMENT_BODY_MAX_CHARS:
+        return body
+
+    log.info(
+        "Truncating Jira comment body from %d to max %d characters",
+        len(body),
+        JIRA_COMMENT_BODY_MAX_CHARS,
+    )
+
+    link_block = ""
+    if upstream_issue_url:
+        link_block = f"[View upstream issue on GitHub|{upstream_issue_url}]\n\n"
+
+    head = (
+        "{warning}*(This comment was truncated to fit Jira's "
+        f"{JIRA_COMMENT_BODY_MAX_CHARS}-character limit.)*{{warning}}\n\n" + link_block
+    )
+    tail = (
+        "\n\n{warning}*(Comment truncated"
+        + (
+            " — see GitHub link above for the full thread.)*"
+            if upstream_issue_url
+            else " — full thread not linked.)*"
+        )
+        + "{warning}"
+    )
+
+    budget = JIRA_COMMENT_BODY_MAX_CHARS - len(head) - len(tail)
+    if budget < 1:
+        head = "{warning}*(Truncated.)*{warning}\n"
+        tail = "\n{warning}*(…)*{warning}"
+        budget = JIRA_COMMENT_BODY_MAX_CHARS - len(head) - len(tail)
+
+    truncated_core = body[: max(budget, 0)]
+    return head + truncated_core + tail
 
 
 def _comment_format_legacy(comment):
@@ -472,12 +521,15 @@ def check_comments_for_duplicate(client, result, username):
     return None
 
 
-def _find_comment_in_jira(comment, j_comments):
+def _find_comment_in_jira(
+    comment, j_comments, upstream_issue_url: Optional[str] = None
+):
     """
     Helper function to filter out comments that are matching.
 
     :param Dict comment: Individual comment from upstream
     :param List j_comments: Comments from JIRA downstream
+    :param Optional[str] upstream_issue_url: Upstream issue URL for truncation notices
     :returns: Item/None
     :rtype: jira.resource.Comment/None
     """
@@ -486,7 +538,9 @@ def _find_comment_in_jira(comment, j_comments):
         # touch the comment; return the item as is.
         return comment
 
-    formatted_comment = _comment_format(comment)
+    formatted_comment = _truncate_jira_comment_body(
+        _comment_format(comment), upstream_issue_url
+    )
     legacy_formatted_comment = _comment_format_legacy(comment)
     for item in j_comments:
         if item.raw["body"] == legacy_formatted_comment:
@@ -505,18 +559,19 @@ def _find_comment_in_jira(comment, j_comments):
     return None
 
 
-def _comment_matching(g_comments, j_comments):
+def _comment_matching(g_comments, j_comments, upstream_issue_url: Optional[str] = None):
     """
     Function to filter out comments that are matching.
 
     :param List g_comments: Comments from Issue object
     :param List j_comments: Comments from JIRA downstream
+    :param Optional[str] upstream_issue_url: Upstream issue URL (for Jira truncation)
     :returns: Returns a list of comments that are not matching
     :rtype: List
     """
     return list(
         filter(
-            lambda x: _find_comment_in_jira(x, j_comments) is None
+            lambda x: _find_comment_in_jira(x, j_comments, upstream_issue_url) is None
             or x["changed"] is not None,
             g_comments,
         )
@@ -1066,11 +1121,11 @@ def _update_comments(client, existing, issue):
     # Get all existing comments
     comments = client.comments(existing)
     # Remove any comments that have already been added
-    comments_d = _comment_matching(issue.comments, comments)
+    comments_d = _comment_matching(issue.comments, comments, issue.url)
     # Loop through the comments that remain
     for comment in comments_d:
         # Format and add them
-        comment_body = _comment_format(comment)
+        comment_body = _truncate_jira_comment_body(_comment_format(comment), issue.url)
         client.add_comment(existing, comment_body)
     if len(comments_d) > 0:
         log.info("Comments synchronization done on %i comments.", len(comments_d))

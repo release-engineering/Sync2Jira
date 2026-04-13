@@ -1313,7 +1313,7 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert all calls were made correctly
         mock_client.comments.assert_called_with(self.mock_downstream)
         mock_comment_matching.assert_called_with(
-            self.mock_issue.comments, "mock_comments"
+            self.mock_issue.comments, "mock_comments", self.mock_issue.url
         )
         mock_comment_format.assert_called_with("mock_comments_d")
         mock_client.add_comment.assert_called_with(
@@ -1729,6 +1729,29 @@ class TestDownstreamIssue(unittest.TestCase):
         self.assertIsNone(
             d._jira_user_display_label(types.SimpleNamespace()),
         )
+
+    def test_truncate_jira_comment_body_short_unchanged(self):
+        text = "short comment"
+        self.assertEqual(
+            d._truncate_jira_comment_body(text, "https://github.com/o/r/issues/1"),
+            text,
+        )
+
+    def test_truncate_jira_comment_body_long_with_issue_url(self):
+        issue_url = "https://github.com/o/r/issues/1"
+        body = "B" * (d.JIRA_COMMENT_BODY_MAX_CHARS + 500)
+        out = d._truncate_jira_comment_body(body, issue_url)
+        self.assertLessEqual(len(out), d.JIRA_COMMENT_BODY_MAX_CHARS)
+        self.assertIn("truncated to fit Jira's", out)
+        self.assertIn(f"[View upstream issue on GitHub|{issue_url}]", out)
+        self.assertIn("see GitHub link above for the full thread", out)
+        self.assertTrue(out.startswith("{warning}"))
+
+    def test_truncate_jira_comment_body_long_without_url(self):
+        body = "C" * (d.JIRA_COMMENT_BODY_MAX_CHARS + 100)
+        out = d._truncate_jira_comment_body(body, None)
+        self.assertLessEqual(len(out), d.JIRA_COMMENT_BODY_MAX_CHARS)
+        self.assertIn("full thread not linked", out)
 
     @mock.patch("jira.client.JIRA")
     def test_check_comments_for_duplicates(self, mock_client):
