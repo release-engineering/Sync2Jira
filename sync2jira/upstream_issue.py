@@ -317,7 +317,8 @@ def add_project_values(issue, upstream, headers, config):
                         issue["storypoints"] = int(sp_number)
                     except (ValueError, TypeError) as err:
                         log.info(
-                            "Error while processing storypoints for issue %s/%s#%s: %s",
+                            "Error converting Single Select storypoints value '%s' to int for issue %s/%s#%s: %s",
+                            sp_number,
                             orgname,
                             reponame,
                             issuenumber,
@@ -329,7 +330,8 @@ def add_project_values(issue, upstream, headers, config):
                     issue["storypoints"] = int(item["number"])
                 except (ValueError, TypeError, KeyError) as err:
                     log.info(
-                        "Error while processing storypoints for issue %s/%s#%s: %s",
+                        "Error converting Number field storypoints value '%s' to int for issue %s/%s#%s: %s",
+                        item.get("number", "missing"),
                         orgname,
                         reponame,
                         issuenumber,

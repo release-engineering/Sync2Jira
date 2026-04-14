@@ -768,6 +768,184 @@ class TestUpstreamIssue(unittest.TestCase):
             # Reset mock
             mock_requests_post.reset_mock()
 
+    @mock.patch(PATH + "requests.post")
+    def test_add_project_values_storypoints_error_handling(self, mock_requests_post):
+        """
+        Test 'add_project_values' error handling for storypoints conversion failures.
+        Tests both Single Select (Size) and Number (Estimate) field error paths.
+        """
+        # Set up base config
+        upstream_config = {
+            "issue_updates": ["github_project_fields"],
+            "github_project_number": 1,
+        }
+        self.mock_config["sync2jira"]["map"]["github"]["org/repo"] = upstream_config
+
+        mock_issue = {
+            "number": 1234,
+            "storypoints": None,
+            "priority": None,
+        }
+
+        # Test case 1: Single Select field (Size) with invalid mapped value (not convertible to int)
+        upstream_config["github_project_fields"] = {
+            "storypoints": {
+                "gh_field": "Size",
+                "options": {"Small": "not_a_number"},
+            }
+        }
+        mock_requests_post.return_value.json.return_value = {
+            "data": {
+                "repository": {
+                    "issue": {
+                        "projectItems": {
+                            "nodes": [
+                                {
+                                    "project": {"title": "Project 1", "number": 1},
+                                    "fieldValues": {
+                                        "nodes": [
+                                            {
+                                                "fieldName": {"name": "Size"},
+                                                "name": "Small",
+                                            }
+                                        ]
+                                    },
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+        u.add_project_values(
+            issue=mock_issue,
+            upstream="org/repo",
+            headers={},
+            config=self.mock_config,
+        )
+        # Storypoints should not be set due to conversion error
+        self.assertIsNone(mock_issue.get("storypoints"))
+        mock_requests_post.reset_mock()
+
+        # Test case 2: Number field (Estimate) with invalid number value
+        upstream_config["github_project_fields"] = {
+            "storypoints": {"gh_field": "Estimate"}
+        }
+        mock_requests_post.return_value.json.return_value = {
+            "data": {
+                "repository": {
+                    "issue": {
+                        "projectItems": {
+                            "nodes": [
+                                {
+                                    "project": {"title": "Project 1", "number": 1},
+                                    "fieldValues": {
+                                        "nodes": [
+                                            {
+                                                "fieldName": {"name": "Estimate"},
+                                                "number": "invalid",
+                                            }
+                                        ]
+                                    },
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+        mock_issue["storypoints"] = None
+        u.add_project_values(
+            issue=mock_issue,
+            upstream="org/repo",
+            headers={},
+            config=self.mock_config,
+        )
+        # Storypoints should not be set due to conversion error
+        self.assertIsNone(mock_issue.get("storypoints"))
+        mock_requests_post.reset_mock()
+
+        # Test case 3: Single Select field (Size) with missing name
+        upstream_config["github_project_fields"] = {
+            "storypoints": {
+                "gh_field": "Size",
+                "options": {"Small": 5},
+            }
+        }
+        mock_requests_post.return_value.json.return_value = {
+            "data": {
+                "repository": {
+                    "issue": {
+                        "projectItems": {
+                            "nodes": [
+                                {
+                                    "project": {"title": "Project 1", "number": 1},
+                                    "fieldValues": {
+                                        "nodes": [
+                                            {
+                                                "fieldName": {"name": "Size"},
+                                                # name is missing
+                                            }
+                                        ]
+                                    },
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+        mock_issue["storypoints"] = None
+        u.add_project_values(
+            issue=mock_issue,
+            upstream="org/repo",
+            headers={},
+            config=self.mock_config,
+        )
+        # Storypoints should not be set due to missing name
+        self.assertIsNone(mock_issue.get("storypoints"))
+        mock_requests_post.reset_mock()
+
+        # Test case 4: Single Select field (Size) with value not in options mapping
+        upstream_config["github_project_fields"] = {
+            "storypoints": {
+                "gh_field": "Size",
+                "options": {"Small": 5, "Medium": 8},
+            }
+        }
+        mock_requests_post.return_value.json.return_value = {
+            "data": {
+                "repository": {
+                    "issue": {
+                        "projectItems": {
+                            "nodes": [
+                                {
+                                    "project": {"title": "Project 1", "number": 1},
+                                    "fieldValues": {
+                                        "nodes": [
+                                            {
+                                                "fieldName": {"name": "Size"},
+                                                "name": "Large",  # Not in options
+                                            }
+                                        ]
+                                    },
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+        mock_issue["storypoints"] = None
+        u.add_project_values(
+            issue=mock_issue,
+            upstream="org/repo",
+            headers={},
+            config=self.mock_config,
+        )
+        # Storypoints should not be set due to unmapped value
+        self.assertIsNone(mock_issue.get("storypoints"))
+
     def test_passes_github_filters(self):
         """
         Test passes_github_filters for labels, milestone, and other fields.
