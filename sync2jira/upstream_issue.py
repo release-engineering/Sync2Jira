@@ -289,12 +289,12 @@ def add_project_values(issue, upstream, headers, config):
         if gh_field_name == prio_field:
             issue["priority"] = item.get("name")
             continue
-        sp_field = github_project_fields.get("storypoints", {}).get("gh_field")
+        sp_dict = github_project_fields.get("storypoints", {})
+        sp_field = sp_dict.get("gh_field")
         if gh_field_name == sp_field:
             # Check if there's an options mapping (for Single Select fields); if
             # so, convert...
-            sp_options = github_project_fields.get("storypoints", {}).get("options")
-            if sp_options:
+            if sp_options := sp_dict.get("options"):
                 # Single Select field - get name and map it
                 sp_value = item.get("name")
                 if not sp_value:
