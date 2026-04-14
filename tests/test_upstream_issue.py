@@ -816,13 +816,23 @@ class TestUpstreamIssue(unittest.TestCase):
             # Test 5: Single Select - value not in options mapping
             (
                 "Single Select unmapped value",
-                {"storypoints": {"gh_field": "Size", "options": {"Small": 5, "Medium": 8}}},
+                {
+                    "storypoints": {
+                        "gh_field": "Size",
+                        "options": {"Small": 5, "Medium": 8},
+                    }
+                },
                 [{"fieldName": {"name": "Size"}, "name": "Large"}],
             ),
             # Test 6: Single Select - ValueError converting mapped value
             (
                 "Single Select invalid mapped value",
-                {"storypoints": {"gh_field": "Size", "options": {"Small": "not_a_number"}}},
+                {
+                    "storypoints": {
+                        "gh_field": "Size",
+                        "options": {"Small": "not_a_number"},
+                    }
+                },
                 [{"fieldName": {"name": "Size"}, "name": "Small"}],
             ),
             # Test 7: Number field - ValueError from invalid number
@@ -845,7 +855,10 @@ class TestUpstreamIssue(unittest.TestCase):
                                 "projectItems": {
                                     "nodes": [
                                         {
-                                            "project": {"title": "Project 1", "number": 1},
+                                            "project": {
+                                                "title": "Project 1",
+                                                "number": 1,
+                                            },
                                             "fieldValues": {"nodes": field_nodes},
                                         }
                                     ]
