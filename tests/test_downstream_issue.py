@@ -1753,6 +1753,18 @@ class TestDownstreamIssue(unittest.TestCase):
         self.assertLessEqual(len(out), d.JIRA_COMMENT_BODY_MAX_CHARS)
         self.assertIn("full thread not linked", out)
 
+    def test_truncate_jira_comment_body_degenerate_head_tail_budget(self):
+        """
+        When the issue URL is huge, head+link can leave no room for body; cover
+        the minimal head/tail fallback (budget < 1 branch).
+        """
+        huge_url = "https://github.com/o/r/issues/1" + ("x" * 40000)
+        body = "D" * (d.JIRA_COMMENT_BODY_MAX_CHARS + 200)
+        out = d._truncate_jira_comment_body(body, huge_url)
+        self.assertLessEqual(len(out), d.JIRA_COMMENT_BODY_MAX_CHARS)
+        self.assertIn("*(Truncated.)*", out)
+        self.assertIn("*(…)*", out)
+
     @mock.patch("jira.client.JIRA")
     def test_check_comments_for_duplicates(self, mock_client):
         """
