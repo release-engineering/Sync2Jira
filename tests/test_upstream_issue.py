@@ -768,6 +768,247 @@ class TestUpstreamIssue(unittest.TestCase):
             # Reset mock
             mock_requests_post.reset_mock()
 
+    @mock.patch(PATH + "requests.post")
+    def test_add_project_values_storypoints(self, mock_requests_post):
+        """
+        Test 'add_project_values' storypoints processing.
+        Table-driven test covering both error paths and success paths.
+
+        Every scenario includes a Priority field as a canary: if the
+        function returns early (e.g. because of a missing status_code
+        mock), priority would not be set and the test would fail.
+        """
+        # Set up base config
+        upstream_config = {
+            "issue_updates": ["github_project_fields"],
+            "github_project_number": 1,
+        }
+        self.mock_config["sync2jira"]["map"]["github"]["org/repo"] = upstream_config
+
+        mock_issue = {
+            "number": 1234,
+            "storypoints": None,
+            "priority": None,
+        }
+
+        # Ensure the mock HTTP response indicates success so the function
+        # proceeds past the status_code check.
+        mock_requests_post.return_value.status_code = 200
+
+        # Each scenario: (description, github_project_fields,
+        #                  field_values_nodes, expected_storypoints)
+        # All scenarios include a Priority node so we can assert
+        # priority == "High" as proof we entered the field-processing loop.
+        scenarios = (
+            # --- Error scenarios: storypoints should remain None ---
+            # Test 1: No "storypoints" key in github_project_fields
+            (
+                "No storypoints in config",
+                {"priority": {"gh_field": "Priority"}},
+                [
+                    {"fieldName": {"name": "Priority"}, "name": "High"},
+                    {"fieldName": {"name": "Size"}, "name": "Small"},
+                ],
+                None,
+            ),
+            # Test 2: No "gh_field" in storypoints config
+            (
+                "No gh_field in storypoints",
+                {
+                    "priority": {"gh_field": "Priority"},
+                    "storypoints": {"options": {"Small": 5}},
+                },
+                [
+                    {"fieldName": {"name": "Priority"}, "name": "High"},
+                    {"fieldName": {"name": "Size"}, "name": "Small"},
+                ],
+                None,
+            ),
+            # Test 3: Empty options dict falls through to Number field path
+            (
+                "Empty options dict with invalid number",
+                {
+                    "priority": {"gh_field": "Priority"},
+                    "storypoints": {"gh_field": "Size", "options": {}},
+                },
+                [
+                    {"fieldName": {"name": "Priority"}, "name": "High"},
+                    {"fieldName": {"name": "Size"}, "number": "invalid"},
+                ],
+                None,
+            ),
+            # Test 4: Single Select - no "name" in item
+            (
+                "Single Select missing name",
+                {
+                    "priority": {"gh_field": "Priority"},
+                    "storypoints": {
+                        "gh_field": "Size",
+                        "options": {"Small": 5},
+                    },
+                },
+                [
+                    {"fieldName": {"name": "Priority"}, "name": "High"},
+                    {"fieldName": {"name": "Size"}},
+                ],
+                None,
+            ),
+            # Test 5: Single Select - value not in options mapping
+            (
+                "Single Select unmapped value",
+                {
+                    "priority": {"gh_field": "Priority"},
+                    "storypoints": {
+                        "gh_field": "Size",
+                        "options": {"Small": 5, "Medium": 8},
+                    },
+                },
+                [
+                    {"fieldName": {"name": "Priority"}, "name": "High"},
+                    {"fieldName": {"name": "Size"}, "name": "Large"},
+                ],
+                None,
+            ),
+            # Test 6: Single Select - ValueError converting mapped value
+            (
+                "Single Select invalid mapped value",
+                {
+                    "priority": {"gh_field": "Priority"},
+                    "storypoints": {
+                        "gh_field": "Size",
+                        "options": {"Small": "not_a_number"},
+                    },
+                },
+                [
+                    {"fieldName": {"name": "Priority"}, "name": "High"},
+                    {"fieldName": {"name": "Size"}, "name": "Small"},
+                ],
+                None,
+            ),
+            # Test 7: Number field - ValueError from invalid number
+            (
+                "Number field invalid value",
+                {
+                    "priority": {"gh_field": "Priority"},
+                    "storypoints": {"gh_field": "Estimate"},
+                },
+                [
+                    {"fieldName": {"name": "Priority"}, "name": "High"},
+                    {"fieldName": {"name": "Estimate"}, "number": "invalid"},
+                ],
+                None,
+            ),
+            # Test 8: Number field - KeyError from missing "number" key
+            (
+                "Number field missing number key",
+                {
+                    "priority": {"gh_field": "Priority"},
+                    "storypoints": {"gh_field": "Estimate"},
+                },
+                [
+                    {"fieldName": {"name": "Priority"}, "name": "High"},
+                    {"fieldName": {"name": "Estimate"}},
+                ],
+                None,
+            ),
+            # --- Success scenarios: storypoints should be set ---
+            # Test 9: Single Select - valid mapping
+            (
+                "Single Select valid mapping",
+                {
+                    "priority": {"gh_field": "Priority"},
+                    "storypoints": {
+                        "gh_field": "Size",
+                        "options": {"Small": 1, "Medium": 3, "Large": 8},
+                    },
+                },
+                [
+                    {"fieldName": {"name": "Priority"}, "name": "High"},
+                    {"fieldName": {"name": "Size"}, "name": "Medium"},
+                ],
+                3,
+            ),
+            # Test 10: Single Select - mapped value is a string int
+            (
+                "Single Select string mapped value",
+                {
+                    "priority": {"gh_field": "Priority"},
+                    "storypoints": {
+                        "gh_field": "Size",
+                        "options": {"Small": "2"},
+                    },
+                },
+                [
+                    {"fieldName": {"name": "Priority"}, "name": "High"},
+                    {"fieldName": {"name": "Size"}, "name": "Small"},
+                ],
+                2,
+            ),
+            # Test 11: Number field - valid number
+            (
+                "Number field valid value",
+                {
+                    "priority": {"gh_field": "Priority"},
+                    "storypoints": {"gh_field": "Estimate"},
+                },
+                [
+                    {"fieldName": {"name": "Priority"}, "name": "High"},
+                    {"fieldName": {"name": "Estimate"}, "number": 5},
+                ],
+                5,
+            ),
+        )
+
+        for description, gpf, field_nodes, expected_sp in scenarios:
+            with self.subTest(description=description):
+                upstream_config["github_project_fields"] = gpf
+                mock_issue["storypoints"] = None
+                mock_issue["priority"] = None
+
+                mock_requests_post.return_value.json.return_value = {
+                    "data": {
+                        "repository": {
+                            "issue": {
+                                "projectItems": {
+                                    "nodes": [
+                                        {
+                                            "project": {
+                                                "title": "Project 1",
+                                                "number": 1,
+                                            },
+                                            "fieldValues": {"nodes": field_nodes},
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+
+                u.add_project_values(
+                    issue=mock_issue,
+                    upstream="org/repo",
+                    headers={},
+                    config=self.mock_config,
+                )
+
+                # Priority must be set in every scenario — this is
+                # our canary that the function actually reached the
+                # field-processing loop rather than returning early.
+                self.assertEqual(
+                    mock_issue["priority"],
+                    "High",
+                    f"{description}: priority was not set — function "
+                    f"may have returned early",
+                )
+                self.assertEqual(
+                    mock_issue.get("storypoints"),
+                    expected_sp,
+                    f"{description}: expected storypoints={expected_sp}, "
+                    f"got {mock_issue.get('storypoints')}",
+                )
+                mock_requests_post.reset_mock()
+
     def test_passes_github_filters(self):
         """
         Test passes_github_filters for labels, milestone, and other fields.
