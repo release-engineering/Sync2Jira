@@ -47,7 +47,10 @@ load_dotenv()
 UPDATE_DATE = datetime(2019, 7, 9, 18, 18, 36, 480291, tzinfo=timezone.utc)
 
 # Jira REST API rejects comment bodies longer than this (characters).
-JIRA_COMMENT_BODY_MAX_CHARS = 32767
+JIRA_TEXT_BODY_MAX_CHARS = 32750
+# When truncating, keep at least this many characters of the original body.
+# If the hyperlink(s) wouldn't leave this much room, drop the hyperlink instead.
+JIRA_TEXT_BODY_MIN_CHARS = 1024
 
 log = logging.getLogger("sync2jira")
 logging.getLogger("snowflake.connector").setLevel(logging.WARNING)
@@ -253,50 +256,42 @@ def _comment_format(comment):
     )
 
 
-def _truncate_jira_comment_body(
-    body: str, upstream_issue_url: Optional[str] = None
-) -> str:
+def _truncate_jira_text(body: str, upstream_issue_url: Optional[str] = None) -> str:
     """
     Ensure ``body`` fits Jira's comment size limit.
 
-    If truncated, prepend a notice (and optional link to the upstream GitHub issue)
-    and append a marker so readers know where to find the full thread.
+    If truncated, a notice is prepended and a truncation marker appended.  When
+    an upstream URL is available it is included — *unless* the link is so
+    long that it would eat into the minimum body budget, in which case the link
+    is dropped entirely.
     """
-    if len(body) <= JIRA_COMMENT_BODY_MAX_CHARS:
+    if len(body) <= JIRA_TEXT_BODY_MAX_CHARS:
         return body
 
     log.info(
         "Truncating Jira comment body from %d to max %d characters",
         len(body),
-        JIRA_COMMENT_BODY_MAX_CHARS,
+        JIRA_TEXT_BODY_MAX_CHARS,
     )
+
+    head = "{warning}*(Truncated.)*{warning}\n"
+    tail = "\n\n{warning}*....*{warning}"
 
     link_block = ""
     if upstream_issue_url:
-        link_block = f"[View upstream issue on GitHub|{upstream_issue_url}]\n\n"
+        link_block = f"[See More|{upstream_issue_url}]\n\n"
 
-    head = (
-        "{warning}*(This comment was truncated to fit Jira's "
-        f"{JIRA_COMMENT_BODY_MAX_CHARS}-character limit.)*{{warning}}\n\n" + link_block
-    )
-    tail = (
-        "\n\n{warning}*(Comment truncated"
-        + (
-            " — see GitHub link above for the full thread.)*"
-            if upstream_issue_url
-            else " — full thread not linked.)*"
-        )
-        + "{warning}"
-    )
+    fixed_overhead = len(head) + len(tail)
+    link_overhead = 2 * len(link_block)
+    if (
+        fixed_overhead + link_overhead + JIRA_TEXT_BODY_MIN_CHARS
+        > JIRA_TEXT_BODY_MAX_CHARS
+    ):
+        link_block = ""
+        link_overhead = 0
 
-    budget = JIRA_COMMENT_BODY_MAX_CHARS - len(head) - len(tail)
-    if budget < 1:
-        head = "{warning}*(Truncated.)*{warning}\n"
-        tail = "\n{warning}*(…)*{warning}"
-        budget = JIRA_COMMENT_BODY_MAX_CHARS - len(head) - len(tail)
-
-    truncated_core = body[: max(budget, 0)]
-    return head + truncated_core + tail
+    core_len = JIRA_TEXT_BODY_MAX_CHARS - fixed_overhead - link_overhead
+    return head + link_block + body[:core_len] + tail + link_block
 
 
 def _comment_format_legacy(comment):
@@ -538,7 +533,7 @@ def _find_comment_in_jira(
         # touch the comment; return the item as is.
         return comment
 
-    formatted_comment = _truncate_jira_comment_body(
+    formatted_comment = _truncate_jira_text(
         _comment_format(comment), upstream_issue_url
     )
     legacy_formatted_comment = _comment_format_legacy(comment)
@@ -1125,7 +1120,7 @@ def _update_comments(client, existing, issue):
     # Loop through the comments that remain
     for comment in comments_d:
         # Format and add them
-        comment_body = _truncate_jira_comment_body(_comment_format(comment), issue.url)
+        comment_body = _truncate_jira_text(_comment_format(comment), issue.url)
         client.add_comment(existing, comment_body)
     if len(comments_d) > 0:
         log.info("Comments synchronization done on %i comments.", len(comments_d))
@@ -1385,11 +1380,7 @@ def _build_description(issue):
         prefix = f"[{issue.id}] Upstream Reporter: {issue.reporter['fullname']}\n"
         description = prefix + description
 
-    # Add the url if requested
-    if "url" in issue_updates:
-        description = description + f"\nUpstream URL: {issue.url}"
-
-    return description
+    return _truncate_jira_text(description, getattr(issue, "url", None))
 
 
 def _update_description(existing, issue):
