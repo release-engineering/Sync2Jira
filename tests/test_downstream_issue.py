@@ -1313,7 +1313,7 @@ class TestDownstreamIssue(unittest.TestCase):
         # Assert all calls were made correctly
         mock_client.comments.assert_called_with(self.mock_downstream)
         mock_comment_matching.assert_called_with(
-            self.mock_issue.comments, "mock_comments"
+            self.mock_issue.comments, "mock_comments", self.mock_issue.url
         )
         mock_comment_format.assert_called_with("mock_comments_d")
         mock_client.add_comment.assert_called_with(
@@ -1686,6 +1686,25 @@ class TestDownstreamIssue(unittest.TestCase):
             }
         )
 
+    def test_build_description_truncates_long_content(self):
+        """
+        When the assembled description exceeds the Jira limit,
+        _build_description should truncate via _truncate_jira_text.
+        """
+        issue = MagicMock()
+        issue.downstream = {
+            "issue_updates": ["description"],
+        }
+        issue.status = None
+        issue.reporter = None
+        issue.url = "https://github.com/org/repo/issues/42"
+        issue.content = "Z" * (d.JIRA_TEXT_BODY_MAX_CHARS + 5000)
+        result = d._build_description(issue)
+        self.assertLessEqual(len(result), d.JIRA_TEXT_BODY_MAX_CHARS)
+        self.assertIn("Upstream description:", result)
+        self.assertIn("Truncated", result)
+        self.assertGreaterEqual(result.count("Z"), d.JIRA_TEXT_BODY_MIN_CHARS)
+
     def test_verify_tags(self):
         """
         This function tests 'verify_tags' function
@@ -1729,6 +1748,45 @@ class TestDownstreamIssue(unittest.TestCase):
         self.assertIsNone(
             d._jira_user_display_label(types.SimpleNamespace()),
         )
+
+    def test_truncate_jira_text_short_unchanged(self):
+        text = "short comment"
+        self.assertEqual(
+            d._truncate_jira_text(text, "https://github.com/o/r/issues/1"),
+            text,
+        )
+
+    def test_truncate_jira_text_long_with_issue_url(self):
+        issue_url = "https://github.com/o/r/issues/1"
+        body = "B" * (d.JIRA_TEXT_BODY_MAX_CHARS + 500)
+        out = d._truncate_jira_text(body, issue_url)
+        self.assertLessEqual(len(out), d.JIRA_TEXT_BODY_MAX_CHARS)
+        self.assertIn("Truncated", out)
+        link = f"[See More|{issue_url}]"
+        self.assertIn(link, out)
+        self.assertEqual(out.count(link), 2)
+        self.assertTrue(out.startswith("{warning}"))
+        self.assertGreaterEqual(out.count("B"), d.JIRA_TEXT_BODY_MIN_CHARS)
+
+    def test_truncate_jira_text_long_without_url(self):
+        body = "C" * (d.JIRA_TEXT_BODY_MAX_CHARS + 100)
+        out = d._truncate_jira_text(body, None)
+        self.assertLessEqual(len(out), d.JIRA_TEXT_BODY_MAX_CHARS)
+        self.assertIn("....", out)
+        self.assertGreaterEqual(out.count("C"), d.JIRA_TEXT_BODY_MIN_CHARS)
+
+    def test_truncate_jira_text_huge_url_drops_link(self):
+        """
+        When the issue URL is so long that including it twice would leave less
+        than JIRA_TEXT_BODY_MIN_CHARS for the body, the link is dropped.
+        """
+        huge_url = "https://github.com/o/r/issues/1" + ("x" * 40000)
+        body = "D" * (d.JIRA_TEXT_BODY_MAX_CHARS + 200)
+        out = d._truncate_jira_text(body, huge_url)
+        self.assertLessEqual(len(out), d.JIRA_TEXT_BODY_MAX_CHARS)
+        self.assertNotIn(huge_url, out)
+        self.assertIn("....", out)
+        self.assertGreaterEqual(out.count("D"), d.JIRA_TEXT_BODY_MIN_CHARS)
 
     @mock.patch("jira.client.JIRA")
     def test_check_comments_for_duplicates(self, mock_client):
