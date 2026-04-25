@@ -17,6 +17,7 @@
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
 # Built-In Modules
+import fnmatch
 import logging
 
 # 3rd Party Modules
@@ -125,12 +126,12 @@ def update_jira_issue(existing, pr, client):
         remote_link = dict(url=pr.url, title=f"[PR] {pr.title}")
         d_issue.attach_link(client, existing, remote_link)
 
-    # Only synchronize link_transition for listings that op-in
+    # Only synchronize merge_transition for listings that opt-in
     if any("merge_transition" in item for item in updates) and "merged" in pr.suffix:
         log.info("Looking for new merged_transition")
         update_transition(client, existing, pr, "merge_transition")
 
-    # Only synchronize merge_transition for listings that op-in
+    # Only synchronize link_transition for listings that opt-in
     # and a link comment has been created
     if (
         any("link_transition" in item for item in updates)
@@ -141,9 +142,54 @@ def update_jira_issue(existing, pr, client):
         update_transition(client, existing, pr, "link_transition")
 
 
+def _matches_transition_filters(transition_config, pr, existing):
+    """
+    Check whether a transition config entry's optional filters match the
+    current PR and downstream JIRA issue.
+
+    Supported filters:
+      - ``branches``: list of glob patterns matched against ``pr.base_branch``
+      - ``issue_types``: list of JIRA issue type names matched against the
+        existing downstream issue's type
+
+    :param dict transition_config: Single pr_updates entry
+    :param sync2jira.intermediary.PR pr: Upstream PR
+    :param jira.resources.Issue existing: Existing downstream JIRA issue
+    :returns: True if all filters pass (or no filters are specified)
+    :rtype: bool
+    """
+    branch_filters = transition_config.get("branches")
+    if branch_filters is not None:
+        if not pr.base_branch or not any(
+            fnmatch.fnmatch(pr.base_branch, pattern) for pattern in branch_filters
+        ):
+            log.info(
+                "Skipping transition: branch '%s' does not match %s",
+                pr.base_branch,
+                branch_filters,
+            )
+            return False
+
+    type_filters = transition_config.get("issue_types")
+    if type_filters is not None:
+        jira_type = existing.fields.issuetype.name
+        if jira_type not in type_filters:
+            log.info(
+                "Skipping transition: issue type '%s' does not match %s",
+                jira_type,
+                type_filters,
+            )
+            return False
+
+    return True
+
+
 def update_transition(client, existing, pr, transition_type):
     """
     Helper function to update the transition of a downstream JIRA issue.
+
+    Applies optional ``branches`` and ``issue_types`` filters from the
+    pr_updates config entry before executing the transition.
 
     :param jira.client.JIRA client: JIRA client
     :param jira.resource.Issue existing: Existing JIRA issue
@@ -151,15 +197,21 @@ def update_transition(client, existing, pr, transition_type):
     :param string transition_type: Transition type (link vs merged)
     :returns: Nothing
     """
-    # Get our closed status
-    closed_status = next(
-        filter(lambda d: transition_type in d, pr.downstream.get("pr_updates", {}))
-    )[transition_type]
+    for entry in pr.downstream.get("pr_updates", {}):
+        if transition_type not in entry:
+            continue
+        if not _matches_transition_filters(entry, pr, existing):
+            continue
+        d_issue.change_status(client, existing, entry[transition_type], pr)
+        log.info(f"Updated {transition_type} for issue {pr.title}")
+        return
 
-    # Update the state
-    d_issue.change_status(client, existing, closed_status, pr)
-
-    log.info(f"Updated {transition_type} for issue {pr.title}")
+    log.info(
+        "No matching %s entry for PR %s (branch=%s)",
+        transition_type,
+        pr.title,
+        pr.base_branch,
+    )
 
 
 def sync_with_jira(pr, config):

@@ -16,6 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110.15.0 USA
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
+import fnmatch
 import re
 from typing import Optional
 
@@ -155,6 +156,7 @@ class PR(object):
         id_,
         suffix,
         match,
+        base_branch=None,
         downstream=None,
     ):
         self.source = source
@@ -166,6 +168,7 @@ class PR(object):
         # self.tags = tags
         # self.fixVersion = fixVersion
         self.priority = priority
+        self.base_branch = base_branch
 
         # JIRA treats utf-8 characters in ways we don't totally understand, so scrub content down to
         # simple ascii characters right from the start.
@@ -226,6 +229,9 @@ class PR(object):
         elif suffix not in lifecycle:
             suffix = "open"
 
+        # Extract the target branch from the PR payload
+        base_branch = pr.get("base", {}).get("ref") if isinstance(pr.get("base"), dict) else None
+
         # Return our PR object
         return cls(
             source=upstream_source,
@@ -247,6 +253,7 @@ class PR(object):
             # upstream_id=issue['number'],
             suffix=suffix,
             match=match,
+            base_branch=base_branch,
         )
 
 
@@ -268,15 +275,23 @@ def map_fixVersion(mapping, issue):
     """
     Helper function to perform any fixVersion mapping.
 
+    Supports two formats:
+      - String template: ``"Product XXX"`` — replaces ``XXX`` with the milestone value
+      - Dict lookup: ``{"0.9.0": "Product 8.1", ...}`` — maps milestone to a
+        specific fixVersion; unmapped milestones are left unchanged
+
     :param Dict mapping: Mapping dict we are given
     :param Dict issue: Upstream issue object
     """
-    # Get our fixVersion mapping
     fixVersion_map = next(filter(lambda d: "fixVersion" in d, mapping))["fixVersion"]
 
-    # Now update the fixVersion
     if issue["milestone"]:
-        issue["milestone"] = fixVersion_map.replace("XXX", issue["milestone"])
+        if isinstance(fixVersion_map, dict):
+            issue["milestone"] = fixVersion_map.get(
+                issue["milestone"], issue["milestone"]
+            )
+        else:
+            issue["milestone"] = fixVersion_map.replace("XXX", issue["milestone"])
 
 
 JIRA_REFERENCE = re.compile(r"\bJIRA:\s*([A-Z][A-Z0-9]*-\d+)\b")

@@ -362,6 +362,7 @@ class TestDownstreamPR(unittest.TestCase):
         """
         # Set up return values
         mock_client = MagicMock()
+        self.mock_existing.fields.issuetype.name = "Bug"
 
         # Call the function
         d.update_transition(
@@ -371,6 +372,118 @@ class TestDownstreamPR(unittest.TestCase):
         # Assert everything was called correctly
         mock_d_issue.change_status.assert_called_with(
             mock_client, self.mock_existing, "CUSTOM_TRANSITION1", self.mock_pr
+        )
+
+    @mock.patch(PATH + "d_issue")
+    def test_update_transition_branch_filter_match(self, mock_d_issue):
+        """Test merge_transition fires when branch matches the filter."""
+        mock_client = MagicMock()
+        self.mock_existing.fields.issuetype.name = "Bug"
+        self.mock_pr.base_branch = "release-0.9"
+        self.mock_pr.downstream = {
+            "pr_updates": [
+                {"merge_transition": "MODIFIED", "branches": ["release-*"]},
+            ]
+        }
+
+        d.update_transition(
+            mock_client, self.mock_existing, self.mock_pr, "merge_transition"
+        )
+
+        mock_d_issue.change_status.assert_called_with(
+            mock_client, self.mock_existing, "MODIFIED", self.mock_pr
+        )
+
+    @mock.patch(PATH + "d_issue")
+    def test_update_transition_branch_filter_no_match(self, mock_d_issue):
+        """Test merge_transition does NOT fire when branch doesn't match."""
+        mock_client = MagicMock()
+        self.mock_existing.fields.issuetype.name = "Bug"
+        self.mock_pr.base_branch = "main"
+        self.mock_pr.downstream = {
+            "pr_updates": [
+                {"merge_transition": "MODIFIED", "branches": ["release-*"]},
+            ]
+        }
+
+        d.update_transition(
+            mock_client, self.mock_existing, self.mock_pr, "merge_transition"
+        )
+
+        mock_d_issue.change_status.assert_not_called()
+
+    @mock.patch(PATH + "d_issue")
+    def test_update_transition_issue_type_filter_match(self, mock_d_issue):
+        """Test transition fires when issue type matches the filter."""
+        mock_client = MagicMock()
+        self.mock_existing.fields.issuetype.name = "Bug"
+        self.mock_pr.base_branch = "release-0.9"
+        self.mock_pr.downstream = {
+            "pr_updates": [
+                {
+                    "merge_transition": "MODIFIED",
+                    "branches": ["release-*"],
+                    "issue_types": ["Bug"],
+                },
+            ]
+        }
+
+        d.update_transition(
+            mock_client, self.mock_existing, self.mock_pr, "merge_transition"
+        )
+
+        mock_d_issue.change_status.assert_called_with(
+            mock_client, self.mock_existing, "MODIFIED", self.mock_pr
+        )
+
+    @mock.patch(PATH + "d_issue")
+    def test_update_transition_issue_type_filter_no_match(self, mock_d_issue):
+        """Test transition does NOT fire when issue type doesn't match."""
+        mock_client = MagicMock()
+        self.mock_existing.fields.issuetype.name = "Story"
+        self.mock_pr.base_branch = "release-0.9"
+        self.mock_pr.downstream = {
+            "pr_updates": [
+                {
+                    "merge_transition": "MODIFIED",
+                    "branches": ["release-*"],
+                    "issue_types": ["Bug"],
+                },
+            ]
+        }
+
+        d.update_transition(
+            mock_client, self.mock_existing, self.mock_pr, "merge_transition"
+        )
+
+        mock_d_issue.change_status.assert_not_called()
+
+    @mock.patch(PATH + "d_issue")
+    def test_update_transition_multiple_entries_selects_matching(self, mock_d_issue):
+        """Test that the correct transition is selected from multiple entries."""
+        mock_client = MagicMock()
+        self.mock_existing.fields.issuetype.name = "Story"
+        self.mock_pr.base_branch = "main"
+        self.mock_pr.downstream = {
+            "pr_updates": [
+                {
+                    "merge_transition": "MODIFIED",
+                    "branches": ["release-*"],
+                    "issue_types": ["Bug"],
+                },
+                {
+                    "merge_transition": "Dev Complete",
+                    "issue_types": ["Story", "Task"],
+                },
+            ]
+        }
+
+        d.update_transition(
+            mock_client, self.mock_existing, self.mock_pr, "merge_transition"
+        )
+
+        mock_d_issue.change_status.assert_called_with(
+            mock_client, self.mock_existing, "Dev Complete", self.mock_pr
         )
 
     @mock.patch(PATH + "update_jira")

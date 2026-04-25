@@ -361,4 +361,69 @@ class TestIntermediary(unittest.TestCase):
         actual = i.matcher(content, comments)
         self.assertEqual(expected, actual)
 
-    # TODO: Add new tests from PR
+    def test_map_fixVersion(self):
+        """
+        Table-driven test for map_fixVersion covering both string-template
+        and dict-based lookup formats.
+        """
+        scenarios = (
+            # 1: String template (existing XXX replacement)
+            (
+                "string template",
+                "Product XXX",
+                "1.0",
+                "Product 1.0",
+            ),
+            # 2: Dict lookup — known key
+            (
+                "dict lookup known key",
+                {"v1.0": "Release 1.0", "v2.0": "Release 2.0"},
+                "v1.0",
+                "Release 1.0",
+            ),
+            # 3: Dict lookup — unknown key left unchanged
+            (
+                "dict lookup unknown key unchanged",
+                {"v1.0": "Release 1.0"},
+                "v3.0",
+                "v3.0",
+            ),
+            # 4: Dict lookup — empty dict leaves milestone unchanged
+            (
+                "dict lookup empty dict unchanged",
+                {},
+                "v1.0",
+                "v1.0",
+            ),
+            # 5: None milestone — no mapping applied
+            (
+                "none milestone no mapping",
+                {"v1.0": "Release 1.0"},
+                None,
+                None,
+            ),
+        )
+
+        for name, fixversion_map, milestone, expected in scenarios:
+            with self.subTest(name):
+                mapping = [{"fixVersion": fixversion_map}]
+                issue = {"milestone": milestone}
+                i.map_fixVersion(mapping, issue)
+                self.assertEqual(issue["milestone"], expected)
+
+    def test_mapping_github_dict_fixVersion(self):
+        """
+        End-to-end test: dict-based fixVersion mapping through Issue.from_github.
+        """
+        self.mock_config["sync2jira"]["map"]["github"]["github"] = {
+            "mock_downstream": "mock_key",
+            "mapping": [{"fixVersion": {"mock_milestone": "Mapped Version 1.0"}}],
+        }
+        self.mock_github_issue["state"] = "closed"
+
+        response = i.Issue.from_github(
+            upstream="github", issue=self.mock_github_issue, config=self.mock_config
+        )
+
+        self.checkResponseFields(response)
+        self.assertEqual(response.fixVersion, ["Mapped Version 1.0"])

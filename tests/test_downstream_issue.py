@@ -1291,6 +1291,107 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.transitions.assert_called_with(self.mock_downstream)
         mock_client.transition_issue.assert_called_with(self.mock_downstream, 1234)
 
+    @mock.patch("jira.client.JIRA")
+    def test_update_transition_issue_types_filter(self, mock_client):
+        """
+        Table-driven test for _update_transition with issue_types filtering.
+        Each scenario is cumulative, adding one piece of state.
+        """
+        mock_client.transitions.return_value = [
+            {"name": "CLOSED", "id": "1234"}
+        ]
+
+        scenarios = (
+            # 1: Non-dict entry is skipped
+            (
+                "non-dict entry skipped",
+                ["transition"],
+                "Bug",
+                "Closed",
+                False,
+            ),
+            # 2: Dict without 'transition' key is skipped
+            (
+                "dict without transition key skipped",
+                [{"tags": {}}],
+                "Bug",
+                "Closed",
+                False,
+            ),
+            # 3: No issue_types filter — fires for any type
+            (
+                "no issue_types filter fires for any type",
+                [{"transition": "CLOSED"}],
+                "Bug",
+                "Closed",
+                True,
+            ),
+            # 4: issue_types matches downstream type
+            (
+                "issue_types filter match",
+                [{"transition": "CLOSED", "issue_types": ["Story", "Task"]}],
+                "Task",
+                "Closed",
+                True,
+            ),
+            # 5: issue_types does NOT match downstream type
+            (
+                "issue_types filter no match",
+                [{"transition": "CLOSED", "issue_types": ["Story", "Task"]}],
+                "Bug",
+                "Closed",
+                False,
+            ),
+            # 6: Multiple entries — first skipped by type, second matches
+            (
+                "multiple entries selects matching",
+                [
+                    {"transition": "MODIFIED", "issue_types": ["Bug"]},
+                    {"transition": "DEV COMPLETE", "issue_types": ["Story", "Task"]},
+                ],
+                "Story",
+                "Closed",
+                True,
+            ),
+            # 7: Upstream issue not closed — no transition fires
+            (
+                "upstream not closed",
+                [{"transition": "CLOSED"}],
+                "Bug",
+                "Open",
+                False,
+            ),
+        )
+
+        for name, issue_updates, jira_type, upstream_status, expect_transition in scenarios:
+            with self.subTest(name):
+                mock_client.reset_mock()
+                self.mock_issue.downstream = {
+                    **self.mock_issue.downstream,
+                    "issue_updates": issue_updates,
+                }
+                self.mock_issue.status = upstream_status
+                self.mock_downstream.fields.issuetype.name = jira_type
+                self.mock_downstream.fields.status.name = "Open"
+
+                d._update_transition(
+                    client=mock_client,
+                    existing=self.mock_downstream,
+                    issue=self.mock_issue,
+                )
+
+                if expect_transition:
+                    mock_client.add_comment.assert_called_once()
+                    comment_body = mock_client.add_comment.call_args[0][1]
+                    expected_status = issue_updates[-1]["transition"]
+                    self.assertIn(
+                        f"Attempting transition to {expected_status}",
+                        comment_body,
+                    )
+                    mock_client.transitions.assert_called_with(self.mock_downstream)
+                else:
+                    mock_client.add_comment.assert_not_called()
+
     @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_matching")
     @mock.patch("jira.client.JIRA")
