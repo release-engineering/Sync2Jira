@@ -1297,9 +1297,7 @@ class TestDownstreamIssue(unittest.TestCase):
         Table-driven test for _update_transition with issue_types filtering.
         Each scenario is cumulative, adding one piece of state.
         """
-        mock_client.transitions.return_value = [
-            {"name": "CLOSED", "id": "1234"}
-        ]
+        mock_client.transitions.return_value = [{"name": "CLOSED", "id": "1234"}]
 
         scenarios = (
             # 1: Non-dict entry is skipped
@@ -1363,7 +1361,13 @@ class TestDownstreamIssue(unittest.TestCase):
             ),
         )
 
-        for name, issue_updates, jira_type, upstream_status, expect_transition in scenarios:
+        for (
+            name,
+            issue_updates,
+            jira_type,
+            upstream_status,
+            expect_transition,
+        ) in scenarios:
             with self.subTest(name):
                 mock_client.reset_mock()
                 self.mock_issue.downstream = {

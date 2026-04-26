@@ -16,7 +16,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110.15.0 USA
 #
 # Authors:  Ralph Bean <rbean@redhat.com>
-import fnmatch
 import re
 from typing import Optional
 
@@ -230,7 +229,9 @@ class PR(object):
             suffix = "open"
 
         # Extract the target branch from the PR payload
-        base_branch = pr.get("base", {}).get("ref") if isinstance(pr.get("base"), dict) else None
+        base_branch = (
+            pr.get("base", {}).get("ref") if isinstance(pr.get("base"), dict) else None
+        )
 
         # Return our PR object
         return cls(
