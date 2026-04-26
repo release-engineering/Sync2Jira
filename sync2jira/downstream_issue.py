@@ -46,6 +46,12 @@ load_dotenv()
 # This is used to ensure legacy comments are not touched
 UPDATE_DATE = datetime(2019, 7, 9, 18, 18, 36, 480291, tzinfo=timezone.utc)
 
+# Jira REST API rejects comment bodies longer than this (characters).
+JIRA_TEXT_BODY_MAX_CHARS = 32750
+# When truncating, keep at least this many characters of the original body.
+# If the hyperlink(s) wouldn't leave this much room, drop the hyperlink instead.
+JIRA_TEXT_BODY_MIN_CHARS = 1024
+
 log = logging.getLogger("sync2jira")
 logging.getLogger("snowflake.connector").setLevel(logging.WARNING)
 
@@ -248,6 +254,48 @@ def _comment_format(comment):
         pretty_date,
         comment["body"],
     )
+
+
+def _truncate_jira_text(
+    body: str,
+    upstream_issue_url: Optional[str] = None,
+    max_chars: Optional[int] = None,
+) -> str:
+    """
+    Ensure ``body`` fits within *max_chars* (default: comment limit).
+
+    If truncated, a notice is prepended and a truncation marker appended.  When
+    an upstream URL is available it is included — *unless* the link is so
+    long that it would eat into the minimum body budget, in which case the link
+    is dropped entirely.
+    """
+    if max_chars is None:
+        max_chars = JIRA_TEXT_BODY_MAX_CHARS
+
+    if len(body) <= max_chars:
+        return body
+
+    log.info(
+        "Truncating Jira text body from %d to max %d characters",
+        len(body),
+        max_chars,
+    )
+
+    head = "{warning}*(Truncated.)*{warning}\n"
+    tail = "\n\n{warning}*....*{warning}\n"
+
+    link_block = ""
+    if upstream_issue_url:
+        link_block = f"[See More|{upstream_issue_url}]\n"
+
+    fixed_overhead = len(head) + len(tail) + 1  # +1 for the \n before body
+    link_overhead = 2 * len(link_block)
+    if fixed_overhead + link_overhead + JIRA_TEXT_BODY_MIN_CHARS > max_chars:
+        link_block = ""
+        link_overhead = 0
+
+    core_len = max_chars - fixed_overhead - link_overhead
+    return head + link_block + "\n" + body[:core_len] + tail + link_block
 
 
 def _comment_format_legacy(comment):
@@ -472,12 +520,13 @@ def check_comments_for_duplicate(client, result, username):
     return None
 
 
-def _find_comment_in_jira(comment, j_comments):
+def _find_comment_in_jira(comment, j_comments, issue_url: Optional[str] = None):
     """
     Helper function to filter out comments that are matching.
 
     :param Dict comment: Individual comment from upstream
     :param List j_comments: Comments from JIRA downstream
+    :param Optional[str] upstream_issue_url: Upstream issue URL for truncation notices
     :returns: Item/None
     :rtype: jira.resource.Comment/None
     """
@@ -486,7 +535,7 @@ def _find_comment_in_jira(comment, j_comments):
         # touch the comment; return the item as is.
         return comment
 
-    formatted_comment = _comment_format(comment)
+    formatted_comment = _truncate_jira_text(_comment_format(comment), issue_url)
     legacy_formatted_comment = _comment_format_legacy(comment)
     for item in j_comments:
         if item.raw["body"] == legacy_formatted_comment:
@@ -505,18 +554,19 @@ def _find_comment_in_jira(comment, j_comments):
     return None
 
 
-def _comment_matching(g_comments, j_comments):
+def _comment_matching(g_comments, j_comments, upstream_issue_url: Optional[str] = None):
     """
     Function to filter out comments that are matching.
 
     :param List g_comments: Comments from Issue object
     :param List j_comments: Comments from JIRA downstream
+    :param Optional[str] upstream_issue_url: Upstream issue URL (for Jira truncation)
     :returns: Returns a list of comments that are not matching
     :rtype: List
     """
     return list(
         filter(
-            lambda x: _find_comment_in_jira(x, j_comments) is None
+            lambda x: _find_comment_in_jira(x, j_comments, upstream_issue_url) is None
             or x["changed"] is not None,
             g_comments,
         )
@@ -661,7 +711,13 @@ def assign_user(
 
     # See if any of the upstream assignees has a downstream email address.
     for assignee in issue.assignee:
-        emails = Rover_Lookup.github_username_to_emails(assignee["login"])
+        emails = Rover_Lookup.github_username_to_emails(
+            assignee["login"],
+            ldap_server=os.getenv("LDAP_SERVER"),
+            ldap_base_dn=os.getenv("LDAP_BASE_DN"),
+            ldap_bind_dn=os.getenv("LDAP_BIND_DN"),
+            ldap_password=os.getenv("LDAP_PASSWORD"),
+        )
         if not emails:
             continue
 
@@ -1081,11 +1137,11 @@ def _update_comments(client, existing, issue):
     # Get all existing comments
     comments = client.comments(existing)
     # Remove any comments that have already been added
-    comments_d = _comment_matching(issue.comments, comments)
+    comments_d = _comment_matching(issue.comments, comments, issue.url)
     # Loop through the comments that remain
     for comment in comments_d:
         # Format and add them
-        comment_body = _comment_format(comment)
+        comment_body = _truncate_jira_text(_comment_format(comment), issue.url)
         client.add_comment(existing, comment_body)
     if len(comments_d) > 0:
         log.info("Comments synchronization done on %i comments.", len(comments_d))
@@ -1329,25 +1385,39 @@ def _update_tags(updates, existing, issue):
 
 
 def _build_description(issue):
-    # Build the description of the JIRA issue
+    # Build the description of the JIRA issue.
+    #
+    # Truncate issue.content *before* wrapping it with {quote} and the
+    # metadata prefix so the closing {quote} and decoration are never lost.
     issue_updates = issue.downstream.get("issue_updates", [])
-    description = ""
-    if "description" in issue_updates:
-        description = f"Upstream description: {{quote}}{issue.content}{{quote}}"
 
-    if issue.status and any("transition" in item for item in issue_updates):
-        # Add the upstream issue status to the top of the description
-        formatted_status = "Upstream issue status: " + issue.status
-        description = formatted_status + "\n" + description
-
+    # Build the prefix lines that will appear above the quoted content.
+    prefix_parts = []
     if issue.reporter:
-        # Add to the description
-        prefix = f"[{issue.id}] Upstream Reporter: {issue.reporter['fullname']}\n"
-        description = prefix + description
+        prefix_parts.append(
+            f"[{issue.id}] Upstream Reporter: {issue.reporter['fullname']}"
+        )
+    if issue.status and any("transition" in item for item in issue_updates):
+        prefix_parts.append("Upstream issue status: " + issue.status)
 
-    # Add the url if requested
+    prefix = "\n".join(prefix_parts) + "\n" if prefix_parts else ""
+    suffix = ""
     if "url" in issue_updates:
-        description = description + f"\nUpstream URL: {issue.url}"
+        suffix = f"\nUpstream URL: {issue.url}"
+    if "description" in issue_updates:
+        quote_wrapper = "Upstream description: {quote}{quote}"
+        decoration_len = len(prefix) + len(quote_wrapper)
+        budget = JIRA_TEXT_BODY_MAX_CHARS - decoration_len
+        description = prefix
+        content = issue.content or ""
+        if len(content) > budget:
+            upstream_url = getattr(issue, "url", None)
+            content = _truncate_jira_text(content, upstream_url, max_chars=budget)
+            description += f"Upstream description: {{quote}}{content}{{quote}}"
+        else:
+            description += f"Upstream description: {{quote}}{content}{{quote}}" + suffix
+    else:
+        description = prefix + suffix
 
     return description
 

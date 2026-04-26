@@ -45,13 +45,6 @@ def github_username_to_emails(
         logger.error("GitHub username cannot be empty")
         return None
 
-    # Default LDAP configuration for Red Hat Rover service
-    # FIXME:  These should be configured via config file.
-    if ldap_server is None:
-        ldap_server = "ldap://ldap.corp.redhat.com"  # Default Rover LDAP server
-    if ldap_base_dn is None:
-        ldap_base_dn = "ou=users,dc=redhat,dc=com"  # Default base DN
-
     # Construct the LDAP filter to match the GitHub "Professional Social Media" URL.
     # The rhatSocialURL field contains values like "Github->https://github.com/username".
     # However, 5% of the entries include a trailing slash (which GitHub accepts),
