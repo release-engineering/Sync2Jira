@@ -1295,12 +1295,28 @@ class TestDownstreamIssue(unittest.TestCase):
     def test_update_transition_issue_types_filter(self, mock_client):
         """
         Table-driven test for _update_transition with issue_types filtering.
-        Each scenario is cumulative, adding one piece of state.
+        Each scenario independently sets up all pertinent state.
         """
         mock_client.transitions.return_value = [{"name": "CLOSED", "id": "1234"}]
 
         scenarios = (
-            # 1: Non-dict entry is skipped
+            # 1: issue_updates key absent from downstream — no transition
+            (
+                "issue_updates key absent",
+                None,
+                "Bug",
+                "Closed",
+                False,
+            ),
+            # 2: issue_updates is an empty list — no transition
+            (
+                "issue_updates empty list",
+                [],
+                "Bug",
+                "Closed",
+                False,
+            ),
+            # 3: Non-dict entry is skipped
             (
                 "non-dict entry skipped",
                 ["transition"],
@@ -1308,7 +1324,7 @@ class TestDownstreamIssue(unittest.TestCase):
                 "Closed",
                 False,
             ),
-            # 2: Dict without 'transition' key is skipped
+            # 4: Dict without 'transition' key is skipped
             (
                 "dict without transition key skipped",
                 [{"tags": {}}],
@@ -1316,7 +1332,7 @@ class TestDownstreamIssue(unittest.TestCase):
                 "Closed",
                 False,
             ),
-            # 3: No issue_types filter — fires for any type
+            # 5: No issue_types filter — fires for any type
             (
                 "no issue_types filter fires for any type",
                 [{"transition": "CLOSED"}],
@@ -1324,7 +1340,7 @@ class TestDownstreamIssue(unittest.TestCase):
                 "Closed",
                 True,
             ),
-            # 4: issue_types matches downstream type
+            # 6: issue_types matches downstream type
             (
                 "issue_types filter match",
                 [{"transition": "CLOSED", "issue_types": ["Story", "Task"]}],
@@ -1332,7 +1348,7 @@ class TestDownstreamIssue(unittest.TestCase):
                 "Closed",
                 True,
             ),
-            # 5: issue_types does NOT match downstream type
+            # 7: issue_types does NOT match downstream type
             (
                 "issue_types filter no match",
                 [{"transition": "CLOSED", "issue_types": ["Story", "Task"]}],
@@ -1340,7 +1356,7 @@ class TestDownstreamIssue(unittest.TestCase):
                 "Closed",
                 False,
             ),
-            # 6: Multiple entries — first skipped by type, second matches
+            # 8: Multiple entries — first skipped by type, second matches
             (
                 "multiple entries selects matching",
                 [
@@ -1351,7 +1367,18 @@ class TestDownstreamIssue(unittest.TestCase):
                 "Closed",
                 True,
             ),
-            # 7: Upstream issue not closed — no transition fires
+            # 9: Multiple entries, none match — no transition
+            (
+                "multiple entries none match",
+                [
+                    {"transition": "MODIFIED", "issue_types": ["Bug"]},
+                    {"transition": "DEV COMPLETE", "issue_types": ["Task"]},
+                ],
+                "Story",
+                "Closed",
+                False,
+            ),
+            # 10: Upstream issue not closed — no transition fires
             (
                 "upstream not closed",
                 [{"transition": "CLOSED"}],
@@ -1359,24 +1386,44 @@ class TestDownstreamIssue(unittest.TestCase):
                 "Open",
                 False,
             ),
+            # 11: Downstream status already matches transition target — no transition
+            (
+                "downstream status already matches",
+                [{"transition": "CLOSED"}],
+                "Bug",
+                "Closed",
+                False,
+                "CLOSED",
+            ),
+            # 12: transition value is True — no transition fires
+            (
+                "transition value is True",
+                [{"transition": True}],
+                "Bug",
+                "Closed",
+                False,
+            ),
         )
 
-        for (
-            name,
-            issue_updates,
-            jira_type,
-            upstream_status,
-            expect_transition,
-        ) in scenarios:
+        for scenario in scenarios:
+            name = scenario[0]
+            issue_updates = scenario[1]
+            jira_type = scenario[2]
+            upstream_status = scenario[3]
+            expect_transition = scenario[4]
+            downstream_status = scenario[5] if len(scenario) > 5 else "Open"
+
             with self.subTest(name):
                 mock_client.reset_mock()
-                self.mock_issue.downstream = {
-                    **self.mock_issue.downstream,
-                    "issue_updates": issue_updates,
-                }
+                downstream = {**self.mock_issue.downstream}
+                if issue_updates is None:
+                    downstream.pop("issue_updates", None)
+                else:
+                    downstream["issue_updates"] = issue_updates
+                self.mock_issue.downstream = downstream
                 self.mock_issue.status = upstream_status
                 self.mock_downstream.fields.issuetype.name = jira_type
-                self.mock_downstream.fields.status.name = "Open"
+                self.mock_downstream.fields.status.name = downstream_status
 
                 d._update_transition(
                     client=mock_client,

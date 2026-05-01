@@ -228,9 +228,8 @@ class PR(object):
         elif suffix not in lifecycle:
             suffix = "open"
 
-        # Extract the target branch from the PR payload
         base_branch = (
-            pr.get("base", {}).get("ref") if isinstance(pr.get("base"), dict) else None
+            pr["base"].get("ref") if isinstance(pr.get("base"), dict) else None
         )
 
         # Return our PR object

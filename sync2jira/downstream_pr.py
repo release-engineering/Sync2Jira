@@ -197,7 +197,11 @@ def update_transition(client, existing, pr, transition_type):
     :param string transition_type: Transition type (link vs merged)
     :returns: Nothing
     """
-    for entry in pr.downstream.get("pr_updates", {}):
+    pr_updates = pr.downstream.get("pr_updates")
+    if not pr_updates:
+        return
+
+    for entry in pr_updates:
         if transition_type not in entry:
             continue
         if not _matches_transition_filters(entry, pr, existing):
