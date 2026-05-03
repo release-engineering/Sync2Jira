@@ -1403,6 +1403,14 @@ class TestDownstreamIssue(unittest.TestCase):
                 "Closed",
                 False,
             ),
+            # 13: transition value is False — no transition fires (non-string)
+            (
+                "transition value is False",
+                [{"transition": False}],
+                "Bug",
+                "Closed",
+                False,
+            ),
         )
 
         for scenario in scenarios:

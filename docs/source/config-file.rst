@@ -198,10 +198,10 @@ The config file is made up of multiple parts
         * Sync when upstream PR gets merged. Attempts to transition JIRA ticket to CUSTOM_TRANSITION on upstream merge.
     * :code:`{'link_transition': 'CUSTOM_TRANSITION'}`
         * Sync when upstream PR gets linked. Attempts to transition JIRA ticket to CUSTOM_TRANSITION on upstream link.
-    * :code:`'branches': ['release-*', 'main']`
-        * Optional filter (glob patterns). The transition only fires when the PR's target branch matches one of the patterns.
-    * :code:`'issue_types': ['Bug', 'Story']`
-        * Optional filter. The transition only fires when the downstream JIRA issue type is in the list.
+    * :code:`{'merge_transition': 'MODIFIED', 'branches': ['release-*', 'main'], 'issue_types': ['Bug', 'Story']}`
+        * Optional filters added to the same dict as the transition. ``branches`` accepts glob patterns and restricts
+          the transition to PRs whose target branch matches. ``issue_types`` restricts it to matching downstream JIRA
+          issue types. Both filters are optional and can be used independently or together.
 
 * You can add the following to the mapping array. This array will map an upstream field to the downstream counterpart
   with XXX replaced.

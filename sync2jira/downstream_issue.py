@@ -1098,7 +1098,7 @@ def _update_transition(client, existing, issue):
                 continue
 
         if (
-            closed_status is not True
+            isinstance(closed_status, str)
             and issue.status == "Closed"
             and existing.fields.status.name.upper() != closed_status.upper()
         ):
