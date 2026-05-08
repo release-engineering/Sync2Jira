@@ -1395,13 +1395,13 @@ class TestDownstreamIssue(unittest.TestCase):
                 False,
                 "CLOSED",
             ),
-            # 12: transition value is True — no transition fires
+            # 12: transition value is True — normalized to "Closed"
             (
-                "transition value is True",
+                "transition value is True (normalized to Closed)",
                 [{"transition": True}],
                 "Bug",
                 "Closed",
-                False,
+                True,
             ),
             # 13: transition value is False — no transition fires (non-string)
             (
@@ -1442,7 +1442,8 @@ class TestDownstreamIssue(unittest.TestCase):
                 if expect_transition:
                     mock_client.add_comment.assert_called_once()
                     comment_body = mock_client.add_comment.call_args[0][1]
-                    expected_status = issue_updates[-1]["transition"]
+                    raw_status = issue_updates[-1]["transition"]
+                    expected_status = "Closed" if raw_status is True else raw_status
                     self.assertIn(
                         f"Attempting transition to {expected_status}",
                         comment_body,

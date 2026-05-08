@@ -1085,6 +1085,12 @@ def _update_transition(client, existing, issue):
 
         closed_status = entry["transition"]
 
+        # Normalize legacy True value to "Closed"
+        if closed_status is True:
+            closed_status = "Closed"
+        if not isinstance(closed_status, str):
+            continue
+
         type_filters = entry.get("issue_types")
         if type_filters is not None:
             jira_type = existing.fields.issuetype.name
@@ -1098,8 +1104,7 @@ def _update_transition(client, existing, issue):
                 continue
 
         if (
-            isinstance(closed_status, str)
-            and issue.status == "Closed"
+            issue.status == "Closed"
             and existing.fields.status.name.upper() != closed_status.upper()
         ):
             hyperlink = f"[Upstream issue|{issue.url}]"

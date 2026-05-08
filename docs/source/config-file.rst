@@ -167,10 +167,10 @@ The config file is made up of multiple parts
         * Sync description
     * :code:`'title'`
         * Sync title
-    * :code:`{'transition': 'CUSTOM_TRANSITION'}`
-        * Sync status (open/closed). Attempt to transition JIRA ticket to CUSTOM_TRANSITION on upstream closure.
     * :code:`{'transition': 'CUSTOM_TRANSITION', 'issue_types': ['Bug', 'Story']}`
-        * Same as above, but the transition only fires when the downstream JIRA issue type is in the list.
+        * Sync status (open/closed). Attempt to transition JIRA ticket to CUSTOM_TRANSITION on upstream closure.
+        * ``issue_types`` is optional and may be omitted. When present, the transition only fires if the
+          downstream JIRA issue type is in the list.
     * :code:`{'on_close': {'apply_labels': ['label', ...]}}`
         * When the upstream issue is closed, apply additional labels on the corresponding Jira ticket.
     * :code:`github_markdown`
@@ -194,17 +194,16 @@ The config file is made up of multiple parts
 * You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with
   downstream components. You can add the following to the :code:`pr_updates` array:
 
-    * :code:`{'merge_transition': 'CUSTOM_TRANSITION'}`
+    * :code:`{'merge_transition': 'MODIFIED', 'branches': ['release-*', 'main'], 'issue_types': ['Bug', 'Story']}`
         * Sync when upstream PR gets merged. Attempts to transition JIRA ticket to CUSTOM_TRANSITION on upstream merge.
+        * ``branches`` and ``issue_types`` are optional and either may be omitted. ``branches`` accepts glob patterns
+          and restricts the transition to PRs whose target branch matches. ``issue_types`` restricts it to matching
+          downstream JIRA issue types.
     * :code:`{'link_transition': 'CUSTOM_TRANSITION'}`
         * Sync when upstream PR gets linked. Attempts to transition JIRA ticket to CUSTOM_TRANSITION on upstream link.
-    * :code:`{'merge_transition': 'MODIFIED', 'branches': ['release-*', 'main'], 'issue_types': ['Bug', 'Story']}`
-        * Optional filters added to the same dict as the transition. ``branches`` accepts glob patterns and restricts
-          the transition to PRs whose target branch matches. ``issue_types`` restricts it to matching downstream JIRA
-          issue types. Both filters are optional and can be used independently or together.
 
 * You can add the following to the mapping array. This array will map an upstream field to the downstream counterpart
-  with XXX replaced.
+  using either a template or a mapping table.
 
     * :code:`{'fixVersion': 'Test XXX'}`
         * String template format. Maps upstream milestone (suppose it's called 'milestone') to downstream fixVersion
