@@ -1089,6 +1089,12 @@ def _update_transition(client, existing, issue):
         if closed_status is True:
             closed_status = "Closed"
         if not isinstance(closed_status, str):
+            log.warning(
+                "Ignoring malformed transition value %r (expected a string) in "
+                "issue_updates config for %s",
+                closed_status,
+                existing.key,
+            )
             continue
 
         type_filters = entry.get("issue_types")

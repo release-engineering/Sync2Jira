@@ -194,7 +194,7 @@ The config file is made up of multiple parts
 * You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with
   downstream components. You can add the following to the :code:`pr_updates` array:
 
-    * :code:`{'merge_transition': 'MODIFIED', 'branches': ['release-*', 'main'], 'issue_types': ['Bug', 'Story']}`
+    * :code:`{'merge_transition': 'CUSTOM_TRANSITION', 'branches': ['release-*', 'main'], 'issue_types': ['Bug', 'Story']}`
         * Sync when upstream PR gets merged. Attempts to transition JIRA ticket to CUSTOM_TRANSITION on upstream merge.
         * ``branches`` and ``issue_types`` are optional and either may be omitted. ``branches`` accepts glob patterns
           and restricts the transition to PRs whose target branch matches. ``issue_types`` restricts it to matching
