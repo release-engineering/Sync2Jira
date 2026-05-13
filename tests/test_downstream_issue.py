@@ -1896,6 +1896,23 @@ class TestDownstreamIssue(unittest.TestCase):
             }
         )
 
+    def test_build_description_string_reporter(self):
+        """
+        _build_description should handle a string reporter (PR objects)
+        the same way it handles a dict reporter (Issue objects).
+        """
+        issue = MagicMock()
+        issue.downstream = {"pr_updates": ["description"]}
+        issue.id = "42"
+        issue.status = None
+        issue.reporter = "some_user"
+        issue.url = "https://github.com/org/repo/pull/42"
+        issue.content = "PR body text"
+
+        result = d._build_description(issue, updates_key="pr_updates")
+        self.assertIn("[42] Upstream Reporter: some_user", result)
+        self.assertIn("PR body text", result)
+
     def test_build_description_truncates_long_content(self):
         """
         When the assembled description exceeds the Jira limit,
