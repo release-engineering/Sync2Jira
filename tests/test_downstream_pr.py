@@ -70,7 +70,7 @@ class TestDownstreamPR(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_update_jira_issue.assert_called_with(
-            "mock_existing", self.mock_pr, self.mock_client
+            "mock_existing", self.mock_pr, self.mock_client, self.mock_config
         )
         self.mock_client.search_issues.assert_called_with("Key = JIRA-1234")
         mock_d_issue.get_jira_client.assert_called_with(self.mock_pr, self.mock_config)
@@ -92,7 +92,7 @@ class TestDownstreamPR(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_update_jira_issue.assert_called_with(
-            "mock_existing", self.mock_pr, mock_client
+            "mock_existing", self.mock_pr, mock_client, self.mock_config
         )
         mock_client.search_issues.assert_called_with("Key = JIRA-1234")
         mock_d_issue.get_jira_client.assert_called_with(self.mock_pr, self.mock_config)
@@ -153,6 +153,7 @@ class TestDownstreamPR(unittest.TestCase):
         mock_client.search_issues.assert_not_called()
         mock_d_issue.get_jira_client.assert_not_called()
 
+    @mock.patch(PATH + "d_issue._update_jira_issue")
     @mock.patch(PATH + "comment_exists")
     @mock.patch(PATH + "format_comment")
     @mock.patch(PATH + "d_issue.attach_link")
@@ -163,6 +164,7 @@ class TestDownstreamPR(unittest.TestCase):
         mock_attach_link,
         mock_format_comment,
         mock_comment_exists,
+        mock_shared_update,
     ):
         """
         This function tests 'update_jira_issue'
@@ -173,9 +175,11 @@ class TestDownstreamPR(unittest.TestCase):
         mock_issue_link_exists.return_value = False
 
         # Call the function
-        d.update_jira_issue("mock_existing", self.mock_pr, self.mock_client)
+        d.update_jira_issue(
+            "mock_existing", self.mock_pr, self.mock_client, self.mock_config
+        )
 
-        # Assert everything was called correctly
+        # Assert PR-specific steps were called
         self.mock_client.add_comment.assert_called_with(
             "mock_existing", "mock_formatted_comment"
         )
@@ -189,6 +193,14 @@ class TestDownstreamPR(unittest.TestCase):
             self.mock_client,
             "mock_existing",
             {"url": "mock_url", "title": "[PR] mock_title"},
+        )
+        # Assert shared update pipeline was called
+        mock_shared_update.assert_called_with(
+            "mock_existing",
+            self.mock_pr,
+            self.mock_client,
+            self.mock_config,
+            updates_key="pr_updates",
         )
 
     def test_issue_link_exists_false(self):
@@ -223,6 +235,7 @@ class TestDownstreamPR(unittest.TestCase):
         self.mock_client.remote_links.assert_called_with(self.mock_existing)
         self.assertEqual(ret, True)
 
+    @mock.patch(PATH + "d_issue._update_jira_issue")
     @mock.patch(PATH + "format_comment")
     @mock.patch(PATH + "comment_exists")
     @mock.patch(PATH + "d_issue.attach_link")
@@ -233,6 +246,7 @@ class TestDownstreamPR(unittest.TestCase):
         mock_attach_link,
         mock_comment_exists,
         mock_format_comment,
+        mock_shared_update,
     ):
         """
         This function tests 'update_jira_issue' where the comment already exists
@@ -243,9 +257,11 @@ class TestDownstreamPR(unittest.TestCase):
         mock_issue_link_exists.return_value = True
 
         # Call the function
-        d.update_jira_issue("mock_existing", self.mock_pr, self.mock_client)
+        d.update_jira_issue(
+            "mock_existing", self.mock_pr, self.mock_client, self.mock_config
+        )
 
-        # Assert everything was called correctly
+        # Assert PR-specific steps were called
         self.mock_client.add_comment.assert_not_called()
         mock_format_comment.assert_called_with(
             self.mock_pr, self.mock_pr.suffix, self.mock_client
@@ -256,6 +272,14 @@ class TestDownstreamPR(unittest.TestCase):
         mock_attach_link.assert_not_called()
         mock_issue_link_exists.assert_called_with(
             self.mock_client, "mock_existing", self.mock_pr
+        )
+        # Assert shared update pipeline was still called
+        mock_shared_update.assert_called_with(
+            "mock_existing",
+            self.mock_pr,
+            self.mock_client,
+            self.mock_config,
+            updates_key="pr_updates",
         )
 
     def test_comment_exists_false(self):
@@ -356,16 +380,16 @@ class TestDownstreamPR(unittest.TestCase):
         )
 
     @mock.patch(PATH + "d_issue")
-    def test_update_transition(self, mock_d_issue):
+    def test_update_pr_transition(self, mock_d_issue):
         """
-        This function tests 'update_transition'
+        This function tests '_update_pr_transition'
         """
         # Set up return values
         mock_client = MagicMock()
         self.mock_existing.fields.issuetype.name = "Bug"
 
         # Call the function
-        d.update_transition(
+        d._update_pr_transition(
             mock_client, self.mock_existing, self.mock_pr, "merge_transition"
         )
 
@@ -484,7 +508,7 @@ class TestDownstreamPR(unittest.TestCase):
             ]
         }
 
-        d.update_transition(
+        d._update_pr_transition(
             mock_client, self.mock_existing, self.mock_pr, "merge_transition"
         )
 
@@ -507,7 +531,7 @@ class TestDownstreamPR(unittest.TestCase):
             ]
         }
 
-        d.update_transition(
+        d._update_pr_transition(
             mock_client, self.mock_existing, self.mock_pr, "merge_transition"
         )
 
@@ -525,7 +549,7 @@ class TestDownstreamPR(unittest.TestCase):
             ]
         }
 
-        d.update_transition(
+        d._update_pr_transition(
             mock_client, self.mock_existing, self.mock_pr, "merge_transition"
         )
 
@@ -539,7 +563,7 @@ class TestDownstreamPR(unittest.TestCase):
         mock_client = MagicMock()
         self.mock_pr.downstream = {}
 
-        d.update_transition(
+        d._update_pr_transition(
             mock_client, self.mock_existing, self.mock_pr, "merge_transition"
         )
 
@@ -551,7 +575,7 @@ class TestDownstreamPR(unittest.TestCase):
         mock_client = MagicMock()
         self.mock_pr.downstream = {"pr_updates": []}
 
-        d.update_transition(
+        d._update_pr_transition(
             mock_client, self.mock_existing, self.mock_pr, "merge_transition"
         )
 

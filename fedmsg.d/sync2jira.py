@@ -65,24 +65,58 @@ config = {
             },
         'map': {
             'github': {
-                'GITHUB_USERNAME/Demo_project': {'project': 'FACTORY', 'component': 'gitbz',
-                                                'issue_updates': [
-                                                    'comments',
-                                                    'upstream_id',
-                                                    'title',
-                                                    'description',
-                                                    'github_markdown',
-                                                    'upstream_id',
-                                                    'url',
-                                                    {'transition': 'Closed'},
-                                                    {'assignee': {'overwrite': False}},
-                                                    'github_project_fields'],
-                                                'github_project_number': '1',
-                                                'github_project_fields': {'storypoints': {'gh_field': 'Estimate'},
-                                                    'priority': {'gh_field': 'Priority', 'options':
-                                                                 {'P0': 'Blocker', 'P1': 'Critical', 'P2': 'Major',
-                                                                  'P3': 'Minor', 'P4': 'Optional', 'P5': 'Trivial'}}},
-                                                 'sync': ['pullrequest', 'issue']},
+                'GITHUB_USERNAME/Demo_project': {
+                    'project': 'FACTORY',
+                    'component': 'gitbz',
+
+                    # ----- Issue synchronization -----
+                    'issue_updates': [
+                        'comments',         # Sync GitHub issue comments to Jira
+                        'title',            # Sync issue title
+                        'description',      # Sync issue description/body
+                        'github_markdown',  # Convert GitHub Markdown to Jira wiki format
+                        'upstream_id',      # Add comment with upstream issue link on create
+                        'url',              # Include upstream URL in description
+                        'github_project_fields',  # Sync storypoints & priority from GitHub Projects
+                        {'transition': 'Closed'},  # Transition Jira when upstream issue closes
+                        {'assignee': {'overwrite': False}},  # Sync assignee (don't overwrite existing)
+                        {'on_close': {'apply_labels': ['closed-upstream']}},  # Label on close
+                    ],
+
+                    # ----- PR synchronization -----
+                    # pr_updates uses the same options as issue_updates.
+                    # Additionally supports merge_transition and link_transition.
+                    'pr_updates': [
+                        'comments',         # Sync GitHub PR comments to Jira
+                        'title',            # Sync PR title
+                        'description',      # Sync PR description/body
+                        'github_markdown',  # Convert GitHub Markdown to Jira wiki format
+                        {'merge_transition': 'Closed'},    # Transition Jira when PR is merged
+                        {'link_transition': 'In Progress'},  # Transition Jira when PR is first linked
+                        {'assignee': {'overwrite': False}},  # Sync assignee (don't overwrite existing)
+                        {'on_close': {'apply_labels': ['closed-upstream']}},  # Label on close
+                    ],
+
+                    # ----- GitHub Projects (shared by issue & PR) -----
+                    'github_project_number': '1',
+                    'github_project_fields': {
+                        'storypoints': {'gh_field': 'Estimate'},
+                        'priority': {
+                            'gh_field': 'Priority',
+                            'options': {
+                                'P0': 'Blocker',
+                                'P1': 'Critical',
+                                'P2': 'Major',
+                                'P3': 'Minor',
+                                'P4': 'Optional',
+                                'P5': 'Trivial',
+                            },
+                        },
+                    },
+
+                    # What to sync: 'issue', 'pullrequest', or both
+                    'sync': ['issue', 'pullrequest'],
+                },
             },
         },
         'filters': {

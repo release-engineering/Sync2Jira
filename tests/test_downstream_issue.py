@@ -1203,11 +1203,14 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         mock_update_assignee.assert_called_once()
         mock_update_description.assert_called_with(
-            self.mock_downstream, self.mock_issue
+            self.mock_downstream, self.mock_issue, updates_key="issue_updates"
         )
         mock_update_title.assert_called_with(self.mock_issue, self.mock_downstream)
         mock_update_transition.assert_called_with(
-            mock_client, self.mock_downstream, self.mock_issue
+            mock_client,
+            self.mock_downstream,
+            self.mock_issue,
+            updates_key="issue_updates",
         )
         mock_update_on_close.assert_called_once()
 
@@ -1258,11 +1261,14 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         mock_update_assignee.assert_called_once()
         mock_update_description.assert_called_with(
-            self.mock_downstream, self.mock_issue
+            self.mock_downstream, self.mock_issue, updates_key="issue_updates"
         )
         mock_update_title.assert_called_with(self.mock_issue, self.mock_downstream)
         mock_update_transition.assert_called_with(
-            mock_client, self.mock_downstream, self.mock_issue
+            mock_client,
+            self.mock_downstream,
+            self.mock_issue,
+            updates_key="issue_updates",
         )
         mock_update_on_close.assert_not_called()
 
