@@ -1110,6 +1110,44 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         mock_existing_jira_issue_legacy.assert_not_called()
 
+    @mock.patch(PATH + "convert_content")
+    def test_maybe_convert_markdown(self, mock_convert):
+        """maybe_convert_markdown: converts when opted-in, skips otherwise."""
+        mock_convert.return_value = "h1. Hello"
+
+        # Converts when source=github, content non-empty, github_markdown in updates
+        issue = MagicMock()
+        issue.downstream = {"issue_updates": ["description", "github_markdown"]}
+        issue.source = "github"
+        issue.content = "# Hello"
+        d.maybe_convert_markdown(issue)
+        mock_convert.assert_called_once_with("# Hello")
+        self.assertEqual(issue.content, "h1. Hello")
+
+        # Works with pr_updates key
+        mock_convert.reset_mock()
+        mock_convert.return_value = "*bold*"
+        issue.downstream = {"pr_updates": ["github_markdown", "description"]}
+        issue.content = "**bold**"
+        d.maybe_convert_markdown(issue, updates_key="pr_updates")
+        mock_convert.assert_called_once_with("**bold**")
+        self.assertEqual(issue.content, "*bold*")
+
+        # Skips when github_markdown not in updates
+        mock_convert.reset_mock()
+        issue.downstream = {"issue_updates": ["description"]}
+        issue.content = "# Hello"
+        d.maybe_convert_markdown(issue)
+        mock_convert.assert_not_called()
+        self.assertEqual(issue.content, "# Hello")
+
+        # Skips when content is empty
+        mock_convert.reset_mock()
+        issue.downstream = {"issue_updates": ["github_markdown"]}
+        issue.content = ""
+        d.maybe_convert_markdown(issue)
+        mock_convert.assert_not_called()
+
     @mock.patch(PATH + "pypandoc")
     def test_convert_content(self, mock_pypandoc):
         """convert_content(): normal success, TeX fallback, and double failure."""
