@@ -78,19 +78,23 @@ config = {
                         'upstream_id',      # Add comment with upstream issue link on create
                         'url',              # Include upstream URL in description
                         'github_project_fields',  # Sync storypoints & priority from GitHub Projects
+                        {'fixVersion': {'overwrite': False}},  # Sync milestone as fixVersion
                         {'transition': 'Closed'},  # Transition Jira when upstream issue closes
                         {'assignee': {'overwrite': False}},  # Sync assignee (don't overwrite existing)
                         {'on_close': {'apply_labels': ['closed-upstream']}},  # Label on close
                     ],
 
                     # ----- PR synchronization -----
-                    # pr_updates uses the same options as issue_updates.
-                    # Additionally supports merge_transition and link_transition.
+                    # pr_updates supports the same options as issue_updates,
+                    # plus merge_transition and link_transition.
                     'pr_updates': [
                         'comments',         # Sync GitHub PR comments to Jira
                         'title',            # Sync PR title
                         'description',      # Sync PR description/body
                         'github_markdown',  # Convert GitHub Markdown to Jira wiki format
+                        'upstream_id',      # Add comment with upstream PR link on create
+                        'url',              # Include upstream URL in description
+                        'github_project_fields',  # Sync storypoints & priority from GitHub Projects
                         {'merge_transition': 'Closed'},    # Transition Jira when PR is merged
                         {'link_transition': 'In Progress'},  # Transition Jira when PR is first linked
                         {'assignee': {'overwrite': False}},  # Sync assignee (don't overwrite existing)

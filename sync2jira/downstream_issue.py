@@ -963,7 +963,7 @@ def _create_jira_issue(client, issue, config):
 
     # Update relevant information (i.e., tags, assignees, etc.) if the User
     # opted in
-    _update_jira_issue(downstream, issue, client, config)
+    update_jira_issue(downstream, issue, client, config)
 
     return downstream
 
@@ -985,13 +985,13 @@ def _label_matching(jira_labels, issue_labels):
     return updated_labels
 
 
-def _update_jira_issue(existing, issue, client, config, updates_key="issue_updates"):
+def update_jira_issue(existing, issue, client, config, updates_key="issue_updates"):
     """
     Updates an existing JIRA issue (i.e., tags, assignee, comments, etc.).
 
     Works for both Issue and PR intermediary objects.  The ``updates_key``
     parameter selects which downstream config list to read
-    (``"issue_updates"`` or ``"pr_updates"``).
+    ("issue_updates" or "pr_updates").
 
     :param jira.resources.Issue existing: Existing JIRA issue that was found
     :param issue: Upstream Issue or PR we're pulling data from
@@ -1012,6 +1012,7 @@ def _update_jira_issue(existing, issue, client, config, updates_key="issue_updat
 
     # Get fields representing project item fields in GitHub and Jira
     github_project_fields = issue.downstream.get("github_project_fields", {})
+    # Only synchronize github_project_fields for listings that op-in
     if "github_project_fields" in updates and github_project_fields:
         log.info("Looking for GitHub project fields")
         _update_github_project_fields(
@@ -1047,7 +1048,7 @@ def _update_jira_issue(existing, issue, client, config, updates_key="issue_updat
     # Only synchronize descriptions for listings that op-in
     if "description" in updates:
         log.info("Looking for new description")
-        _update_description(existing, issue, updates_key=updates_key)
+        _update_description(existing, issue, updates_key)
 
     # Only synchronize title for listings that op-in
     if "title" in updates:
@@ -1059,7 +1060,7 @@ def _update_jira_issue(existing, issue, client, config, updates_key="issue_updat
     # Only synchronize transition (status) for listings that op-in
     if any("transition" in item for item in updates):
         log.info("Looking for new transition(s)")
-        _update_transition(client, existing, issue, updates_key=updates_key)
+        _update_transition(client, existing, issue, updates_key)
 
     # Only execute 'on_close' events for listings that opt-in
     # and when the issue is closed.
@@ -1411,12 +1412,7 @@ def _build_description(issue, updates_key="issue_updates"):
     prefix_parts = []
     reporter = getattr(issue, "reporter", None)
     if reporter:
-        if isinstance(reporter, dict):
-            fullname = reporter.get("fullname", "")
-        else:
-            fullname = str(reporter)
-        if fullname:
-            prefix_parts.append(f"[{issue.id}] Upstream Reporter: {fullname}")
+        prefix_parts.append(f"[{issue.id}] Upstream Reporter: {reporter}")
     if issue.status and any("transition" in item for item in issue_updates):
         prefix_parts.append("Upstream issue status: " + issue.status)
 
@@ -1452,7 +1448,7 @@ def _update_description(existing, issue, updates_key="issue_updates"):
     :returns: Nothing
     """
 
-    new_description = _build_description(issue, updates_key=updates_key)
+    new_description = _build_description(issue, updates_key)
 
     # Now we can update the JIRA issue if we need to
     if new_description != existing.fields.description:
@@ -1614,7 +1610,7 @@ def update_jira(client, config, issue):
             log.info("Testing flag is true.  Skipping actual update.")
             return
         # Update relevant metadata (i.e. tags, assignee, etc)
-        _update_jira_issue(existing, issue, client, config)
+        update_jira_issue(existing, issue, client, config)
         return
 
     # If we're *not* configured to do legacy matching (upgrade mode), then

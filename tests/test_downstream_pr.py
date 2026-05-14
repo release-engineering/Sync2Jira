@@ -153,7 +153,7 @@ class TestDownstreamPR(unittest.TestCase):
         mock_client.search_issues.assert_not_called()
         mock_d_issue.get_jira_client.assert_not_called()
 
-    @mock.patch(PATH + "d_issue._update_jira_issue")
+    @mock.patch(PATH + "d_issue.update_jira_issue")
     @mock.patch(PATH + "comment_exists")
     @mock.patch(PATH + "format_comment")
     @mock.patch(PATH + "d_issue.attach_link")
@@ -200,7 +200,7 @@ class TestDownstreamPR(unittest.TestCase):
             self.mock_pr,
             self.mock_client,
             self.mock_config,
-            updates_key="pr_updates",
+            "pr_updates",
         )
 
     def test_issue_link_exists_false(self):
@@ -235,7 +235,7 @@ class TestDownstreamPR(unittest.TestCase):
         self.mock_client.remote_links.assert_called_with(self.mock_existing)
         self.assertEqual(ret, True)
 
-    @mock.patch(PATH + "d_issue._update_jira_issue")
+    @mock.patch(PATH + "d_issue.update_jira_issue")
     @mock.patch(PATH + "format_comment")
     @mock.patch(PATH + "comment_exists")
     @mock.patch(PATH + "d_issue.attach_link")
@@ -279,7 +279,7 @@ class TestDownstreamPR(unittest.TestCase):
             self.mock_pr,
             self.mock_client,
             self.mock_config,
-            updates_key="pr_updates",
+            "pr_updates",
         )
 
     def test_comment_exists_false(self):
@@ -844,13 +844,7 @@ class TestDownstreamPR(unittest.TestCase):
         self.assertEqual(kwargs["status"], self.mock_pr.status)
         self.assertEqual(kwargs["id_"], self.mock_pr.id)
 
-        # Handle reporter conversion
-        if isinstance(self.mock_pr.reporter, dict):
-            self.assertEqual(kwargs["reporter"], self.mock_pr.reporter)
-        else:
-            self.assertEqual(
-                kwargs["reporter"], {"fullname": str(self.mock_pr.reporter)}
-            )
+        self.assertEqual(kwargs["reporter"], self.mock_pr.reporter)
 
         # Apply field-specific overrides
         for key, expected_value in field_overrides.items():
@@ -902,27 +896,3 @@ class TestDownstreamPR(unittest.TestCase):
         self._assert_issue_created_with_pr_fields(
             mock_issue_class, content=f"PR: {self.mock_pr.url}"
         )
-
-    @mock.patch(PATH + "d_issue._create_jira_issue")
-    @mock.patch(PATH + "Issue")
-    def test_create_jira_issue_from_pr_reporter_dict(
-        self, mock_issue_class, mock_create_jira_issue
-    ):
-        """
-        Test '_create_jira_issue_from_pr' when reporter is already a dict (not a string).
-        """
-        # Set up return values
-        mock_client = MagicMock()
-        mock_created_issue = MagicMock()
-        mock_create_jira_issue.return_value = mock_created_issue
-
-        # Set up PR object with dict reporter
-        self._setup_pr_for_issue_creation(
-            reporter={"fullname": "testuser", "email": "test@example.com"}
-        )
-
-        # Call the function
-        d._create_jira_issue_from_pr(mock_client, self.mock_pr, self.mock_config)
-
-        # Assert Issue was created with dict reporter (not wrapped)
-        self._assert_issue_created_with_pr_fields(mock_issue_class)

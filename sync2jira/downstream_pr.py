@@ -127,16 +127,16 @@ def _update_pr_transitions(client, existing, pr):
         d_issue.attach_link(client, existing, remote_link)
 
     # Only synchronize merge_transition for listings that opt-in
-    if any("merge_transition" in item for item in updates) and "merged" in pr.suffix:
+    if "merged" in pr.suffix and any("merge_transition" in item for item in updates):
         log.info("Looking for new merged_transition")
         _update_pr_transition(client, existing, pr, "merge_transition")
 
     # Only synchronize link_transition for listings that opt-in
     # and a link comment has been created
     if (
-        any("link_transition" in item for item in updates)
-        and "mentioned" in new_comment
+        "mentioned" in new_comment
         and not exists
+        and any("link_transition" in item for item in updates)
     ):
         log.info("Looking for new link_transition")
         _update_pr_transition(client, existing, pr, "link_transition")
@@ -237,7 +237,7 @@ def update_jira_issue(existing, pr, client, config):
     _update_pr_transitions(client, existing, pr)
 
     # Shared pipeline: comments, description, title, assignee, tags, etc.
-    d_issue._update_jira_issue(existing, pr, client, config, updates_key=UPDATES_KEY)
+    d_issue.update_jira_issue(existing, pr, client, config, UPDATES_KEY)
 
 
 def sync_with_jira(pr, config):
@@ -289,7 +289,7 @@ def update_jira(client, config, pr):
         raise RuntimeError("Jira server status check failed; aborting...")
 
     # Apply GitHub markdown conversion if configured
-    d_issue.maybe_convert_markdown(pr, updates_key=UPDATES_KEY)
+    d_issue.maybe_convert_markdown(pr, UPDATES_KEY)
 
     # Find our JIRA issue if one exists
     if isinstance(pr, Issue):
@@ -357,11 +357,7 @@ def _create_jira_issue_from_pr(client, pr, config):
         fixVersion=[],
         priority=pr.priority,
         content=pr_content,
-        reporter=(
-            pr.reporter
-            if isinstance(pr.reporter, dict)
-            else {"fullname": str(pr.reporter)}
-        ),
+        reporter=pr.reporter,
         assignee=pr.assignee or [],
         status=pr.status,
         id_=pr.id,

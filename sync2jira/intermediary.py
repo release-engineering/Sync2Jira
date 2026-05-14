@@ -122,7 +122,7 @@ class Issue(object):
             fixVersion=[issue["milestone"]],
             priority=issue.get("priority"),
             content=issue["body"] or "",
-            reporter=issue["user"],
+            reporter=issue["user"]["fullname"],
             assignee=issue["assignees"],
             status=issue["state"],
             id_=issue["id"],
