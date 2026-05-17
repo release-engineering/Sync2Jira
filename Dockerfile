@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi10/ubi:10.1-1778133905@sha256:1b8f2a7c85f7613d246706c8206d15e89af2bbb3589b018e70f894b25d0e3821
+FROM registry.access.redhat.com/ubi10/ubi:10.1-1778562845@sha256:936bf25d1a9b2c0c00aa67ec55f8347273763b7c64317ba7404b4b87736b2af2
 
 ARG SYNC2JIRA_GIT_REPO=https://github.com/release-engineering/Sync2Jira.git
 ARG SYNC2JIRA_GIT_REF=main
