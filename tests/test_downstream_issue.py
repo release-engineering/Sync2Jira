@@ -747,7 +747,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.search_users.assert_not_called()
 
     def common_test_create_jira_issue(
-        self, mock_attach_link, mock_client, mockupdate_jira_issue
+        self, mock_attach_link, mock_client, mock_update_jira_issue
     ):
         """Common code for testing _create_jira_issue"""
 
@@ -782,7 +782,7 @@ class TestDownstreamIssue(unittest.TestCase):
             self.mock_downstream,
             {"url": "mock_url", "title": "Upstream issue"},
         )
-        mockupdate_jira_issue.assert_called_with(
+        mock_update_jira_issue.assert_called_with(
             self.mock_downstream, self.mock_issue, mock_client, self.mock_config
         )
         self.mock_downstream.update.assert_any_call({"customfield_1": "DUMMY-1234"})
@@ -798,13 +798,13 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "attach_link")
     @mock.patch("jira.client.JIRA")
     def test_create_jira_issue(
-        self, mock_client, mock_attach_link, mockupdate_jira_issue
+        self, mock_client, mock_attach_link, mock_update_jira_issue
     ):
         """
         Tests '_create_jira_issue' function normal success case
         """
         self.common_test_create_jira_issue(
-            mock_attach_link, mock_client, mockupdate_jira_issue
+            mock_attach_link, mock_client, mock_update_jira_issue
         )
 
         mock_client.add_comment.assert_not_called()
@@ -813,7 +813,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "attach_link")
     @mock.patch("jira.client.JIRA")
     def test_create_jira_issue_failed_epic_link(
-        self, mock_client, mock_attach_link, mockupdate_jira_issue
+        self, mock_client, mock_attach_link, mock_update_jira_issue
     ):
         """
         Tests '_create_jira_issue' function when we fail while updating the epic link
@@ -822,7 +822,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.side_effect = [JIRAError, "success", "success"]
 
         self.common_test_create_jira_issue(
-            mock_attach_link, mock_client, mockupdate_jira_issue
+            mock_attach_link, mock_client, mock_update_jira_issue
         )
 
         mock_client.add_comment.assert_called_with(
@@ -833,7 +833,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "attach_link")
     @mock.patch("jira.client.JIRA")
     def test_create_jira_issue_failed_exd_service(
-        self, mock_client, mock_attach_link, mockupdate_jira_issue
+        self, mock_client, mock_attach_link, mock_update_jira_issue
     ):
         """
         Tests '_create_jira_issue' function when we fail while updating the
@@ -843,7 +843,7 @@ class TestDownstreamIssue(unittest.TestCase):
         self.mock_downstream.update.side_effect = ["success", "success", JIRAError]
 
         self.common_test_create_jira_issue(
-            mock_attach_link, mock_client, mockupdate_jira_issue
+            mock_attach_link, mock_client, mock_update_jira_issue
         )
 
         mock_client.add_comment.assert_called_with(
@@ -862,7 +862,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client,
         mock_get_preferred_issue_types,
         mock_attach_link,
-        mockupdate_jira_issue,
+        mock_update_jira_issue,
     ):
         """
         Tests '_create_jira_issue' function when multiple possible issue types are found
@@ -872,7 +872,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_get_preferred_issue_types.return_value = issue_types
 
         self.common_test_create_jira_issue(
-            mock_attach_link, mock_client, mockupdate_jira_issue
+            mock_attach_link, mock_client, mock_update_jira_issue
         )
 
         mock_client.add_comment.assert_called_with(
@@ -884,7 +884,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "attach_link")
     @mock.patch("jira.client.JIRA")
     def test_create_jira_issue_no_updates(
-        self, mock_client, mock_attach_link, mockupdate_jira_issue
+        self, mock_client, mock_attach_link, mock_update_jira_issue
     ):
         """
         Tests '_create_jira_issue' function where we have
@@ -918,7 +918,7 @@ class TestDownstreamIssue(unittest.TestCase):
             self.mock_downstream,
             {"url": "mock_url", "title": "Upstream issue"},
         )
-        mockupdate_jira_issue.assert_called_with(
+        mock_update_jira_issue.assert_called_with(
             self.mock_downstream, self.mock_issue, mock_client, self.mock_config
         )
         self.assertEqual(response, self.mock_downstream)
@@ -1014,7 +1014,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_existing_jira_issue_legacy,
         mock_client,
         mock_create_jira_issue,
-        mockupdate_jira_issue,
+        mock_update_jira_issue,
         mock_existing_jira_issue,
         mock_get_jira_client,
     ):
@@ -1032,7 +1032,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert all calls were made correctly
         mock_get_jira_client.assert_called_with(self.mock_issue, self.mock_config)
-        mockupdate_jira_issue.assert_called_with(
+        mock_update_jira_issue.assert_called_with(
             self.mock_downstream, self.mock_issue, mock_client, self.mock_config
         )
         mock_create_jira_issue.assert_not_called()
@@ -1051,7 +1051,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_existing_jira_issue_legacy,
         mock_client,
         mock_create_jira_issue,
-        mockupdate_jira_issue,
+        mock_update_jira_issue,
         mock_existing_jira_issue,
         mock_get_jira_client,
     ):
@@ -1069,7 +1069,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert all calls were made correctly
         mock_get_jira_client.assert_called_with(self.mock_issue, self.mock_config)
-        mockupdate_jira_issue.assert_not_called()
+        mock_update_jira_issue.assert_not_called()
         mock_create_jira_issue.assert_not_called()
         mock_existing_jira_issue_legacy.assert_not_called()
 
@@ -1086,7 +1086,7 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_existing_jira_issue_legacy,
         mock_client,
         mock_create_jira_issue,
-        mockupdate_jira_issue,
+        mock_update_jira_issue,
         mock_existing_jira_issue,
         mock_get_jira_client,
     ):
@@ -1104,7 +1104,7 @@ class TestDownstreamIssue(unittest.TestCase):
 
         # Assert all calls were made correctly
         mock_get_jira_client.assert_called_with(self.mock_issue, self.mock_config)
-        mockupdate_jira_issue.assert_not_called()
+        mock_update_jira_issue.assert_not_called()
         mock_create_jira_issue.assert_called_with(
             mock_client, self.mock_issue, self.mock_config
         )
@@ -1113,15 +1113,14 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "convert_content")
     def test_maybe_convert_markdown(self, mock_convert):
         """maybe_convert_markdown: converts when opted-in, skips otherwise."""
-        mock_convert.return_value = "h1. Hello"
 
         # Converts when source=github, content non-empty, github_markdown in updates
+        mock_convert.return_value = "h1. Hello"
         issue = MagicMock()
         issue.downstream = {"issue_updates": ["description", "github_markdown"]}
         issue.source = "github"
         issue.content = "# Hello"
         d.maybe_convert_markdown(issue)
-        mock_convert.assert_called_once_with("# Hello")
         self.assertEqual(issue.content, "h1. Hello")
 
         # Works with pr_updates key
@@ -1130,7 +1129,6 @@ class TestDownstreamIssue(unittest.TestCase):
         issue.downstream = {"pr_updates": ["github_markdown", "description"]}
         issue.content = "**bold**"
         d.maybe_convert_markdown(issue, "pr_updates")
-        mock_convert.assert_called_once_with("**bold**")
         self.assertEqual(issue.content, "*bold*")
 
         # Skips when github_markdown not in updates
@@ -1138,7 +1136,6 @@ class TestDownstreamIssue(unittest.TestCase):
         issue.downstream = {"issue_updates": ["description"]}
         issue.content = "# Hello"
         d.maybe_convert_markdown(issue)
-        mock_convert.assert_not_called()
         self.assertEqual(issue.content, "# Hello")
 
         # Skips when content is empty
@@ -1146,7 +1143,14 @@ class TestDownstreamIssue(unittest.TestCase):
         issue.downstream = {"issue_updates": ["github_markdown"]}
         issue.content = ""
         d.maybe_convert_markdown(issue)
-        mock_convert.assert_not_called()
+        self.assertEqual(issue.content, "")
+
+        # Skips when source is not github
+        issue.source = "pagure"
+        issue.downstream = {"issue_updates": ["github_markdown"]}
+        issue.content = "# Hello"
+        d.maybe_convert_markdown(issue)
+        self.assertEqual(issue.content, "# Hello")
 
     @mock.patch(PATH + "pypandoc")
     def test_convert_content(self, mock_pypandoc):
@@ -1200,7 +1204,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "_update_assignee")
     @mock.patch(PATH + "_update_on_close")
     @mock.patch("jira.client.JIRA")
-    def testupdate_jira_issue_closed(
+    def test_update_jira_issue_closed(
         self,
         mock_client,
         mock_update_on_close,
@@ -1261,7 +1265,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "_update_assignee")
     @mock.patch(PATH + "_update_on_close")
     @mock.patch("jira.client.JIRA")
-    def testupdate_jira_issue_open(
+    def test_update_jira_issue_open(
         self,
         mock_client,
         mock_update_on_close,
@@ -2538,7 +2542,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "attach_link")
     @mock.patch("jira.client.JIRA")
     def test_create_jira_issue_epic_link_field_not_found(
-        self, mock_client, mock_attach_link, mockupdate_jira_issue
+        self, mock_client, mock_attach_link, mock_update_jira_issue
     ):
         """Test _create_jira_issue when Epic Link field cannot be resolved"""
         # Set up return values
@@ -2600,7 +2604,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "change_status")
     @mock.patch("jira.client.JIRA")
     def test_create_jira_issue_with_component_and_labels(
-        self, mock_client, mock_change_status, mock_attach_link, mockupdate_jira_issue
+        self, mock_client, mock_change_status, mock_attach_link, mock_update_jira_issue
     ):
         """Test _create_jira_issue with component and labels"""
         # Clear cache first
@@ -2635,7 +2639,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "change_status")
     @mock.patch("jira.client.JIRA")
     def test_create_jira_issue_with_default_status_and_upstream_id(
-        self, mock_client, mock_change_status, mock_attach_link, mockupdate_jira_issue
+        self, mock_client, mock_change_status, mock_attach_link, mock_update_jira_issue
     ):
         """Test _create_jira_issue with default_status and upstream_id comment"""
         # Clear cache first
@@ -2829,7 +2833,7 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch(PATH + "_update_assignee")
     @mock.patch(PATH + "_update_on_close")
     @mock.patch("jira.client.JIRA")
-    def testupdate_jira_issue_github_project_fields_early_exit(
+    def test_update_jira_issue_github_project_fields_early_exit(
         self,
         mock_client,
         mock_update_on_close,

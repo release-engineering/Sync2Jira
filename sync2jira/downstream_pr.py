@@ -336,13 +336,9 @@ def _create_jira_issue_from_pr(client, pr, config):
     """
 
     pr_content = pr.content or f"PR: {pr.url}"
-    if pr.downstream.get("issue_updates"):
-        if (
-            pr.source == "github"
-            and pr_content
-            and "github_markdown" in pr.downstream["issue_updates"]
-        ):
-            pr_content = d_issue.convert_content(pr_content)
+    pr_updates = pr.downstream.get(UPDATES_KEY, [])
+    if pr.source == "github" and pr_content and "github_markdown" in pr_updates:
+        pr_content = d_issue.convert_content(pr_content)
 
     # Convert PR to Issue-like object for creation
     # PR and Issue share similar structure, but we need to adapt it
@@ -353,8 +349,8 @@ def _create_jira_issue_from_pr(client, pr, config):
         upstream=pr.upstream,
         comments=pr.comments,
         config=config,
-        tags=[],  # PRs don't have tags in the same way
-        fixVersion=[],
+        tags=pr.tags,
+        fixVersion=pr.fixVersion,
         priority=pr.priority,
         content=pr_content,
         reporter=pr.reporter,

@@ -321,10 +321,8 @@ def handle_msg(body, suffix, config):
             if not (pr := handler(body, config, is_pr=True)):
                 log.info("Not handling PR issue update -- not configured")
                 return
-            # PRs require additional handling (Issues do not have suffix, and
-            # reporter needs to be reformatted).
+            # PRs require additional handling (Issues do not have suffix).
             pr.suffix = suffix
-            pr.reporter = pr.reporter.get("fullname")
             setattr(pr, "match", matcher(pr.content, pr.comments))
             d_pr.sync_with_jira(pr, config)
         else:

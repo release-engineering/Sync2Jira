@@ -1003,7 +1003,7 @@ def update_jira_issue(existing, issue, client, config, updates_key="issue_update
     log.info("Updating information for upstream %s: %s", updates_key, issue.url)
 
     # Get a list of what the user wants to update for the upstream issue
-    updates = issue.downstream.get("issue_updates", [])
+    updates = issue.downstream.get(updates_key, [])
 
     # Update relevant data if needed.
     # If the user has specified nothing, just return.
@@ -1062,8 +1062,8 @@ def update_jira_issue(existing, issue, client, config, updates_key="issue_update
         log.info("Looking for new transition(s)")
         _update_transition(client, existing, issue, updates_key)
 
-    # Only execute 'on_close' events for listings that opt-in
-    # and when the issue is closed.
+    # Execute 'on_close' events when the issue is closed
+    # (opt-in is checked inside _update_on_close).
     if issue.status == "Closed":
         log.info("Attempting to update downstream issue on upstream closed event")
         _update_on_close(existing, updates)
@@ -1443,7 +1443,7 @@ def _update_description(existing, issue, updates_key="issue_updates"):
     Helper function to sync description between upstream issue and downstream JIRA issue.
 
     :param jira.resource.Issue existing: Existing JIRA issue
-    :param issue: Upstream Issue or PR
+    :param sync2jira.intermediary.Issue or sync2jira.intermediary.PR issue: Upstream Issue or PR
     :param str updates_key: Config key for the updates list
     :returns: Nothing
     """

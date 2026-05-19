@@ -816,6 +816,8 @@ class TestDownstreamPR(unittest.TestCase):
         self.mock_pr.url = "https://github.com/test/repo/pull/1"
         self.mock_pr.upstream = "test/repo"
         self.mock_pr.comments = []
+        self.mock_pr.tags = ["bug", "enhancement"]
+        self.mock_pr.fixVersion = ["v1.0"]
         self.mock_pr.priority = None
         self.mock_pr.content = "PR description"
         self.mock_pr.reporter = "testuser"
@@ -841,6 +843,8 @@ class TestDownstreamPR(unittest.TestCase):
         self.assertEqual(kwargs["title"], self.mock_pr._title)
         self.assertEqual(kwargs["url"], self.mock_pr.url)
         self.assertEqual(kwargs["upstream"], self.mock_pr.upstream)
+        self.assertEqual(kwargs["tags"], self.mock_pr.tags)
+        self.assertEqual(kwargs["fixVersion"], self.mock_pr.fixVersion)
         self.assertEqual(kwargs["status"], self.mock_pr.status)
         self.assertEqual(kwargs["id_"], self.mock_pr.id)
 

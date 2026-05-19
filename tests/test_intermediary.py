@@ -243,6 +243,8 @@ class TestIntermediary(unittest.TestCase):
 
         self.assertEqual(response.suffix, "reopened")
         self.assertEqual(response.status, None)
+        self.assertEqual(response.tags, "mock_tags")
+        self.assertEqual(response.fixVersion, ["mock_milestone"])
         self.assertEqual(response.downstream, {"mock_downstream": "mock_key"})
         self.assertEqual(response.jira_key, "JIRA-1234")
         self.mock_github_pr["comments"][0]["changed"] = None
@@ -278,6 +280,7 @@ class TestIntermediary(unittest.TestCase):
                     base_kw["action"] = action
                 response = i.PR.from_github(**base_kw)
                 self.assertEqual(response.suffix, expected)
+                self.assertEqual(response.status, None)
 
     def test_matcher(self):
         """This tests the matcher function"""
