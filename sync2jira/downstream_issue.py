@@ -1070,30 +1070,56 @@ def _update_transition(client, existing, issue):
     """
     Helper function to update the transition of a downstream JIRA issue.
 
+    Supports an optional ``issue_types`` filter on transition entries in
+    ``issue_updates``.  When present, the transition only fires if the
+    downstream JIRA issue's type is in the list.
+
     :param jira.client.JIRA client: JIRA client
     :param jira.resource.Issue existing: Existing JIRA issue
     :param sync2jira.intermediary.Issue issue: Upstream issue
     :returns: Nothing
     """
-    # If the user added a custom closed status, attempt to close the
-    # downstream JIRA ticket
+    for entry in issue.downstream.get("issue_updates", []):
+        if not isinstance(entry, dict) or "transition" not in entry:
+            continue
 
-    # First get the closed status from the config file
-    t = filter(lambda d: "transition" in d, issue.downstream.get("issue_updates", []))
-    closed_status = next(t)["transition"]
-    if (
-        closed_status is not True
-        and issue.status == "Closed"
-        and existing.fields.status.name.upper() != closed_status.upper()
-    ):
-        # Now we need to update the status of the JIRA issue
-        # First add a comment indicating the change (in case it doesn't go through)
-        hyperlink = f"[Upstream issue|{issue.url}]"
-        comment_body = f"{hyperlink} closed. Attempting transition to {closed_status}."
-        client.add_comment(existing, comment_body)
-        # Ensure that closed_status is a valid choice
-        # Find all possible transactions (i.e., change states) we could do
-        change_status(client, existing, closed_status, issue)
+        closed_status = entry["transition"]
+
+        # Normalize legacy True value to "Closed"
+        if closed_status is True:
+            closed_status = "Closed"
+        if not isinstance(closed_status, str):
+            log.warning(
+                "Ignoring malformed transition value %r (expected a string) in "
+                "issue_updates config for %s",
+                closed_status,
+                existing.key,
+            )
+            continue
+
+        type_filters = entry.get("issue_types")
+        if type_filters is not None:
+            jira_type = existing.fields.issuetype.name
+            if jira_type not in type_filters:
+                log.info(
+                    "Skipping issue transition '%s': issue type '%s' not in %s",
+                    closed_status,
+                    jira_type,
+                    type_filters,
+                )
+                continue
+
+        if (
+            issue.status == "Closed"
+            and existing.fields.status.name.upper() != closed_status.upper()
+        ):
+            hyperlink = f"[Upstream issue|{issue.url}]"
+            comment_body = (
+                f"{hyperlink} closed. Attempting transition to {closed_status}."
+            )
+            client.add_comment(existing, comment_body)
+            change_status(client, existing, closed_status, issue)
+            return
 
 
 def _update_title(issue, existing):

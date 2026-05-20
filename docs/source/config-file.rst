@@ -167,8 +167,10 @@ The config file is made up of multiple parts
         * Sync description
     * :code:`'title'`
         * Sync title
-    * :code:`{'transition': True/'CUSTOM_TRANSITION'}`
-        * Sync status (open/closed), Sync only status/Attempt to transition JIRA ticket to CUSTOM_TRANSITION on upstream closure
+    * :code:`{'transition': 'CUSTOM_TRANSITION', 'issue_types': ['Bug', 'Story']}`
+        * Sync status (open/closed). Attempt to transition JIRA ticket to CUSTOM_TRANSITION on upstream closure.
+        * ``issue_types`` is optional and may be omitted. When present, the transition only fires if the
+          downstream JIRA issue type is in the list.
     * :code:`{'on_close': {'apply_labels': ['label', ...]}}`
         * When the upstream issue is closed, apply additional labels on the corresponding Jira ticket.
     * :code:`github_markdown`
@@ -192,17 +194,23 @@ The config file is made up of multiple parts
 * You can add your projects here. The 'project' field is associated with downstream JIRA projects, and 'component' with
   downstream components. You can add the following to the :code:`pr_updates` array:
 
-    * :code:`{'merge_transition': 'CUSTOM_TRANSITION'}`
-        * Sync when upstream PR gets merged. Attempts to transition JIRA ticket to CUSTOM_TRANSITION on upstream merge
+    * :code:`{'merge_transition': 'CUSTOM_TRANSITION', 'branches': ['release-*', 'main'], 'issue_types': ['Bug', 'Story']}`
+        * Sync when upstream PR gets merged. Attempts to transition JIRA ticket to CUSTOM_TRANSITION on upstream merge.
+        * ``branches`` and ``issue_types`` are optional and either may be omitted. ``branches`` accepts glob patterns
+          and restricts the transition to PRs whose target branch matches. ``issue_types`` restricts it to matching
+          downstream JIRA issue types.
     * :code:`{'link_transition': 'CUSTOM_TRANSITION'}`
-        * Sync when upstream PR gets linked. Attempts to transition JIRA ticket to CUSTOM_TRANSITION on upstream link
+        * Sync when upstream PR gets linked. Attempts to transition JIRA ticket to CUSTOM_TRANSITION on upstream link.
 
 * You can add the following to the mapping array. This array will map an upstream field to the downstream counterpart
-  with XXX replaced.
+  using either a template or a mapping table.
 
     * :code:`{'fixVersion': 'Test XXX'}`
-        * Maps upstream milestone (suppose it's called 'milestone') to downstream fixVersion with a mapping (for our
-          example it would be 'Test milestone')
+        * String template format. Maps upstream milestone (suppose it's called 'milestone') to downstream fixVersion
+          with a mapping (for our example it would be 'Test milestone').
+    * :code:`{'fixVersion': {'0.9.0': 'Product 8.1', '1.0.0': 'Product 9.0'}}`
+        * Dict lookup format. Maps specific upstream milestones to specific downstream fixVersions.
+          Milestones not present in the dict are left unchanged.
 
 * It is strongly encouraged for teams to use the :code:`owner` field. If configured, owners will be alerted if Sync2Jira
   finds duplicate downstream issues. Further the owner will be used as a default in case the program is unable to find a
