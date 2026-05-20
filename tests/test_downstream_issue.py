@@ -1123,6 +1123,14 @@ class TestDownstreamIssue(unittest.TestCase):
         d.maybe_convert_markdown(issue)
         self.assertEqual(issue.content, "h1. Hello")
 
+        # Converts with explicit "issue_updates" parameter
+        mock_convert.reset_mock()
+        mock_convert.return_value = "h1. Hello"
+        issue.downstream = {"issue_updates": ["github_markdown"]}
+        issue.content = "# Hello"
+        d.maybe_convert_markdown(issue, "issue_updates")
+        self.assertEqual(issue.content, "h1. Hello")
+
         # Works with pr_updates key
         mock_convert.reset_mock()
         mock_convert.return_value = "*bold*"
@@ -1146,11 +1154,29 @@ class TestDownstreamIssue(unittest.TestCase):
         self.assertEqual(issue.content, "")
 
         # Skips when source is not github
+        mock_convert.reset_mock()
         issue.source = "pagure"
         issue.downstream = {"issue_updates": ["github_markdown"]}
         issue.content = "# Hello"
         d.maybe_convert_markdown(issue)
         self.assertEqual(issue.content, "# Hello")
+        self.assertEqual(mock_convert.call_count, 0)
+
+        # Skips when updates_key is not present in downstream config
+        mock_convert.reset_mock()
+        issue.source = "github"
+        issue.downstream = {}
+        issue.content = "# Hello"
+        d.maybe_convert_markdown(issue)
+        self.assertEqual(issue.content, "# Hello")
+        self.assertEqual(mock_convert.call_count, 0)
+
+        # Skips when updates list is empty
+        issue.downstream = {"issue_updates": []}
+        issue.content = "# Hello"
+        d.maybe_convert_markdown(issue)
+        self.assertEqual(issue.content, "# Hello")
+        self.assertEqual(mock_convert.call_count, 0)
 
     @mock.patch(PATH + "pypandoc")
     def test_convert_content(self, mock_pypandoc):

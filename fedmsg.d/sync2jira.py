@@ -95,6 +95,8 @@ config = {
                         'upstream_id',      # Add comment with upstream PR link on create
                         'url',              # Include upstream URL in description
                         'github_project_fields',  # Sync storypoints & priority from GitHub Projects
+                        {'fixVersion': {'overwrite': False}},  # Sync milestone as fixVersion
+                        {'transition': 'Closed'},  # Transition Jira when upstream issue closes
                         {'merge_transition': 'Closed'},    # Transition Jira when PR is merged
                         {'link_transition': 'In Progress'},  # Transition Jira when PR is first linked
                         {'assignee': {'overwrite': False}},  # Sync assignee (don't overwrite existing)

@@ -2,6 +2,7 @@ import unittest
 import unittest.mock as mock
 from unittest.mock import MagicMock
 
+import sync2jira.downstream_issue as d_issue
 import sync2jira.downstream_pr as d
 
 PATH = "sync2jira.downstream_pr."
@@ -490,7 +491,7 @@ class TestDownstreamPR(unittest.TestCase):
 
     @mock.patch(PATH + "d_issue")
     def test_update_transition_selects_first_matching_entry(self, mock_d_issue):
-        """Test that update_transition iterates entries and selects the first match."""
+        """Test that _update_pr_transition iterates entries and selects the first match."""
         mock_client = MagicMock()
         self.mock_existing.fields.issuetype.name = "Story"
         self.mock_pr.base_branch = "main"
@@ -559,7 +560,7 @@ class TestDownstreamPR(unittest.TestCase):
 
     @mock.patch(PATH + "d_issue")
     def test_update_transition_no_pr_updates(self, mock_d_issue):
-        """Test that update_transition returns silently when pr_updates is absent."""
+        """Test that _update_pr_transition returns silently when pr_updates is absent."""
         mock_client = MagicMock()
         self.mock_pr.downstream = {}
 
@@ -571,7 +572,7 @@ class TestDownstreamPR(unittest.TestCase):
 
     @mock.patch(PATH + "d_issue")
     def test_update_transition_empty_pr_updates(self, mock_d_issue):
-        """Test that update_transition returns silently when pr_updates is empty."""
+        """Test that _update_pr_transition returns silently when pr_updates is empty."""
         mock_client = MagicMock()
         self.mock_pr.downstream = {"pr_updates": []}
 
@@ -581,6 +582,109 @@ class TestDownstreamPR(unittest.TestCase):
 
         mock_d_issue.change_status.assert_not_called()
 
+    @mock.patch(PATH + "d_issue.change_status")
+    @mock.patch(PATH + "d_issue.update_jira_issue", wraps=d_issue.update_jira_issue)
+    @mock.patch(PATH + "comment_exists", return_value=True)
+    @mock.patch(PATH + "format_comment", return_value="mock_comment")
+    @mock.patch(PATH + "d_issue.attach_link")
+    @mock.patch(PATH + "issue_link_exists", return_value=True)
+    def test_update_jira_issue_transition_noop_when_status_none(
+        self,
+        mock_issue_link_exists,
+        mock_attach_link,
+        mock_format_comment,
+        mock_comment_exists,
+        mock_shared_update,
+        mock_change_status,
+    ):
+        """github.pull_request path: PR has status=None, so _update_transition
+        is a no-op even when {'transition': 'Closed'} is in pr_updates.
+        """
+        self.mock_pr.status = None
+        self.mock_pr.downstream = {
+            "pr_updates": [{"transition": "Closed"}],
+        }
+
+        d.update_jira_issue(
+            self.mock_existing, self.mock_pr, self.mock_client, self.mock_config
+        )
+
+        mock_change_status.assert_not_called()
+
+    @mock.patch(PATH + "d_issue.change_status")
+    @mock.patch(PATH + "comment_exists", return_value=True)
+    @mock.patch(PATH + "format_comment", return_value="mock_comment")
+    @mock.patch(PATH + "d_issue.attach_link")
+    @mock.patch(PATH + "issue_link_exists", return_value=True)
+    def test_update_jira_issue_merged_pr_no_duplicate_transition(
+        self,
+        mock_issue_link_exists,
+        mock_attach_link,
+        mock_format_comment,
+        mock_comment_exists,
+        mock_change_status,
+    ):
+        """github.issues path: merged PR with status='Closed'.
+
+        merge_transition fires first (via _update_pr_transitions), then
+        _update_transition finds Jira already in target state and skips.
+        change_status is called once (for merge_transition) not twice.
+        """
+        self.mock_pr.suffix = "merged"
+        self.mock_pr.status = "Closed"
+        self.mock_pr.downstream = {
+            "pr_updates": [
+                {"merge_transition": "Closed"},
+                {"transition": "Closed"},
+            ],
+        }
+        self.mock_existing.fields.status.name = "Closed"
+
+        d.update_jira_issue(
+            self.mock_existing, self.mock_pr, self.mock_client, self.mock_config
+        )
+
+        mock_change_status.assert_called_once_with(
+            self.mock_client, self.mock_existing, "Closed", self.mock_pr
+        )
+
+    @mock.patch(PATH + "d_issue.change_status")
+    @mock.patch(PATH + "comment_exists", return_value=True)
+    @mock.patch(PATH + "format_comment", return_value="mock_comment")
+    @mock.patch(PATH + "d_issue.attach_link")
+    @mock.patch(PATH + "issue_link_exists", return_value=True)
+    def test_update_jira_issue_closed_without_merge_transitions(
+        self,
+        mock_issue_link_exists,
+        mock_attach_link,
+        mock_format_comment,
+        mock_comment_exists,
+        mock_change_status,
+    ):
+        """github.issues path: PR closed without merge, status='Closed'.
+
+        merge_transition skips (suffix is 'closed', not 'merged').
+        _update_transition sees status=='Closed' and fires, transitioning
+        the Jira issue — covering a case merge_transition cannot handle.
+        """
+        self.mock_pr.suffix = "closed"
+        self.mock_pr.status = "Closed"
+        self.mock_pr.url = "mock_url"
+        self.mock_pr.downstream = {
+            "pr_updates": [
+                {"merge_transition": "Closed"},
+                {"transition": "Closed"},
+            ],
+        }
+        self.mock_existing.fields.status.name = "Open"
+
+        d.update_jira_issue(
+            self.mock_existing, self.mock_pr, self.mock_client, self.mock_config
+        )
+
+        mock_change_status.assert_called_once_with(
+            self.mock_client, self.mock_existing, "Closed", self.mock_pr
+        )
     @mock.patch(PATH + "update_jira")
     @mock.patch(PATH + "d_issue")
     def test_sync_with_jira_create_pr_issue_enabled(
