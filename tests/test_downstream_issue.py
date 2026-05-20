@@ -1110,6 +1110,49 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         mock_existing_jira_issue_legacy.assert_not_called()
 
+    @mock.patch(PATH + "pypandoc")
+    def test_convert_content(self, mock_pypandoc):
+        """convert_content(): normal success, TeX fallback, and double failure."""
+        # Case 1: Normal GFM conversion succeeds
+        mock_pypandoc.convert_text.return_value = "normal markdown"
+
+        result = d.convert_content("normal markdown")
+
+        mock_pypandoc.convert_text.assert_called_once_with(
+            "normal markdown", "jira", format="gfm"
+        )
+        self.assertEqual(result, "normal markdown")
+
+        # Case 2: First call fails (TeX error), fallback succeeds
+        mock_pypandoc.convert_text.reset_mock()
+        mock_pypandoc.convert_text.side_effect = [
+            RuntimeError("Error producing PDF"),
+            "fallback converted",
+        ]
+
+        result = d.convert_content("bad $tex")
+
+        self.assertEqual(mock_pypandoc.convert_text.call_count, 2)
+        first_call = mock_pypandoc.convert_text.call_args_list[0]
+        self.assertEqual(first_call[1]["format"], "gfm")
+
+        fallback_call = mock_pypandoc.convert_text.call_args_list[1]
+        self.assertEqual(
+            fallback_call[1]["format"],
+            "gfm-tex_math_dollars-tex_math_single_backslash",
+        )
+        self.assertEqual(fallback_call[0][0], "bad \\$tex")
+        self.assertEqual(result, "fallback converted")
+
+        # Case 3: Both calls fail, raw content preserved
+        mock_pypandoc.convert_text.reset_mock()
+        mock_pypandoc.convert_text.side_effect = RuntimeError("pandoc broken")
+
+        result = d.convert_content("raw content")
+
+        self.assertEqual(mock_pypandoc.convert_text.call_count, 2)
+        self.assertEqual(result, "raw content")
+
     @mock.patch(PATH + "_update_title")
     @mock.patch(PATH + "_update_description")
     @mock.patch(PATH + "_update_comments")

@@ -24,7 +24,6 @@ import logging
 from jira import JIRAError
 from jira.client import Issue as JIRAIssue
 from jira.client import ResultList
-import pypandoc
 
 # Local Modules
 import sync2jira.downstream_issue as d_issue
@@ -322,7 +321,7 @@ def _create_jira_issue_from_pr(client, pr, config):
             and pr_content
             and "github_markdown" in pr.downstream["issue_updates"]
         ):
-            pr_content = pypandoc.convert_text(pr_content, "jira", format="gfm")
+            pr_content = d_issue.convert_content(pr_content)
 
     # Convert PR to Issue-like object for creation
     # PR and Issue share similar structure, but we need to adapt it
