@@ -685,6 +685,7 @@ class TestDownstreamPR(unittest.TestCase):
         mock_change_status.assert_called_once_with(
             self.mock_client, self.mock_existing, "Closed", self.mock_pr
         )
+
     @mock.patch(PATH + "update_jira")
     @mock.patch(PATH + "d_issue")
     def test_sync_with_jira_create_pr_issue_enabled(
