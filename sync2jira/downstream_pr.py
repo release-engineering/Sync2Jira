@@ -31,6 +31,8 @@ from sync2jira.intermediary import Issue, matcher
 
 log = logging.getLogger("sync2jira")
 
+UPDATES_KEY = "pr_updates"
+
 
 def format_comment(pr, pr_suffix, client):
     """
@@ -94,22 +96,21 @@ def comment_exists(client, existing: JIRAIssue, new_comment):
     comments = client.comments(existing)
     for comment in comments:
         if new_comment == comment.body:
-            # If the comment was
             return True
     return False
 
 
-def update_jira_issue(existing, pr, client):
-    """
-    Updates an existing JIRA issue (i.e. tags, assignee, comments etc.).
+def _update_pr_transitions(client, existing, pr):
+    """Handle merge_transition and link_transition for a PR.
 
+    These are PR-only concepts that have no Issue counterpart.
+    :param jira.client.JIRA client: JIRA Client
     :param jira.resources.Issue existing: Existing JIRA issue that was found
     :param sync2jira.intermediary.PR pr: Upstream issue we're pulling data from
-    :param jira.client.JIRA client: JIRA Client
     :returns: Nothing
     """
     # Get our updates array
-    updates = pr.downstream.get("pr_updates", {})
+    updates = pr.downstream.get(UPDATES_KEY, {})
 
     # Format and add comment to indicate PR has been linked
     new_comment = format_comment(pr, pr.suffix, client)
@@ -126,19 +127,19 @@ def update_jira_issue(existing, pr, client):
         d_issue.attach_link(client, existing, remote_link)
 
     # Only synchronize merge_transition for listings that opt-in
-    if any("merge_transition" in item for item in updates) and "merged" in pr.suffix:
+    if "merged" in pr.suffix and any("merge_transition" in item for item in updates):
         log.info("Looking for new merged_transition")
-        update_transition(client, existing, pr, "merge_transition")
+        _update_pr_transition(client, existing, pr, "merge_transition")
 
     # Only synchronize link_transition for listings that opt-in
     # and a link comment has been created
     if (
-        any("link_transition" in item for item in updates)
-        and "mentioned" in new_comment
+        "mentioned" in new_comment
         and not exists
+        and any("link_transition" in item for item in updates)
     ):
         log.info("Looking for new link_transition")
-        update_transition(client, existing, pr, "link_transition")
+        _update_pr_transition(client, existing, pr, "link_transition")
 
 
 def _matches_transition_filters(transition_config, pr, existing):
@@ -183,7 +184,7 @@ def _matches_transition_filters(transition_config, pr, existing):
     return True
 
 
-def update_transition(client, existing, pr, transition_type):
+def _update_pr_transition(client, existing, pr, transition_type):
     """
     Helper function to update the transition of a downstream JIRA issue.
 
@@ -196,7 +197,7 @@ def update_transition(client, existing, pr, transition_type):
     :param string transition_type: Transition type (link vs merged)
     :returns: Nothing
     """
-    pr_updates = pr.downstream.get("pr_updates")
+    pr_updates = pr.downstream.get(UPDATES_KEY)
     if not pr_updates:
         return
 
@@ -215,6 +216,28 @@ def update_transition(client, existing, pr, transition_type):
         pr.title,
         pr.base_branch,
     )
+
+
+def update_jira_issue(existing, pr, client, config):
+    """
+    Updates an existing JIRA issue for a PR event.
+
+    First applies PR-specific steps (link comment, remote link,
+    merge/link transitions), then delegates to the shared update
+    pipeline in downstream_issue for common operations (comments,
+    description, title, assignee, tags, etc.).
+
+    :param jira.resources.Issue existing: Existing JIRA issue that was found
+    :param sync2jira.intermediary.PR pr: Upstream PR we're pulling data from
+    :param jira.client.JIRA client: JIRA Client
+    :param dict config: Config dict
+    :returns: Nothing
+    """
+    # PR-specific: link comment, remote link, merge/link transitions
+    _update_pr_transitions(client, existing, pr)
+
+    # Shared pipeline: comments, description, title, assignee, tags, etc.
+    d_issue.update_jira_issue(existing, pr, client, config, UPDATES_KEY)
 
 
 def sync_with_jira(pr, config):
@@ -249,18 +272,13 @@ def sync_with_jira(pr, config):
             update_jira(client, config, pr)
             break
         except JIRAError:
-            # We got an error from Jira; if this was a re-try attempt, let the
-            # exception propagate (and crash the run).
             if retry:
                 log.info("[PR] Jira retry failed; aborting")
                 raise
 
-            # The error may be due to expired/revoked auth. Ask get_jira_client to
-            # invalidate OAuth2 cache so the next call fetches a new token (no-op for PAT).
             log.info("[PR] Jira request failed; refreshing the Jira client")
             client = d_issue.get_jira_client(pr, config, invalidate_oauth2_cache=True)
 
-        # Retry the update
         retry = True
 
 
@@ -269,6 +287,9 @@ def update_jira(client, config, pr):
     if not config["sync2jira"]["develop"] and not d_issue.check_jira_status(client):
         log.warning("The JIRA server looks like its down. Shutting down...")
         raise RuntimeError("Jira server status check failed; aborting...")
+
+    # Apply GitHub markdown conversion if configured
+    d_issue.maybe_convert_markdown(pr, UPDATES_KEY)
 
     # Find our JIRA issue if one exists
     if isinstance(pr, Issue):
@@ -282,7 +303,7 @@ def update_jira(client, config, pr):
         if create_pr_issue:
             if existing := d_issue.get_existing_jira_issue(client, pr, config):
                 log.info(f"Found existing JIRA issue {existing.key} for PR {pr.url}")
-                update_jira_issue(existing, pr, client)
+                update_jira_issue(existing, pr, client, config)
             else:
                 _create_jira_issue_from_pr(client, pr, config)
         else:
@@ -293,7 +314,7 @@ def update_jira(client, config, pr):
     if len(response) == 1:
         # Syncing relevant information
         log.info(f"Syncing PR {pr.url}")
-        update_jira_issue(response[0], pr, client)
+        update_jira_issue(response[0], pr, client, config)
         log.info(f"Done syncing PR {pr.url}")
     elif len(response) == 0:
         log.info(f"No issue found for referenced key, {pr.jira_key}")
@@ -315,13 +336,9 @@ def _create_jira_issue_from_pr(client, pr, config):
     """
 
     pr_content = pr.content or f"PR: {pr.url}"
-    if pr.downstream.get("issue_updates"):
-        if (
-            pr.source == "github"
-            and pr_content
-            and "github_markdown" in pr.downstream["issue_updates"]
-        ):
-            pr_content = d_issue.convert_content(pr_content)
+    pr_updates = pr.downstream.get(UPDATES_KEY, [])
+    if pr.source == "github" and pr_content and "github_markdown" in pr_updates:
+        pr_content = d_issue.convert_content(pr_content)
 
     # Convert PR to Issue-like object for creation
     # PR and Issue share similar structure, but we need to adapt it
@@ -332,15 +349,11 @@ def _create_jira_issue_from_pr(client, pr, config):
         upstream=pr.upstream,
         comments=pr.comments,
         config=config,
-        tags=[],  # PRs don't have tags in the same way
-        fixVersion=[],
+        tags=pr.tags,
+        fixVersion=pr.fixVersion,
         priority=pr.priority,
         content=pr_content,
-        reporter=(
-            pr.reporter
-            if isinstance(pr.reporter, dict)
-            else {"fullname": str(pr.reporter)}
-        ),
+        reporter=pr.reporter,
         assignee=pr.assignee or [],
         status=pr.status,
         id_=pr.id,

@@ -122,7 +122,7 @@ class Issue(object):
             fixVersion=[issue["milestone"]],
             priority=issue.get("priority"),
             content=issue["body"] or "",
-            reporter=issue["user"],
+            reporter=issue["user"]["fullname"],
             assignee=issue["assignees"],
             status=issue["state"],
             id_=issue["id"],
@@ -147,6 +147,8 @@ class PR(object):
         upstream,
         config,
         comments,
+        tags,
+        fixVersion,
         priority,
         content,
         reporter,
@@ -164,8 +166,8 @@ class PR(object):
         self.url = url
         self.upstream = upstream
         self.comments = comments
-        # self.tags = tags
-        # self.fixVersion = fixVersion
+        self.tags = tags
+        self.fixVersion = fixVersion
         self.priority = priority
         self.base_branch = base_branch
 
@@ -241,8 +243,8 @@ class PR(object):
             upstream=upstream,
             config=config,
             comments=comments,
-            # tags=issue['labels'],
-            # fixVersion=[issue['milestone']],
+            tags=pr.get("labels", []),
+            fixVersion=[pr.get("milestone")],
             priority=None,
             content=pr.get("body"),
             reporter=pr["user"]["fullname"],

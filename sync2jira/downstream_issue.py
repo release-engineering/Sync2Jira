@@ -963,7 +963,7 @@ def _create_jira_issue(client, issue, config):
 
     # Update relevant information (i.e., tags, assignees, etc.) if the User
     # opted in
-    _update_jira_issue(downstream, issue, client, config)
+    update_jira_issue(downstream, issue, client, config)
 
     return downstream
 
@@ -985,21 +985,25 @@ def _label_matching(jira_labels, issue_labels):
     return updated_labels
 
 
-def _update_jira_issue(existing, issue, client, config):
+def update_jira_issue(existing, issue, client, config, updates_key="issue_updates"):
     """
     Updates an existing JIRA issue (i.e., tags, assignee, comments, etc.).
 
+    Works for both Issue and PR intermediary objects.  The ``updates_key``
+    parameter selects which downstream config list to read
+    ("issue_updates" or "pr_updates").
+
     :param jira.resources.Issue existing: Existing JIRA issue that was found
-    :param sync2jira.intermediary.Issue issue: Upstream issue we're pulling data from
+    :param issue: Upstream Issue or PR we're pulling data from
     :param jira.client.JIRA client: JIRA Client
+    :param dict config: Config dict
+    :param str updates_key: Config key for the updates list
     :returns: Nothing
     """
-    # Start with comments
-    # Only synchronize comments for listings that op-in
-    log.info("Updating information for upstream issue: %s", issue.url)
+    log.info("Updating information for upstream %s: %s", updates_key, issue.url)
 
     # Get a list of what the user wants to update for the upstream issue
-    updates = issue.downstream.get("issue_updates", [])
+    updates = issue.downstream.get(updates_key, [])
 
     # Update relevant data if needed.
     # If the user has specified nothing, just return.
@@ -1008,7 +1012,7 @@ def _update_jira_issue(existing, issue, client, config):
 
     # Get fields representing project item fields in GitHub and Jira
     github_project_fields = issue.downstream.get("github_project_fields", {})
-    # Only synchronize comments for listings that op-in
+    # Only synchronize github_project_fields for listings that op-in
     if "github_project_fields" in updates and github_project_fields:
         log.info("Looking for GitHub project fields")
         _update_github_project_fields(
@@ -1026,7 +1030,8 @@ def _update_jira_issue(existing, issue, client, config):
         _update_tags(updates, existing, issue)
 
     # Only synchronize fixVersion for listings that op-in
-    if issue.fixVersion and any("fixVersion" in item for item in updates):
+    fix_version = getattr(issue, "fixVersion", None)
+    if fix_version and any("fixVersion" in item for item in updates):
         log.info("Looking for new fixVersions")
         _update_fixVersion(updates, existing, issue, client)
 
@@ -1043,7 +1048,7 @@ def _update_jira_issue(existing, issue, client, config):
     # Only synchronize descriptions for listings that op-in
     if "description" in updates:
         log.info("Looking for new description")
-        _update_description(existing, issue)
+        _update_description(existing, issue, updates_key)
 
     # Only synchronize title for listings that op-in
     if "title" in updates:
@@ -1055,10 +1060,10 @@ def _update_jira_issue(existing, issue, client, config):
     # Only synchronize transition (status) for listings that op-in
     if any("transition" in item for item in updates):
         log.info("Looking for new transition(s)")
-        _update_transition(client, existing, issue)
+        _update_transition(client, existing, issue, updates_key)
 
-    # Only execute 'on_close' events for listings that opt-in
-    # and when the issue is closed.
+    # Execute 'on_close' events when the issue is closed
+    # (opt-in is checked inside _update_on_close).
     if issue.status == "Closed":
         log.info("Attempting to update downstream issue on upstream closed event")
         _update_on_close(existing, updates)
@@ -1066,33 +1071,34 @@ def _update_jira_issue(existing, issue, client, config):
     log.info("Done updating %s!", issue.url)
 
 
-def _update_transition(client, existing, issue):
+def _update_transition(client, existing, issue, updates_key="issue_updates"):
     """
     Helper function to update the transition of a downstream JIRA issue.
 
     Supports an optional ``issue_types`` filter on transition entries in
-    ``issue_updates``.  When present, the transition only fires if the
+    the updates list.  When present, the transition only fires if the
     downstream JIRA issue's type is in the list.
 
     :param jira.client.JIRA client: JIRA client
     :param jira.resource.Issue existing: Existing JIRA issue
     :param sync2jira.intermediary.Issue issue: Upstream issue
+    :param str updates_key: Config key for the updates list
     :returns: Nothing
     """
-    for entry in issue.downstream.get("issue_updates", []):
+    for entry in issue.downstream.get(updates_key, []):
         if not isinstance(entry, dict) or "transition" not in entry:
             continue
 
         closed_status = entry["transition"]
 
-        # Normalize legacy True value to "Closed"
         if closed_status is True:
             closed_status = "Closed"
         if not isinstance(closed_status, str):
             log.warning(
                 "Ignoring malformed transition value %r (expected a string) in "
-                "issue_updates config for %s",
+                "%s config for %s",
                 closed_status,
+                updates_key,
                 existing.key,
             )
             continue
@@ -1395,19 +1401,18 @@ def _update_tags(updates, existing, issue):
     _update_jira_labels(existing, updated_labels)
 
 
-def _build_description(issue):
+def _build_description(issue, updates_key="issue_updates"):
     # Build the description of the JIRA issue.
     #
     # Truncate issue.content *before* wrapping it with {quote} and the
     # metadata prefix so the closing {quote} and decoration are never lost.
-    issue_updates = issue.downstream.get("issue_updates", [])
+    issue_updates = issue.downstream.get(updates_key, [])
 
     # Build the prefix lines that will appear above the quoted content.
     prefix_parts = []
-    if issue.reporter:
-        prefix_parts.append(
-            f"[{issue.id}] Upstream Reporter: {issue.reporter['fullname']}"
-        )
+    reporter = getattr(issue, "reporter", None)
+    if reporter:
+        prefix_parts.append(f"[{issue.id}] Upstream Reporter: {reporter}")
     if issue.status and any("transition" in item for item in issue_updates):
         prefix_parts.append("Upstream issue status: " + issue.status)
 
@@ -1433,16 +1438,17 @@ def _build_description(issue):
     return description
 
 
-def _update_description(existing, issue):
+def _update_description(existing, issue, updates_key="issue_updates"):
     """
     Helper function to sync description between upstream issue and downstream JIRA issue.
 
     :param jira.resource.Issue existing: Existing JIRA issue
-    :param sync2jira.intermediary.Issue issue: Upstream issue
+    :param sync2jira.intermediary.Issue or sync2jira.intermediary.PR issue: Upstream Issue or PR
+    :param str updates_key: Config key for the updates list
     :returns: Nothing
     """
 
-    new_description = _build_description(issue)
+    new_description = _build_description(issue, updates_key)
 
     # Now we can update the JIRA issue if we need to
     if new_description != existing.fields.description:
@@ -1574,19 +1580,24 @@ def convert_content(content: str) -> str:
     return content
 
 
+def maybe_convert_markdown(issue, updates_key="issue_updates"):
+    """Apply GitHub-markdown-to-Jira conversion if the config opts in.
+
+    Works for both Issue and PR objects.
+    """
+    updates = issue.downstream.get(updates_key)
+    if updates and issue.source == "github" and issue.content:
+        if "github_markdown" in updates:
+            issue.content = convert_content(issue.content)
+
+
 def update_jira(client, config, issue):
     # Check the status of the JIRA client
     if not config["sync2jira"]["develop"] and not check_jira_status(client):
         log.warning("The JIRA server looks like its down. Shutting down...")
         raise RuntimeError("Jira server status check failed; aborting...")
 
-    if issue.downstream.get("issue_updates"):
-        if (
-            issue.source == "github"
-            and issue.content
-            and "github_markdown" in issue.downstream["issue_updates"]
-        ):
-            issue.content = convert_content(issue.content)
+    maybe_convert_markdown(issue)
 
     # First, check to see if we have a matching issue using the new method.
     # If we do, then bail out.  No sync needed.
@@ -1599,7 +1610,7 @@ def update_jira(client, config, issue):
             log.info("Testing flag is true.  Skipping actual update.")
             return
         # Update relevant metadata (i.e. tags, assignee, etc)
-        _update_jira_issue(existing, issue, client, config)
+        update_jira_issue(existing, issue, client, config)
         return
 
     # If we're *not* configured to do legacy matching (upgrade mode), then

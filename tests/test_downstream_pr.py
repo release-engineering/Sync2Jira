@@ -2,6 +2,7 @@ import unittest
 import unittest.mock as mock
 from unittest.mock import MagicMock
 
+import sync2jira.downstream_issue as d_issue
 import sync2jira.downstream_pr as d
 
 PATH = "sync2jira.downstream_pr."
@@ -70,7 +71,7 @@ class TestDownstreamPR(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_update_jira_issue.assert_called_with(
-            "mock_existing", self.mock_pr, self.mock_client
+            "mock_existing", self.mock_pr, self.mock_client, self.mock_config
         )
         self.mock_client.search_issues.assert_called_with("Key = JIRA-1234")
         mock_d_issue.get_jira_client.assert_called_with(self.mock_pr, self.mock_config)
@@ -92,7 +93,7 @@ class TestDownstreamPR(unittest.TestCase):
 
         # Assert everything was called correctly
         mock_update_jira_issue.assert_called_with(
-            "mock_existing", self.mock_pr, mock_client
+            "mock_existing", self.mock_pr, mock_client, self.mock_config
         )
         mock_client.search_issues.assert_called_with("Key = JIRA-1234")
         mock_d_issue.get_jira_client.assert_called_with(self.mock_pr, self.mock_config)
@@ -153,6 +154,7 @@ class TestDownstreamPR(unittest.TestCase):
         mock_client.search_issues.assert_not_called()
         mock_d_issue.get_jira_client.assert_not_called()
 
+    @mock.patch(PATH + "d_issue.update_jira_issue")
     @mock.patch(PATH + "comment_exists")
     @mock.patch(PATH + "format_comment")
     @mock.patch(PATH + "d_issue.attach_link")
@@ -163,6 +165,7 @@ class TestDownstreamPR(unittest.TestCase):
         mock_attach_link,
         mock_format_comment,
         mock_comment_exists,
+        mock_shared_update,
     ):
         """
         This function tests 'update_jira_issue'
@@ -173,9 +176,11 @@ class TestDownstreamPR(unittest.TestCase):
         mock_issue_link_exists.return_value = False
 
         # Call the function
-        d.update_jira_issue("mock_existing", self.mock_pr, self.mock_client)
+        d.update_jira_issue(
+            "mock_existing", self.mock_pr, self.mock_client, self.mock_config
+        )
 
-        # Assert everything was called correctly
+        # Assert PR-specific steps were called
         self.mock_client.add_comment.assert_called_with(
             "mock_existing", "mock_formatted_comment"
         )
@@ -189,6 +194,14 @@ class TestDownstreamPR(unittest.TestCase):
             self.mock_client,
             "mock_existing",
             {"url": "mock_url", "title": "[PR] mock_title"},
+        )
+        # Assert shared update pipeline was called
+        mock_shared_update.assert_called_with(
+            "mock_existing",
+            self.mock_pr,
+            self.mock_client,
+            self.mock_config,
+            "pr_updates",
         )
 
     def test_issue_link_exists_false(self):
@@ -223,6 +236,7 @@ class TestDownstreamPR(unittest.TestCase):
         self.mock_client.remote_links.assert_called_with(self.mock_existing)
         self.assertEqual(ret, True)
 
+    @mock.patch(PATH + "d_issue.update_jira_issue")
     @mock.patch(PATH + "format_comment")
     @mock.patch(PATH + "comment_exists")
     @mock.patch(PATH + "d_issue.attach_link")
@@ -233,6 +247,7 @@ class TestDownstreamPR(unittest.TestCase):
         mock_attach_link,
         mock_comment_exists,
         mock_format_comment,
+        mock_shared_update,
     ):
         """
         This function tests 'update_jira_issue' where the comment already exists
@@ -243,9 +258,11 @@ class TestDownstreamPR(unittest.TestCase):
         mock_issue_link_exists.return_value = True
 
         # Call the function
-        d.update_jira_issue("mock_existing", self.mock_pr, self.mock_client)
+        d.update_jira_issue(
+            "mock_existing", self.mock_pr, self.mock_client, self.mock_config
+        )
 
-        # Assert everything was called correctly
+        # Assert PR-specific steps were called
         self.mock_client.add_comment.assert_not_called()
         mock_format_comment.assert_called_with(
             self.mock_pr, self.mock_pr.suffix, self.mock_client
@@ -256,6 +273,14 @@ class TestDownstreamPR(unittest.TestCase):
         mock_attach_link.assert_not_called()
         mock_issue_link_exists.assert_called_with(
             self.mock_client, "mock_existing", self.mock_pr
+        )
+        # Assert shared update pipeline was still called
+        mock_shared_update.assert_called_with(
+            "mock_existing",
+            self.mock_pr,
+            self.mock_client,
+            self.mock_config,
+            "pr_updates",
         )
 
     def test_comment_exists_false(self):
@@ -356,16 +381,16 @@ class TestDownstreamPR(unittest.TestCase):
         )
 
     @mock.patch(PATH + "d_issue")
-    def test_update_transition(self, mock_d_issue):
+    def test_update_pr_transition(self, mock_d_issue):
         """
-        This function tests 'update_transition'
+        This function tests '_update_pr_transition'
         """
         # Set up return values
         mock_client = MagicMock()
         self.mock_existing.fields.issuetype.name = "Bug"
 
         # Call the function
-        d.update_transition(
+        d._update_pr_transition(
             mock_client, self.mock_existing, self.mock_pr, "merge_transition"
         )
 
@@ -466,7 +491,7 @@ class TestDownstreamPR(unittest.TestCase):
 
     @mock.patch(PATH + "d_issue")
     def test_update_transition_selects_first_matching_entry(self, mock_d_issue):
-        """Test that update_transition iterates entries and selects the first match."""
+        """Test that _update_pr_transition iterates entries and selects the first match."""
         mock_client = MagicMock()
         self.mock_existing.fields.issuetype.name = "Story"
         self.mock_pr.base_branch = "main"
@@ -484,7 +509,7 @@ class TestDownstreamPR(unittest.TestCase):
             ]
         }
 
-        d.update_transition(
+        d._update_pr_transition(
             mock_client, self.mock_existing, self.mock_pr, "merge_transition"
         )
 
@@ -507,7 +532,7 @@ class TestDownstreamPR(unittest.TestCase):
             ]
         }
 
-        d.update_transition(
+        d._update_pr_transition(
             mock_client, self.mock_existing, self.mock_pr, "merge_transition"
         )
 
@@ -525,7 +550,7 @@ class TestDownstreamPR(unittest.TestCase):
             ]
         }
 
-        d.update_transition(
+        d._update_pr_transition(
             mock_client, self.mock_existing, self.mock_pr, "merge_transition"
         )
 
@@ -535,11 +560,11 @@ class TestDownstreamPR(unittest.TestCase):
 
     @mock.patch(PATH + "d_issue")
     def test_update_transition_no_pr_updates(self, mock_d_issue):
-        """Test that update_transition returns silently when pr_updates is absent."""
+        """Test that _update_pr_transition returns silently when pr_updates is absent."""
         mock_client = MagicMock()
         self.mock_pr.downstream = {}
 
-        d.update_transition(
+        d._update_pr_transition(
             mock_client, self.mock_existing, self.mock_pr, "merge_transition"
         )
 
@@ -547,15 +572,119 @@ class TestDownstreamPR(unittest.TestCase):
 
     @mock.patch(PATH + "d_issue")
     def test_update_transition_empty_pr_updates(self, mock_d_issue):
-        """Test that update_transition returns silently when pr_updates is empty."""
+        """Test that _update_pr_transition returns silently when pr_updates is empty."""
         mock_client = MagicMock()
         self.mock_pr.downstream = {"pr_updates": []}
 
-        d.update_transition(
+        d._update_pr_transition(
             mock_client, self.mock_existing, self.mock_pr, "merge_transition"
         )
 
         mock_d_issue.change_status.assert_not_called()
+
+    @mock.patch(PATH + "d_issue.change_status")
+    @mock.patch(PATH + "d_issue.update_jira_issue", wraps=d_issue.update_jira_issue)
+    @mock.patch(PATH + "comment_exists", return_value=True)
+    @mock.patch(PATH + "format_comment", return_value="mock_comment")
+    @mock.patch(PATH + "d_issue.attach_link")
+    @mock.patch(PATH + "issue_link_exists", return_value=True)
+    def test_update_jira_issue_transition_noop_when_status_none(
+        self,
+        mock_issue_link_exists,
+        mock_attach_link,
+        mock_format_comment,
+        mock_comment_exists,
+        mock_shared_update,
+        mock_change_status,
+    ):
+        """github.pull_request path: PR has status=None, so _update_transition
+        is a no-op even when {'transition': 'Closed'} is in pr_updates.
+        """
+        self.mock_pr.status = None
+        self.mock_pr.downstream = {
+            "pr_updates": [{"transition": "Closed"}],
+        }
+
+        d.update_jira_issue(
+            self.mock_existing, self.mock_pr, self.mock_client, self.mock_config
+        )
+
+        mock_change_status.assert_not_called()
+
+    @mock.patch(PATH + "d_issue.change_status")
+    @mock.patch(PATH + "comment_exists", return_value=True)
+    @mock.patch(PATH + "format_comment", return_value="mock_comment")
+    @mock.patch(PATH + "d_issue.attach_link")
+    @mock.patch(PATH + "issue_link_exists", return_value=True)
+    def test_update_jira_issue_merged_pr_no_duplicate_transition(
+        self,
+        mock_issue_link_exists,
+        mock_attach_link,
+        mock_format_comment,
+        mock_comment_exists,
+        mock_change_status,
+    ):
+        """github.issues path: merged PR with status='Closed'.
+
+        merge_transition fires first (via _update_pr_transitions), then
+        _update_transition finds Jira already in target state and skips.
+        change_status is called once (for merge_transition) not twice.
+        """
+        self.mock_pr.suffix = "merged"
+        self.mock_pr.status = "Closed"
+        self.mock_pr.downstream = {
+            "pr_updates": [
+                {"merge_transition": "Closed"},
+                {"transition": "Closed"},
+            ],
+        }
+        self.mock_existing.fields.status.name = "Closed"
+
+        d.update_jira_issue(
+            self.mock_existing, self.mock_pr, self.mock_client, self.mock_config
+        )
+
+        mock_change_status.assert_called_once_with(
+            self.mock_client, self.mock_existing, "Closed", self.mock_pr
+        )
+
+    @mock.patch(PATH + "d_issue.change_status")
+    @mock.patch(PATH + "comment_exists", return_value=True)
+    @mock.patch(PATH + "format_comment", return_value="mock_comment")
+    @mock.patch(PATH + "d_issue.attach_link")
+    @mock.patch(PATH + "issue_link_exists", return_value=True)
+    def test_update_jira_issue_closed_without_merge_transitions(
+        self,
+        mock_issue_link_exists,
+        mock_attach_link,
+        mock_format_comment,
+        mock_comment_exists,
+        mock_change_status,
+    ):
+        """github.issues path: PR closed without merge, status='Closed'.
+
+        merge_transition skips (suffix is 'closed', not 'merged').
+        _update_transition sees status=='Closed' and fires, transitioning
+        the Jira issue — covering a case merge_transition cannot handle.
+        """
+        self.mock_pr.suffix = "closed"
+        self.mock_pr.status = "Closed"
+        self.mock_pr.url = "mock_url"
+        self.mock_pr.downstream = {
+            "pr_updates": [
+                {"merge_transition": "Closed"},
+                {"transition": "Closed"},
+            ],
+        }
+        self.mock_existing.fields.status.name = "Open"
+
+        d.update_jira_issue(
+            self.mock_existing, self.mock_pr, self.mock_client, self.mock_config
+        )
+
+        mock_change_status.assert_called_once_with(
+            self.mock_client, self.mock_existing, "Closed", self.mock_pr
+        )
 
     @mock.patch(PATH + "update_jira")
     @mock.patch(PATH + "d_issue")
@@ -792,6 +921,8 @@ class TestDownstreamPR(unittest.TestCase):
         self.mock_pr.url = "https://github.com/test/repo/pull/1"
         self.mock_pr.upstream = "test/repo"
         self.mock_pr.comments = []
+        self.mock_pr.tags = ["bug", "enhancement"]
+        self.mock_pr.fixVersion = ["v1.0"]
         self.mock_pr.priority = None
         self.mock_pr.content = "PR description"
         self.mock_pr.reporter = "testuser"
@@ -817,16 +948,12 @@ class TestDownstreamPR(unittest.TestCase):
         self.assertEqual(kwargs["title"], self.mock_pr._title)
         self.assertEqual(kwargs["url"], self.mock_pr.url)
         self.assertEqual(kwargs["upstream"], self.mock_pr.upstream)
+        self.assertEqual(kwargs["tags"], self.mock_pr.tags)
+        self.assertEqual(kwargs["fixVersion"], self.mock_pr.fixVersion)
         self.assertEqual(kwargs["status"], self.mock_pr.status)
         self.assertEqual(kwargs["id_"], self.mock_pr.id)
 
-        # Handle reporter conversion
-        if isinstance(self.mock_pr.reporter, dict):
-            self.assertEqual(kwargs["reporter"], self.mock_pr.reporter)
-        else:
-            self.assertEqual(
-                kwargs["reporter"], {"fullname": str(self.mock_pr.reporter)}
-            )
+        self.assertEqual(kwargs["reporter"], self.mock_pr.reporter)
 
         # Apply field-specific overrides
         for key, expected_value in field_overrides.items():
@@ -878,27 +1005,3 @@ class TestDownstreamPR(unittest.TestCase):
         self._assert_issue_created_with_pr_fields(
             mock_issue_class, content=f"PR: {self.mock_pr.url}"
         )
-
-    @mock.patch(PATH + "d_issue._create_jira_issue")
-    @mock.patch(PATH + "Issue")
-    def test_create_jira_issue_from_pr_reporter_dict(
-        self, mock_issue_class, mock_create_jira_issue
-    ):
-        """
-        Test '_create_jira_issue_from_pr' when reporter is already a dict (not a string).
-        """
-        # Set up return values
-        mock_client = MagicMock()
-        mock_created_issue = MagicMock()
-        mock_create_jira_issue.return_value = mock_created_issue
-
-        # Set up PR object with dict reporter
-        self._setup_pr_for_issue_creation(
-            reporter={"fullname": "testuser", "email": "test@example.com"}
-        )
-
-        # Call the function
-        d._create_jira_issue_from_pr(mock_client, self.mock_pr, self.mock_config)
-
-        # Assert Issue was created with dict reporter (not wrapped)
-        self._assert_issue_created_with_pr_fields(mock_issue_class)

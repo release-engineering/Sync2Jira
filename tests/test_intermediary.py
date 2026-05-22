@@ -35,7 +35,7 @@ class TestIntermediary(unittest.TestCase):
             "milestone": "mock_milestone",
             "priority": "mock_priority",
             "body": "mock_content",
-            "user": "mock_reporter",
+            "user": {"fullname": "mock_reporter"},
             "assignees": "mock_assignee",
             "state": "open",
             "date_created": "mock_date",
@@ -131,7 +131,7 @@ class TestIntermediary(unittest.TestCase):
             "labels": "mock_tags",
             "milestone": "mock_milestone",
             "body": "mock_content",
-            "user": "mock_reporter",
+            "user": {"fullname": "mock_reporter"},
             "assignees": "mock_assignee",
             "state": "open",
             "date_created": "mock_date",
@@ -243,6 +243,8 @@ class TestIntermediary(unittest.TestCase):
 
         self.assertEqual(response.suffix, "reopened")
         self.assertEqual(response.status, None)
+        self.assertEqual(response.tags, "mock_tags")
+        self.assertEqual(response.fixVersion, ["mock_milestone"])
         self.assertEqual(response.downstream, {"mock_downstream": "mock_key"})
         self.assertEqual(response.jira_key, "JIRA-1234")
         self.mock_github_pr["comments"][0]["changed"] = None
@@ -278,6 +280,7 @@ class TestIntermediary(unittest.TestCase):
                     base_kw["action"] = action
                 response = i.PR.from_github(**base_kw)
                 self.assertEqual(response.suffix, expected)
+                self.assertEqual(response.status, None)
 
     def test_matcher(self):
         """This tests the matcher function"""
