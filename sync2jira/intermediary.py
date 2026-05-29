@@ -150,6 +150,7 @@ class PR(object):
         tags,
         fixVersion,
         priority,
+        storypoints,
         content,
         reporter,
         assignee,
@@ -169,6 +170,7 @@ class PR(object):
         self.tags = tags
         self.fixVersion = fixVersion
         self.priority = priority
+        self.storypoints = storypoints
         self.base_branch = base_branch
 
         # JIRA treats utf-8 characters in ways we don't totally understand, so scrub content down to
@@ -245,7 +247,8 @@ class PR(object):
             comments=comments,
             tags=pr.get("labels", []),
             fixVersion=[pr.get("milestone")],
-            priority=None,
+            priority=pr.get("priority"),
+            storypoints=pr.get("storypoints"),
             content=pr.get("body"),
             reporter=pr["user"]["fullname"],
             assignee=pr["assignee"],

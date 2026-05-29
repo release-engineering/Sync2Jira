@@ -45,8 +45,10 @@ def handle_github_message(body, config, suffix):
     if not u_issue.passes_github_filters(pr, config, upstream, item_type="PR"):
         return None
     token = config["sync2jira"].get("github_token")
+    headers = {"Authorization": "token " + token} if token else {}
     github_client = Github(token, retry=5)
     reformat_github_pr(pr, upstream, github_client)
+    u_issue.add_project_values(pr, upstream, headers, config, "pr_updates")
     return i.PR.from_github(upstream, pr, suffix, config, body.get("action"))
 
 
@@ -60,8 +62,11 @@ def github_prs(upstream, config):
     :rtype: Generator[sync2jira.intermediary.PR]
     """
     github_client = Github(config["sync2jira"]["github_token"])
+    token = config["sync2jira"].get("github_token")
+    headers = {"Authorization": "token " + token} if token else {}
     for pr in u_issue.generate_github_items("pulls", upstream, config):
         reformat_github_pr(pr, upstream, github_client)
+        u_issue.add_project_values(pr, upstream, headers, config, "pr_updates")
         yield i.PR.from_github(upstream, pr, "open", config)
 
 

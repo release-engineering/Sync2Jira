@@ -1295,7 +1295,7 @@ def _update_github_project_fields(
     for name, values in github_project_fields.items():
         if name not in dir(issue):
             log.error(
-                f"Configuration error: github_project_field key, {name:r}, is not in issue object."
+                f"Configuration error: github_project_field key, {name!r}, is not in issue object."
             )
             continue
 
