@@ -1045,7 +1045,7 @@ class TestUpstreamIssue(unittest.TestCase):
                 mock_requests_post.reset_mock()
 
     @mock.patch(PATH + "requests.post")
-    def test_add_project_values_pr_storypoints(self, mock_requests_post):
+    def test_add_project_values_pr(self, mock_requests_post):
         """Test add_project_values with pr_updates uses pullRequest query and response key.
 
         The storypoints/priority processing logic is shared with issues and
@@ -1088,8 +1088,8 @@ class TestUpstreamIssue(unittest.TestCase):
                     },
                 },
                 [
-                    {"fieldName": {"name": "Priority"}, "name": "Critical"},
                     {"fieldName": {"name": "Size"}, "name": "Medium"},
+                    {"fieldName": {"name": "Priority"}, "name": "Critical"},
                 ],
                 3,
                 "Critical",
@@ -1104,6 +1104,17 @@ class TestUpstreamIssue(unittest.TestCase):
                 ],
                 None,
                 "Low",
+            ),
+            (
+                "Storypoints only, no priority config",
+                {
+                    "storypoints": {"gh_field": "Estimate"},
+                },
+                [
+                    {"fieldName": {"name": "Estimate"}, "number": 8},
+                ],
+                8,
+                None,
             ),
         )
 

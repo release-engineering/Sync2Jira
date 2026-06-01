@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import sync2jira.upstream_pr as u
 
 PATH = "sync2jira.upstream_pr."
+ISSUE_PATH = "sync2jira.upstream_issue."
 
 
 class TestUpstreamPR(unittest.TestCase):
@@ -82,7 +83,7 @@ class TestUpstreamPR(unittest.TestCase):
         self.mock_github_client.get_repo.return_value = self.mock_github_repo
         self.mock_github_client.get_user.return_value = self.mock_github_person
 
-    @mock.patch(PATH + "Github")
+    @mock.patch(ISSUE_PATH + "Github")
     @mock.patch("sync2jira.intermediary.PR.from_github")
     def test_handle_github_message(self, mock_pr_from_github, mock_github):
         """
@@ -131,7 +132,7 @@ class TestUpstreamPR(unittest.TestCase):
         self.mock_github_pr.get_issue_comments.assert_any_call()
         self.mock_github_client.get_user.assert_called_with("mock_login")
 
-    @mock.patch(PATH + "Github")
+    @mock.patch(ISSUE_PATH + "Github")
     @mock.patch("sync2jira.intermediary.Issue.from_github")
     def test_handle_github_message_not_in_mapped(
         self, mock_issue_from_github, mock_github
@@ -155,7 +156,7 @@ class TestUpstreamPR(unittest.TestCase):
         self.assertEqual(None, response)
 
     @mock.patch("sync2jira.intermediary.PR.from_github")
-    @mock.patch(PATH + "Github")
+    @mock.patch(ISSUE_PATH + "Github")
     @mock.patch(PATH + "u_issue.get_all_github_data")
     def test_github_issues(
         self, mock_get_all_github_data, mock_github, mock_pr_from_github
@@ -208,199 +209,56 @@ class TestUpstreamPR(unittest.TestCase):
         self.assertEqual(response[0], "Successful Call!")
 
     @mock.patch("sync2jira.intermediary.PR.from_github")
-    @mock.patch("sync2jira.upstream_issue.requests.post")
-    @mock.patch(PATH + "Github")
-    @mock.patch(PATH + "u_issue.get_all_github_data")
-    def test_github_prs_with_storypoints(
+    @mock.patch(PATH + "u_issue.add_project_values")
+    @mock.patch(PATH + "reformat_github_pr")
+    @mock.patch(PATH + "u_issue.generate_github_items")
+    @mock.patch(ISSUE_PATH + "Github")
+    def test_github_prs(
         self,
-        mock_get_all_github_data,
         mock_github,
-        mock_requests_post,
+        mock_generate,
+        mock_reformat,
+        mock_add_project,
         mock_pr_from_github,
     ):
-        """Tests github_prs populates storypoints from GitHub Project fields."""
-        self.mock_config["sync2jira"]["map"]["github"]["org/repo"][
-            "github_project_number"
-        ] = 1
-        self.mock_config["sync2jira"]["map"]["github"]["org/repo"]["pr_updates"] = [
-            "github_project_fields"
-        ]
-        self.mock_config["sync2jira"]["map"]["github"]["org/repo"][
-            "github_project_fields"
-        ] = {
-            "storypoints": {"gh_field": "Estimate"},
-        }
+        """Tests github_prs yields one PR object per item from generate_github_items.
+
+        Three scenarios: zero, one, and multiple raw items.  The subroutines
+        (reformat_github_pr, add_project_values, PR.from_github) are mocked
+        out because they are tested independently; all we care about here is
+        that github_prs produces the right number of results.
+        """
         mock_github.return_value = self.mock_github_client
-        mock_get_all_github_data.return_value = [self.mock_github_issue_raw]
-        mock_pr_from_github.return_value = "Successful Call!"
-        mock_requests_post.return_value.status_code = 200
 
-        mock_requests_post.return_value.json.return_value = {
-            "data": {
-                "repository": {
-                    "pullRequest": {
-                        "projectItems": {
-                            "nodes": [
-                                {
-                                    "project": {"title": "Project 1", "number": 1},
-                                    "fieldValues": {
-                                        "nodes": [
-                                            {
-                                                "fieldName": {"name": "Estimate"},
-                                                "number": 5.0,
-                                            }
-                                        ]
-                                    },
-                                },
-                                {
-                                    "project": {"title": "Project 2", "number": 2},
-                                    "fieldValues": {"nodes": []},
-                                },
-                            ]
-                        }
-                    }
-                }
-            }
-        }
+        pr_a = {"number": 1}
+        pr_b = {"number": 2}
 
-        response = list(u.github_prs(upstream="org/repo", config=self.mock_config))
+        for description, raw_items, expected_count in (
+            ("zero items", [], 0),
+            ("one item", [pr_a], 1),
+            ("multiple items", [pr_a, pr_b], 2),
+        ):
+            with self.subTest(description=description):
+                mock_generate.return_value = iter(raw_items)
+                mock_pr_from_github.side_effect = [
+                    f"PR-{pr['number']}" for pr in raw_items
+                ]
 
-        self.mock_github_client.get_user.assert_any_call("mock_login")
-        self.mock_github_client.get_user.assert_any_call("mock_assignee_login")
-        mock_pr_from_github.assert_called_with(
-            "org/repo",
-            {
-                "labels": ["some_label"],
-                "number": "1234",
-                "comments": [
-                    {
-                        "body": "mock_body",
-                        "name": unittest.mock.ANY,
-                        "author": "mock_username",
-                        "changed": None,
-                        "date_created": "mock_created_at",
-                        "id": "mock_id",
-                    }
-                ],
-                "assignees": [
-                    {"login": "mock_assignee_login", "fullname": "mock_name"}
-                ],
-                "user": {"login": "mock_login", "fullname": "mock_name"},
-                "milestone": "mock_milestone",
-                "storypoints": 5,
-                "priority": None,
-            },
-            "open",
-            self.mock_config,
-        )
-        self.mock_github_client.get_repo.assert_called_with("org/repo")
-        self.mock_github_repo.get_pull.assert_called_with(number="1234")
-        self.mock_github_pr.get_issue_comments.assert_any_call()
-        self.assertEqual(response[0], "Successful Call!")
+                result = list(
+                    u.github_prs(upstream="org/repo", config=self.mock_config)
+                )
+
+                self.assertEqual(len(result), expected_count, description)
+                self.assertEqual(mock_reformat.call_count, expected_count)
+                self.assertEqual(mock_add_project.call_count, expected_count)
+                self.assertEqual(mock_pr_from_github.call_count, expected_count)
+
+                mock_reformat.reset_mock()
+                mock_add_project.reset_mock()
+                mock_pr_from_github.reset_mock()
 
     @mock.patch("sync2jira.intermediary.PR.from_github")
-    @mock.patch("sync2jira.upstream_issue.requests.post")
-    @mock.patch(PATH + "Github")
-    @mock.patch(PATH + "u_issue.get_all_github_data")
-    def test_github_prs_with_priority(
-        self,
-        mock_get_all_github_data,
-        mock_github,
-        mock_requests_post,
-        mock_pr_from_github,
-    ):
-        """Tests github_prs populates priority from GitHub Project fields."""
-        self.mock_config["sync2jira"]["map"]["github"]["org/repo"][
-            "github_project_number"
-        ] = 1
-        self.mock_config["sync2jira"]["map"]["github"]["org/repo"]["pr_updates"] = [
-            "github_project_fields"
-        ]
-        self.mock_config["sync2jira"]["map"]["github"]["org/repo"][
-            "github_project_fields"
-        ] = {
-            "priority": {
-                "gh_field": "Priority",
-                "options": {
-                    "P0": "Blocker",
-                    "P1": "Critical",
-                    "P2": "Major",
-                    "P3": "Minor",
-                    "P4": "Optional",
-                    "P5": "Trivial",
-                },
-            }
-        }
-        mock_github.return_value = self.mock_github_client
-        mock_get_all_github_data.return_value = [self.mock_github_issue_raw]
-        mock_pr_from_github.return_value = "Successful Call!"
-        mock_requests_post.return_value.status_code = 200
-
-        mock_requests_post.return_value.json.return_value = {
-            "data": {
-                "repository": {
-                    "pullRequest": {
-                        "projectItems": {
-                            "nodes": [
-                                {
-                                    "project": {"title": "Project 1", "number": 1},
-                                    "fieldValues": {
-                                        "nodes": [
-                                            {
-                                                "fieldName": {"name": "Priority"},
-                                                "name": "P1",
-                                            }
-                                        ]
-                                    },
-                                },
-                                {
-                                    "project": {"title": "Project 2", "number": 2},
-                                    "fieldValues": {"nodes": []},
-                                },
-                            ]
-                        }
-                    }
-                }
-            }
-        }
-
-        response = list(u.github_prs(upstream="org/repo", config=self.mock_config))
-
-        self.mock_github_client.get_user.assert_any_call("mock_login")
-        self.mock_github_client.get_user.assert_any_call("mock_assignee_login")
-        mock_pr_from_github.assert_called_with(
-            "org/repo",
-            {
-                "labels": ["some_label"],
-                "number": "1234",
-                "comments": [
-                    {
-                        "body": "mock_body",
-                        "name": unittest.mock.ANY,
-                        "author": "mock_username",
-                        "changed": None,
-                        "date_created": "mock_created_at",
-                        "id": "mock_id",
-                    }
-                ],
-                "assignees": [
-                    {"login": "mock_assignee_login", "fullname": "mock_name"}
-                ],
-                "user": {"login": "mock_login", "fullname": "mock_name"},
-                "milestone": "mock_milestone",
-                "storypoints": None,
-                "priority": "P1",
-            },
-            "open",
-            self.mock_config,
-        )
-        self.mock_github_client.get_repo.assert_called_with("org/repo")
-        self.mock_github_repo.get_pull.assert_called_with(number="1234")
-        self.mock_github_pr.get_issue_comments.assert_any_call()
-        self.assertEqual(response[0], "Successful Call!")
-
-    @mock.patch("sync2jira.intermediary.PR.from_github")
-    @mock.patch(PATH + "Github")
+    @mock.patch(ISSUE_PATH + "Github")
     @mock.patch(PATH + "u_issue.get_all_github_data")
     def test_filter_multiple_labels(
         self, mock_get_all_github_data, mock_github, mock_issue_from_github
@@ -466,7 +324,7 @@ class TestUpstreamPR(unittest.TestCase):
         mock_pr_from_github.assert_not_called()
         self.assertIsNone(response)
 
-    @mock.patch(PATH + "Github")
+    @mock.patch(ISSUE_PATH + "Github")
     @mock.patch("sync2jira.upstream_pr.u_issue.passes_github_filters")
     @mock.patch("sync2jira.intermediary.PR.from_github")
     def test_handle_github_message_filter_returns_true(
