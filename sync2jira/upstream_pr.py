@@ -44,7 +44,7 @@ def handle_github_message(body, config, suffix):
     pr = body["pull_request"]
     if not u_issue.passes_github_filters(pr, config, upstream, item_type="PR"):
         return None
-    headers, github_client = u_issue._github_client(config)
+    headers, github_client = u_issue.get_github_client(config)
     reformat_github_pr(pr, upstream, github_client)
     u_issue.add_project_values(pr, upstream, headers, config, "pr_updates")
     return i.PR.from_github(upstream, pr, suffix, config, body.get("action"))
@@ -59,7 +59,7 @@ def github_prs(upstream, config):
     :returns: a generator for GitHub PR objects
     :rtype: Generator[sync2jira.intermediary.PR]
     """
-    headers, github_client = u_issue._github_client(config)
+    headers, github_client = u_issue.get_github_client(config)
     for pr in u_issue.generate_github_items("pulls", upstream, config):
         reformat_github_pr(pr, upstream, github_client)
         u_issue.add_project_values(pr, upstream, headers, config, "pr_updates")

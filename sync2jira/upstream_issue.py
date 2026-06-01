@@ -114,7 +114,7 @@ ghquery_pr = ghquery.replace(
 )
 
 
-def _github_client(config):
+def get_github_client(config):
     """
     Helper function returning headers and github_client built from config.
 
@@ -213,7 +213,7 @@ def handle_github_message(body, config, is_pr=False):
         )
         return None
 
-    headers, github_client = _github_client(config)
+    headers, github_client = get_github_client(config)
     reformat_github_issue(issue, upstream, github_client)
     add_project_values(issue, upstream, headers, config)
     return i.Issue.from_github(upstream, issue, config)
@@ -228,7 +228,7 @@ def github_issues(upstream, config):
     :returns: a generator for GitHub Issue objects
     :rtype: Generator[sync2jira.intermediary.Issue]
     """
-    headers, github_client = _github_client(config)
+    headers, github_client = get_github_client(config)
     for issue in generate_github_items("issues", upstream, config):
         if "pull_request" in issue or "/pull/" in issue.get("html_url", ""):
             # We don't want to copy these around

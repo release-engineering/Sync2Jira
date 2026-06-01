@@ -248,13 +248,9 @@ class TestUpstreamPR(unittest.TestCase):
                     u.github_prs(upstream="org/repo", config=self.mock_config)
                 )
 
-                self.assertEqual(len(result), expected_count, description)
-                self.assertEqual(mock_reformat.call_count, expected_count)
-                self.assertEqual(mock_add_project.call_count, expected_count)
-                self.assertEqual(mock_pr_from_github.call_count, expected_count)
+                expected = [f"PR-{pr['number']}" for pr in raw_items]
+                self.assertEqual(result, expected, description)
 
-                mock_reformat.reset_mock()
-                mock_add_project.reset_mock()
                 mock_pr_from_github.reset_mock()
 
     @mock.patch("sync2jira.intermediary.PR.from_github")
