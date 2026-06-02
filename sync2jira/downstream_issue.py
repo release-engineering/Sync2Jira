@@ -1230,7 +1230,7 @@ def _update_assignee(client, existing, issue, overwrite):
     """
 
     us_exists = bool(
-        issue.assignee and issue.assignee[0] and issue.assignee[0].get("fullname")
+        issue.assignee and issue.assignee[0] and issue.assignee[0].get("login")
     )
     assignee = existing.fields.assignee
     ds_exists = bool(assignee) and _jira_user_display_label(assignee) is not None
@@ -1239,14 +1239,19 @@ def _update_assignee(client, existing, issue, overwrite):
             # Let assign_user() figure out what to do.
             update = True
         elif us_exists:
-            # Overwrite the downstream assignment only if it is different from
-            # the upstream one.
-            un = issue.assignee[0]["fullname"]
-            dn = _jira_user_display_label(assignee)
-            update = un != dn and remove_diacritics(un) != dn
+            un = issue.assignee[0].get("fullname")
+            if un:
+                # Overwrite the downstream assignment only if it is different
+                # from the upstream one.
+                dn = _jira_user_display_label(assignee)
+                update = un != dn and remove_diacritics(un) != dn
+            else:
+                # Upstream assignee has no fullname; let assign_user() resolve
+                # via LDAP/email lookup using the login.
+                update = True
         else:
-            # Without an upstream owner, update only if the downstream is not
-            # assigned to the project owner.
+            # Without an upstream assignee, update only if the downstream is
+            # not assigned to the project owner.
             update = issue.downstream.get("owner") != _jira_user_display_label(assignee)
     else:
         # We're not overwriting, so call assign_user() only if the downstream
