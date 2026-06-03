@@ -357,7 +357,7 @@ def _create_jira_issue_from_pr(client, pr, config):
         assignee=pr.assignee or [],
         status=pr.status,
         id_=pr.id,
-        storypoints=None,
+        storypoints=pr.storypoints,
         upstream_id=pr.id,
         issue_type=None,
         downstream=pr.downstream,  # Use PR's downstream config

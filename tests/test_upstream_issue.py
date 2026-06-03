@@ -1009,6 +1009,175 @@ class TestUpstreamIssue(unittest.TestCase):
                 )
                 mock_requests_post.reset_mock()
 
+    @mock.patch(PATH + "requests.post")
+    def test_add_project_values_pr_early_exit(self, mock_requests_post):
+        """Test add_project_values early exit when using pr_updates."""
+        upstream_config = {
+            "pr_updates": ["comments", "title"],
+            "github_project_number": 1,
+        }
+        self.mock_config["sync2jira"]["map"]["github"]["org/repo"] = upstream_config
+
+        mock_issue = {"number": 1234, "storypoints": None, "priority": None}
+
+        scenarios = (
+            ("github_project_fields is None", None, ["github_project_fields"]),
+            ("github_project_fields is empty", {}, ["github_project_fields"]),
+            (
+                "github_project_fields not in pr_updates",
+                {"storypoints": {"gh_field": "Estimate"}},
+                [],
+            ),
+        )
+        for description, gpf, extra_updates in scenarios:
+            with self.subTest(description=description):
+                upstream_config["github_project_fields"] = gpf
+                upstream_config["pr_updates"] = ["comments", "title"] + extra_updates
+                result = u.add_project_values(
+                    issue=mock_issue,
+                    upstream="org/repo",
+                    headers={},
+                    config=self.mock_config,
+                    updates_key="pr_updates",
+                )
+                mock_requests_post.assert_not_called()
+                self.assertIsNone(result)
+                mock_requests_post.reset_mock()
+
+    @mock.patch(PATH + "requests.post")
+    def test_add_project_values_pr(self, mock_requests_post):
+        """Test add_project_values with pr_updates uses pullRequest query and response key.
+
+        The storypoints/priority processing logic is shared with issues and
+        is thoroughly tested by test_add_project_values_storypoints.  This
+        test focuses on the PR-specific behavior: reading from pr_updates,
+        sending the pullRequest GraphQL query, and parsing the pullRequest
+        response key.
+        """
+        upstream_config = {
+            "pr_updates": ["github_project_fields"],
+            "github_project_number": 1,
+        }
+        self.mock_config["sync2jira"]["map"]["github"]["org/repo"] = upstream_config
+
+        mock_issue = {"number": 1234, "storypoints": None, "priority": None}
+
+        mock_requests_post.return_value.status_code = 200
+
+        scenarios = (
+            (
+                "Storypoints via Number field",
+                {
+                    "priority": {"gh_field": "Priority"},
+                    "storypoints": {"gh_field": "Estimate"},
+                },
+                [
+                    {"fieldName": {"name": "Priority"}, "name": "High"},
+                    {"fieldName": {"name": "Estimate"}, "number": 5},
+                ],
+                5,
+                "High",
+            ),
+            (
+                "Storypoints via Single Select",
+                {
+                    "priority": {"gh_field": "Priority"},
+                    "storypoints": {
+                        "gh_field": "Size",
+                        "options": {"Small": 1, "Medium": 3, "Large": 8},
+                    },
+                },
+                [
+                    {"fieldName": {"name": "Size"}, "name": "Medium"},
+                    {"fieldName": {"name": "Priority"}, "name": "Critical"},
+                ],
+                3,
+                "Critical",
+            ),
+            (
+                "Priority only, no storypoints config",
+                {
+                    "priority": {"gh_field": "Priority"},
+                },
+                [
+                    {"fieldName": {"name": "Priority"}, "name": "Low"},
+                ],
+                None,
+                "Low",
+            ),
+            (
+                "Storypoints only, no priority config",
+                {
+                    "storypoints": {"gh_field": "Estimate"},
+                },
+                [
+                    {"fieldName": {"name": "Estimate"}, "number": 8},
+                ],
+                8,
+                None,
+            ),
+        )
+
+        for description, gpf, field_nodes, expected_sp, expected_prio in scenarios:
+            with self.subTest(description=description):
+                upstream_config["github_project_fields"] = gpf
+                mock_issue["storypoints"] = None
+                mock_issue["priority"] = None
+
+                mock_requests_post.return_value.json.return_value = {
+                    "data": {
+                        "repository": {
+                            "pullRequest": {
+                                "projectItems": {
+                                    "nodes": [
+                                        {
+                                            "project": {
+                                                "title": "Project 1",
+                                                "number": 1,
+                                            },
+                                            "fieldValues": {"nodes": field_nodes},
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+
+                u.add_project_values(
+                    issue=mock_issue,
+                    upstream="org/repo",
+                    headers={},
+                    config=self.mock_config,
+                    updates_key="pr_updates",
+                )
+
+                query_sent = mock_requests_post.call_args[1]["json"]["query"]
+                self.assertIn(
+                    "pullRequest(number:",
+                    query_sent,
+                    "GraphQL query should use pullRequest, not issue",
+                )
+                self.assertNotIn(
+                    "issue(number:",
+                    query_sent,
+                    "GraphQL query should not contain issue(number:) for PRs",
+                )
+
+                self.assertEqual(
+                    mock_issue["priority"],
+                    expected_prio,
+                    f"{description}: expected priority={expected_prio!r}, "
+                    f"got {mock_issue['priority']!r}",
+                )
+                self.assertEqual(
+                    mock_issue.get("storypoints"),
+                    expected_sp,
+                    f"{description}: expected storypoints={expected_sp}, "
+                    f"got {mock_issue.get('storypoints')}",
+                )
+                mock_requests_post.reset_mock()
+
     def test_passes_github_filters(self):
         """
         Test passes_github_filters for labels, milestone, and other fields.

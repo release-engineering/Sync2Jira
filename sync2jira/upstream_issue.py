@@ -109,6 +109,25 @@ ghquery = """
       }
 """
 
+ghquery_pr = ghquery.replace(
+    "issue(number: $issuenumber)", "pullRequest(number: $issuenumber)"
+)
+
+
+def get_github_client(config):
+    """
+    Helper function returning headers and github_client built from config.
+
+    :param dict config: Config
+    :returns: (headers, github_client)
+    :rtype: tuple
+    """
+
+    token = config["sync2jira"].get("github_token")
+    headers = {"Authorization": "token " + token} if token else {}
+    github_client = Github(token, retry=5)
+    return headers, github_client
+
 
 def passes_github_filters(item, config, upstream, item_type="issue"):
     """
@@ -194,9 +213,7 @@ def handle_github_message(body, config, is_pr=False):
         )
         return None
 
-    token = config["sync2jira"].get("github_token")
-    headers = {"Authorization": "token " + token} if token else {}
-    github_client = Github(token, retry=5)
+    headers, github_client = get_github_client(config)
     reformat_github_issue(issue, upstream, github_client)
     add_project_values(issue, upstream, headers, config)
     return i.Issue.from_github(upstream, issue, config)
@@ -211,9 +228,7 @@ def github_issues(upstream, config):
     :returns: a generator for GitHub Issue objects
     :rtype: Generator[sync2jira.intermediary.Issue]
     """
-    token = config["sync2jira"].get("github_token")
-    headers = {"Authorization": "token " + token} if token else {}
-    github_client = Github(token, retry=5)
+    headers, github_client = get_github_client(config)
     for issue in generate_github_items("issues", upstream, config):
         if "pull_request" in issue or "/pull/" in issue.get("html_url", ""):
             # We don't want to copy these around
@@ -230,18 +245,19 @@ def github_issues(upstream, config):
         yield i.Issue.from_github(upstream, issue, config)
 
 
-def add_project_values(issue, upstream, headers, config):
-    """Add values to an issue from its corresponding card in a GitHub Project
+def add_project_values(issue, upstream, headers, config, updates_key="issue_updates"):
+    """Add values to an issue/PR from its corresponding card in a GitHub Project
 
-    :param dict issue: Issue
+    :param dict issue: Issue or PR dict
     :param str upstream: Upstream repo name
     :param dict headers: HTTP Request headers, including access token, if any
     :param dict config: Config
+    :param str updates_key: Config key for the updates list
     """
     upstream_config = config["sync2jira"]["map"]["github"][upstream]
-    issue_updates = upstream_config.get("issue_updates", [])
+    updates = upstream_config.get(updates_key, [])
     github_project_fields = upstream_config.get("github_project_fields")
-    if not github_project_fields or "github_project_fields" not in issue_updates:
+    if not github_project_fields or "github_project_fields" not in updates:
         log.debug(
             "github_project_fields is None or empty, skipping project field updates"
         )
@@ -252,12 +268,14 @@ def add_project_values(issue, upstream, headers, config):
     issuenumber = issue["number"]
     orgname, reponame = upstream.rsplit("/", 1)
     variables = {"orgname": orgname, "reponame": reponame, "issuenumber": issuenumber}
+    query = ghquery_pr if updates_key == "pr_updates" else ghquery
     response = requests.post(
-        graphqlurl, headers=headers, json={"query": ghquery, "variables": variables}
+        graphqlurl, headers=headers, json={"query": query, "variables": variables}
     )
     if response.status_code != 200:
         log.info(
-            "HTTP error while fetching issue %s/%s#%s: %s",
+            "HTTP error while fetching %s %s/%s#%s: %s",
+            "PR" if updates_key == "pr_updates" else "issue",
             orgname,
             reponame,
             issuenumber,
@@ -265,10 +283,12 @@ def add_project_values(issue, upstream, headers, config):
         )
         return
     data = response.json()
-    gh_issue = data.get("data", {}).get("repository", {}).get("issue")
-    if not gh_issue:
+    repo_data = data.get("data", {}).get("repository", {})
+    gh_item = repo_data.get("pullRequest" if updates_key == "pr_updates" else "issue")
+    if not gh_item:
         log.info(
-            "GitHub error while fetching issue %s/%s#%s: %s",
+            "GitHub error while fetching %s %s/%s#%s: %s",
+            "PR" if updates_key == "pr_updates" else "issue",
             orgname,
             reponame,
             issuenumber,
@@ -276,7 +296,7 @@ def add_project_values(issue, upstream, headers, config):
         )
         return
     project_node = _get_current_project_node(
-        upstream, project_number, issuenumber, gh_issue
+        upstream, project_number, issuenumber, gh_item
     )
     if not project_node:
         return

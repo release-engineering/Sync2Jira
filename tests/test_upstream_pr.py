@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import sync2jira.upstream_pr as u
 
 PATH = "sync2jira.upstream_pr."
+ISSUE_PATH = "sync2jira.upstream_issue."
 
 
 class TestUpstreamPR(unittest.TestCase):
@@ -82,7 +83,7 @@ class TestUpstreamPR(unittest.TestCase):
         self.mock_github_client.get_repo.return_value = self.mock_github_repo
         self.mock_github_client.get_user.return_value = self.mock_github_person
 
-    @mock.patch(PATH + "Github")
+    @mock.patch(ISSUE_PATH + "Github")
     @mock.patch("sync2jira.intermediary.PR.from_github")
     def test_handle_github_message(self, mock_pr_from_github, mock_github):
         """
@@ -131,7 +132,7 @@ class TestUpstreamPR(unittest.TestCase):
         self.mock_github_pr.get_issue_comments.assert_any_call()
         self.mock_github_client.get_user.assert_called_with("mock_login")
 
-    @mock.patch(PATH + "Github")
+    @mock.patch(ISSUE_PATH + "Github")
     @mock.patch("sync2jira.intermediary.Issue.from_github")
     def test_handle_github_message_not_in_mapped(
         self, mock_issue_from_github, mock_github
@@ -155,7 +156,7 @@ class TestUpstreamPR(unittest.TestCase):
         self.assertEqual(None, response)
 
     @mock.patch("sync2jira.intermediary.PR.from_github")
-    @mock.patch(PATH + "Github")
+    @mock.patch(ISSUE_PATH + "Github")
     @mock.patch(PATH + "u_issue.get_all_github_data")
     def test_github_issues(
         self, mock_get_all_github_data, mock_github, mock_pr_from_github
@@ -208,7 +209,52 @@ class TestUpstreamPR(unittest.TestCase):
         self.assertEqual(response[0], "Successful Call!")
 
     @mock.patch("sync2jira.intermediary.PR.from_github")
-    @mock.patch(PATH + "Github")
+    @mock.patch(PATH + "u_issue.add_project_values")
+    @mock.patch(PATH + "reformat_github_pr")
+    @mock.patch(PATH + "u_issue.generate_github_items")
+    @mock.patch(ISSUE_PATH + "Github")
+    def test_github_prs(
+        self,
+        mock_github,
+        mock_generate,
+        mock_reformat,
+        mock_add_project,
+        mock_pr_from_github,
+    ):
+        """Tests github_prs yields one PR object per item from generate_github_items.
+
+        Three scenarios: zero, one, and multiple raw items.  The subroutines
+        (reformat_github_pr, add_project_values, PR.from_github) are mocked
+        out because they are tested independently; all we care about here is
+        that github_prs produces the right number of results.
+        """
+        mock_github.return_value = self.mock_github_client
+
+        pr_a = {"number": 1}
+        pr_b = {"number": 2}
+
+        for description, raw_items, expected_count in (
+            ("zero items", [], 0),
+            ("one item", [pr_a], 1),
+            ("multiple items", [pr_a, pr_b], 2),
+        ):
+            with self.subTest(description=description):
+                mock_generate.return_value = iter(raw_items)
+                mock_pr_from_github.side_effect = [
+                    f"PR-{pr['number']}" for pr in raw_items
+                ]
+
+                result = list(
+                    u.github_prs(upstream="org/repo", config=self.mock_config)
+                )
+
+                expected = [f"PR-{pr['number']}" for pr in raw_items]
+                self.assertEqual(result, expected, description)
+
+                mock_pr_from_github.reset_mock()
+
+    @mock.patch("sync2jira.intermediary.PR.from_github")
+    @mock.patch(ISSUE_PATH + "Github")
     @mock.patch(PATH + "u_issue.get_all_github_data")
     def test_filter_multiple_labels(
         self, mock_get_all_github_data, mock_github, mock_issue_from_github
@@ -274,7 +320,7 @@ class TestUpstreamPR(unittest.TestCase):
         mock_pr_from_github.assert_not_called()
         self.assertIsNone(response)
 
-    @mock.patch(PATH + "Github")
+    @mock.patch(ISSUE_PATH + "Github")
     @mock.patch("sync2jira.upstream_pr.u_issue.passes_github_filters")
     @mock.patch("sync2jira.intermediary.PR.from_github")
     def test_handle_github_message_filter_returns_true(

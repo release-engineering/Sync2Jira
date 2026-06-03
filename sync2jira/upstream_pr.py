@@ -19,7 +19,7 @@
 
 import logging
 
-from github import Github, UnknownObjectException
+from github import UnknownObjectException
 
 import sync2jira.intermediary as i
 import sync2jira.upstream_issue as u_issue
@@ -44,9 +44,9 @@ def handle_github_message(body, config, suffix):
     pr = body["pull_request"]
     if not u_issue.passes_github_filters(pr, config, upstream, item_type="PR"):
         return None
-    token = config["sync2jira"].get("github_token")
-    github_client = Github(token, retry=5)
+    headers, github_client = u_issue.get_github_client(config)
     reformat_github_pr(pr, upstream, github_client)
+    u_issue.add_project_values(pr, upstream, headers, config, "pr_updates")
     return i.PR.from_github(upstream, pr, suffix, config, body.get("action"))
 
 
@@ -59,9 +59,10 @@ def github_prs(upstream, config):
     :returns: a generator for GitHub PR objects
     :rtype: Generator[sync2jira.intermediary.PR]
     """
-    github_client = Github(config["sync2jira"]["github_token"])
+    headers, github_client = u_issue.get_github_client(config)
     for pr in u_issue.generate_github_items("pulls", upstream, config):
         reformat_github_pr(pr, upstream, github_client)
+        u_issue.add_project_values(pr, upstream, headers, config, "pr_updates")
         yield i.PR.from_github(upstream, pr, "open", config)
 
 
