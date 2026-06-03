@@ -1716,7 +1716,7 @@ class TestDownstreamIssue(unittest.TestCase):
                 (32, False),
                 #       - upstream assignee exists: called with remove_all=False
                 (33, False),
-                #       - upstream assignee has a fullname of None: called with remove_all=False
+                #       - upstream assignee has login but fullname is None: called with remove_all=False
                 (34, False),
                 #       - upstream assignee has login but no fullname key: called with remove_all=False
                 (35, False),
@@ -1732,7 +1732,7 @@ class TestDownstreamIssue(unittest.TestCase):
                 (42, None),
                 #       - upstream assignee exists and assignments are different: not called
                 (43, None),
-                #       - upstream assignee has a fullname of None: not called
+                #       - upstream assignee has login but fullname is None: not called
                 (44, None),
                 #       - upstream assignee has login but no fullname key: not called
                 (45, None),
@@ -1747,7 +1747,7 @@ class TestDownstreamIssue(unittest.TestCase):
                 (52, None),
                 #       - upstream assignee exists and assignments are different: not called
                 (53, None),
-                #       - upstream assignee has a fullname of None: not called
+                #       - upstream assignee has login but fullname is None: not called
                 (54, None),
                 #       - upstream assignee has login but no fullname key: not called
                 (55, None),
@@ -1762,7 +1762,7 @@ class TestDownstreamIssue(unittest.TestCase):
                 (62, False),
                 #       - upstream assignee exists: called with remove_all=False
                 (63, False),
-                #       - upstream assignee has a fullname of None: called with remove_all=False
+                #       - upstream assignee has login but fullname is None: called with remove_all=False
                 (64, False),
                 #       - upstream assignee has login but no fullname key: called with remove_all=False
                 (65, False),

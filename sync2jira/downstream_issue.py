@@ -1244,7 +1244,7 @@ def _update_assignee(client, existing, issue, overwrite):
                 # Overwrite the downstream assignment only if it is different
                 # from the upstream one.
                 dn = _jira_user_display_label(assignee)
-                update = un != dn and remove_diacritics(un) != dn
+                update = un != dn and remove_diacritics(un) != remove_diacritics(dn)
             else:
                 # Upstream assignee has no fullname; let assign_user() resolve
                 # via LDAP/email lookup using the login.
