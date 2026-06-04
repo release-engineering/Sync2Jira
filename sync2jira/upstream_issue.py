@@ -215,7 +215,8 @@ def handle_github_message(body, config, is_pr=False):
 
     headers, github_client = get_github_client(config)
     reformat_github_issue(issue, upstream, github_client)
-    add_project_values(issue, upstream, headers, config)
+    updates_key = "pr_updates" if is_pr else "issue_updates"
+    add_project_values(issue, upstream, headers, config, updates_key)
     return i.Issue.from_github(upstream, issue, config)
 
 

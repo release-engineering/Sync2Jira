@@ -1686,12 +1686,14 @@ class TestDownstreamIssue(unittest.TestCase):
                 (12, None),
                 #       - upstream assignee exists and assignments are different: called with remove_all=False
                 (13, False),
-                #       - upstream assignee has a fullname of None: called with remove_all=True
-                (14, True),
+                #       - upstream assignee has login but fullname is None: called with remove_all=False
+                (14, False),
+                #       - upstream assignee has login but no fullname key: called with remove_all=False
+                (15, False),
                 #       - upstream assignee does not exist: called with remove_all=True
-                (15, True),
-                #       - upstream assignee is an empty list: called with remove_all=True
                 (16, True),
+                #       - upstream assignee is an empty list: called with remove_all=True
+                (17, True),
                 #    - downstream assignee is owner
                 #       - upstream assignee exists and assignments are different: called with remove_all=False
                 (21, False),
@@ -1699,12 +1701,14 @@ class TestDownstreamIssue(unittest.TestCase):
                 (22, False),
                 #       - upstream assignee exists and assignments are different: called with remove_all=False
                 (23, False),
-                #       - upstream assignee has a fullname of None: not called (already assigned to owner)
-                (24, None),
+                #       - upstream assignee has login but fullname is None: called with remove_all=False
+                (24, False),
+                #       - upstream assignee has login but no fullname key: called with remove_all=False
+                (25, False),
                 #       - upstream assignee does not exist: not called (already assigned to owner)
-                (25, None),
-                #       - upstream assignee is an empty list: not called (already assigned to owner)
                 (26, None),
+                #       - upstream assignee is an empty list: not called (already assigned to owner)
+                (27, None),
                 #    - downstream assignee does not exist
                 #       - upstream assignee exists: called with remove_all=False
                 (31, False),
@@ -1712,12 +1716,14 @@ class TestDownstreamIssue(unittest.TestCase):
                 (32, False),
                 #       - upstream assignee exists: called with remove_all=False
                 (33, False),
-                #       - upstream assignee has a fullname of None: called with remove_all=False
+                #       - upstream assignee has login but fullname is None: called with remove_all=False
                 (34, False),
-                #       - upstream assignee does not exist: called with remove_all=False
+                #       - upstream assignee has login but no fullname key: called with remove_all=False
                 (35, False),
-                #       - upstream assignee is an empty list: called with remove_all=False
+                #       - upstream assignee does not exist: called with remove_all=False
                 (36, False),
+                #       - upstream assignee is an empty list: called with remove_all=False
+                (37, False),
                 # - overwrite = False
                 #    - downstream assignee is set:
                 #       - upstream assignee exists and assignments are equal: not called
@@ -1726,12 +1732,14 @@ class TestDownstreamIssue(unittest.TestCase):
                 (42, None),
                 #       - upstream assignee exists and assignments are different: not called
                 (43, None),
-                #       - upstream assignee has a fullname of None: not called
+                #       - upstream assignee has login but fullname is None: not called
                 (44, None),
-                #       - upstream assignee does not exist: not called
+                #       - upstream assignee has login but no fullname key: not called
                 (45, None),
-                #       - upstream assignee is an empty list: not called
+                #       - upstream assignee does not exist: not called
                 (46, None),
+                #       - upstream assignee is an empty list: not called
+                (47, None),
                 #    - downstream assignee is owner
                 #       - upstream assignee exists and assignments are different: not called
                 (51, None),
@@ -1739,12 +1747,14 @@ class TestDownstreamIssue(unittest.TestCase):
                 (52, None),
                 #       - upstream assignee exists and assignments are different: not called
                 (53, None),
-                #       - upstream assignee has a fullname of None: not called
+                #       - upstream assignee has login but fullname is None: not called
                 (54, None),
-                #       - upstream assignee does not exist: not called
+                #       - upstream assignee has login but no fullname key: not called
                 (55, None),
-                #       - upstream assignee is an empty list: not called
+                #       - upstream assignee does not exist: not called
                 (56, None),
+                #       - upstream assignee is an empty list: not called
+                (57, None),
                 #    - downstream assignee does not exist
                 #       - upstream assignee exists: called with remove_all=False
                 (61, False),
@@ -1752,12 +1762,14 @@ class TestDownstreamIssue(unittest.TestCase):
                 (62, False),
                 #       - upstream assignee exists: called with remove_all=False
                 (63, False),
-                #       - upstream assignee has a fullname of None: called with remove_all=False
+                #       - upstream assignee has login but fullname is None: called with remove_all=False
                 (64, False),
-                #       - upstream assignee does not exist: called with remove_all=False
+                #       - upstream assignee has login but no fullname key: called with remove_all=False
                 (65, False),
-                #       - upstream assignee is an empty list: called with remove_all=False
+                #       - upstream assignee does not exist: called with remove_all=False
                 (66, False),
+                #       - upstream assignee is an empty list: called with remove_all=False
+                (67, False),
             )
         )
         match = "Erik"
@@ -1772,10 +1784,11 @@ class TestDownstreamIssue(unittest.TestCase):
                     setattr(self.mock_downstream.fields.assignee, "name", ds)
 
                 for us in (
-                    [{"fullname": match}],
-                    [{"fullname": "Èŕìḱ"}],
-                    [{"fullname": "Bob"}],
-                    [{"fullname": None}],
+                    [{"login": "erik", "fullname": match}],
+                    [{"login": "erik", "fullname": "Èŕìḱ"}],
+                    [{"login": "bob", "fullname": "Bob"}],
+                    [{"login": "anon", "fullname": None}],
+                    [{"login": "jdoe"}],
                     None,
                     [],
                 ):
