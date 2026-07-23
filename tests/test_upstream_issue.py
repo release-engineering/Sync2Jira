@@ -502,21 +502,23 @@ class TestUpstreamIssue(unittest.TestCase):
 
     @mock.patch(PATH + "Github")
     @mock.patch("sync2jira.intermediary.Issue.from_github")
-    def test_handle_github_message_pull_request(
+    def test_handle_github_message_pull_request_not_in_sync(
         self, mock_issue_from_github, mock_github
     ):
         """
-        This function tests 'handle_github_message' the issue is a pull request comment
+        Test that handle_github_message returns None when is_pr=True but
+        the repo's sync list does not include 'pullrequest'.  This exercises
+        the passes_github_filters gate that guards the PR path.
         """
-        # Set up return values
-        self.mock_github_message_body["issue"] = {"pull_request": "test"}
+        # Repo only syncs issues, not pull requests
+        self.mock_config["sync2jira"]["map"]["github"]["org/repo"]["sync"] = ["issue"]
 
-        # Call the function
+        # Call the function with is_pr=True (simulating a github.issue_comment on a PR)
         response = u.handle_github_message(
-            body=self.mock_github_message_body, config=self.mock_config
+            body=self.mock_github_message_body, config=self.mock_config, is_pr=True
         )
 
-        # Assert that all calls were made correctly
+        # passes_github_filters rejects it before reaching Github/Issue.from_github
         mock_issue_from_github.assert_not_called()
         mock_github.assert_not_called()
         self.assertEqual(None, response)
