@@ -208,10 +208,10 @@ def handle_github_message(body, config, is_pr=False):
     item_type = "PR" if is_pr else "issue"
     if not passes_github_filters(issue, config, upstream, item_type=item_type):
         log.debug(
-            "%s %s %s does not pass filters",
+            "%s %s#%s does not pass filters",
             item_type,
             upstream,
-            issue.get("html_url", "<missing URL>"),
+            issue.get("number", "?"),
         )
         return None
 

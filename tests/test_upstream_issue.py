@@ -1180,6 +1180,58 @@ class TestUpstreamIssue(unittest.TestCase):
                 )
                 mock_requests_post.reset_mock()
 
+    def test_passes_github_filters_routing(self):
+        """
+        Test passes_github_filters routing guards:
+        - upstream not in map → None
+        - item_type not in sync list → None
+        - item_type="PR" with pullrequest in sync → proceeds to filter evaluation
+        """
+        upstream = "org/repo"
+        good_item = {
+            "labels": [{"name": "custom_tag"}],
+            "milestone": {"number": 1},
+            "filter1": "filter1",
+        }
+
+        # upstream not in mapped_repos → None
+        self.assertIsNone(
+            u.passes_github_filters(
+                good_item, self.mock_config, "other/repo", item_type="issue"
+            )
+        )
+
+        # item_type="issue" but sync only contains "pullrequest" → None
+        self.mock_config["sync2jira"]["map"]["github"][upstream]["sync"] = [
+            "pullrequest"
+        ]
+        self.assertIsNone(
+            u.passes_github_filters(
+                good_item, self.mock_config, upstream, item_type="issue"
+            )
+        )
+
+        # item_type="PR" but sync only contains "issue" → None
+        self.mock_config["sync2jira"]["map"]["github"][upstream]["sync"] = ["issue"]
+        self.assertIsNone(
+            u.passes_github_filters(
+                good_item, self.mock_config, upstream, item_type="PR"
+            )
+        )
+
+        # item_type="PR" with pullrequest in sync and all filters pass → True
+        self.mock_config["sync2jira"]["map"]["github"][upstream]["sync"] = [
+            "pullrequest"
+        ]
+        self.mock_config["sync2jira"]["filters"]["github"][upstream] = {
+            "labels": ["custom_tag"]
+        }
+        self.assertTrue(
+            u.passes_github_filters(
+                good_item, self.mock_config, upstream, item_type="PR"
+            )
+        )
+
     def test_passes_github_filters(self):
         """
         Test passes_github_filters for labels, milestone, and other fields.
@@ -1265,6 +1317,23 @@ class TestUpstreamIssue(unittest.TestCase):
             "milestone": {"number": 999},
             "filter1": "filter1",
         }
+        self.assertTrue(
+            u.passes_github_filters(item, self.mock_config, upstream, item_type="issue")
+        )
+        # Test 8: milestone filter configured; item has milestone key but value is None → False
+        # (exercises the `or {}` defensive branch in the milestone handler)
+        self.mock_config["sync2jira"]["filters"]["github"][upstream] = {"milestone": 1}
+        item = {
+            "labels": [{"name": "custom_tag"}],
+            "milestone": None,
+            "filter1": "filter1",
+        }
+        self.assertFalse(
+            u.passes_github_filters(item, self.mock_config, upstream, item_type="issue")
+        )
+        # No filters at all → True (nothing to reject)
+        self.mock_config["sync2jira"]["filters"]["github"][upstream] = {}
+        item = {"labels": [], "milestone": None, "filter1": "anything"}
         self.assertTrue(
             u.passes_github_filters(item, self.mock_config, upstream, item_type="issue")
         )
