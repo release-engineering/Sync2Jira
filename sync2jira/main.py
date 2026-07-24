@@ -311,9 +311,9 @@ def handle_msg(body, suffix, config):
         # is actually for a PR
         if "pull_request" in body["issue"]:
             if body["action"] == "deleted":
-                # I think this gets triggered when someone deletes a comment
-                # from a PR.  Since we don't capture PR comments (only Issue
-                # comments), we don't need to react if one is deleted.
+                # Triggered when someone deletes a comment from a PR.
+                # We sync PR comments but do not propagate deletions to
+                # Jira, so there is nothing to do here.
                 log.debug("Not handling PR 'action' == 'deleted'")
                 return
             # Handle this PR update as though it were an Issue, if that's

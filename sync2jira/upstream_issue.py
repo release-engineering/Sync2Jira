@@ -205,11 +205,13 @@ def handle_github_message(body, config, is_pr=False):
     upstream = "{owner}/{repo}".format(owner=owner, repo=repo)
 
     issue = body["issue"]
-    if not passes_github_filters(issue, config, upstream, item_type="issue"):
-        return None
-    if is_pr and not issue.get("closed_at"):
+    item_type = "PR" if is_pr else "issue"
+    if not passes_github_filters(issue, config, upstream, item_type=item_type):
         log.debug(
-            "%r is a pull request.  Ignoring.", issue.get("html_url", "<missing URL>")
+            "%s %s#%s does not pass filters",
+            item_type,
+            upstream,
+            issue.get("number", "?"),
         )
         return None
 
