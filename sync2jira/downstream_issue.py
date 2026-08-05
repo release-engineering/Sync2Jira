@@ -1142,6 +1142,32 @@ def _update_title(issue, existing):
     log.info("Updated title")
 
 
+def _get_all_comments(client, issue):
+    """
+    Fetch every comment on a JIRA issue, handling pagination transparently.
+
+    ``client.comments()`` returns at most ``max_results`` entries per call
+    (Jira Cloud defaults to 100).  Iterating in fixed-size pages until a
+    short page is received guarantees we collect all comments regardless of
+    how many there are.
+
+    :param jira.client.JIRA client: JIRA client
+    :param jira.resources.Issue issue: Downstream JIRA issue
+    :returns: All comments on the issue
+    :rtype: list[jira.resources.Comment]
+    """
+    page_size = 100
+    all_comments = []
+    start = 0
+    while True:
+        batch = client.comments(issue, start_at=start, max_results=page_size)
+        all_comments.extend(batch)
+        if len(batch) < page_size:
+            break
+        start += page_size
+    return all_comments
+
+
 def _update_comments(client, existing, issue):
     """
     Helper function to sync comments between existing JIRA issue and upstream issue.
@@ -1152,7 +1178,7 @@ def _update_comments(client, existing, issue):
     :returns: Nothing
     """
     # Get all existing comments
-    comments = client.comments(existing)
+    comments = _get_all_comments(client, existing)
     # Remove any comments that have already been added
     comments_d = _comment_matching(issue.comments, comments, issue.url)
     # Loop through the comments that remain

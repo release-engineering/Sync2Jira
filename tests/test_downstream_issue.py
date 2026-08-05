@@ -1579,7 +1579,8 @@ class TestDownstreamIssue(unittest.TestCase):
         This function tests the 'update_comments' function
         """
         # Set up return values
-        mock_client.comments.return_value = "mock_comments"
+        # Return a list shorter than the page size (100) so the paginator stops
+        mock_client.comments.return_value = ["mock_comment"]
         mock_comment_matching.return_value = ["mock_comments_d"]
         mock_comment_format.return_value = "mock_comment_body"
 
@@ -1589,9 +1590,11 @@ class TestDownstreamIssue(unittest.TestCase):
         )
 
         # Assert all calls were made correctly
-        mock_client.comments.assert_called_with(self.mock_downstream)
+        mock_client.comments.assert_called_with(
+            self.mock_downstream, start_at=0, max_results=100
+        )
         mock_comment_matching.assert_called_with(
-            self.mock_issue.comments, "mock_comments", self.mock_issue.url
+            self.mock_issue.comments, ["mock_comment"], self.mock_issue.url
         )
         mock_comment_format.assert_called_with("mock_comments_d")
         mock_client.add_comment.assert_called_with(
