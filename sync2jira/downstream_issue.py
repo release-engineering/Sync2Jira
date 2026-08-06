@@ -511,12 +511,19 @@ def check_comments_for_duplicate(client, result, username):
     :returns: duplicate JIRA issue or None
     :rtype: jira.resource.Issue or None
     """
-    for comment in client.comments(result):
-        search = re.search(r"Marking as duplicate of (\w*)-(\d*)", comment.body)
-        author_label = _jira_user_display_label(comment.author)
-        if search and author_label == username:
-            issue_id = search.groups()[0] + "-" + search.groups()[1]
-            return client.issue(issue_id)
+    page_size = 100
+    start = 0
+    while True:
+        batch = client.comments(result, start_at=start, max_results=page_size)
+        for comment in batch:
+            search = re.search(r"Marking as duplicate of (\w*)-(\d*)", comment.body)
+            author_label = _jira_user_display_label(comment.author)
+            if search and author_label == username:
+                issue_id = search.groups()[0] + "-" + search.groups()[1]
+                return client.issue(issue_id)
+        if len(batch) < page_size:
+            break  # last page; duplicate marker not found
+        start += page_size
     return None
 
 
@@ -1142,52 +1149,40 @@ def _update_title(issue, existing):
     log.info("Updated title")
 
 
-def _get_all_comments(client, issue):
-    """
-    Fetch every comment on a JIRA issue, handling pagination transparently.
-
-    ``client.comments()`` returns at most ``max_results`` entries per call
-    (Jira Cloud defaults to 100).  Iterating in fixed-size pages until a
-    short page is received guarantees we collect all comments regardless of
-    how many there are.
-
-    :param jira.client.JIRA client: JIRA client
-    :param jira.resources.Issue issue: Downstream JIRA issue
-    :returns: All comments on the issue
-    :rtype: list[jira.resources.Comment]
-    """
-    page_size = 100
-    all_comments = []
-    start = 0
-    while True:
-        batch = client.comments(issue, start_at=start, max_results=page_size)
-        all_comments.extend(batch)
-        if len(batch) < page_size:
-            break
-        start += page_size
-    return all_comments
-
-
 def _update_comments(client, existing, issue):
     """
     Helper function to sync comments between existing JIRA issue and upstream issue.
+
+    Jira comments are fetched one page at a time (100 per request).  After
+    each page, upstream comments already present in Jira are removed from the
+    pending set.  Fetching stops as soon as every upstream comment has been
+    matched — so an issue with thousands of Jira comments only requires as
+    many API calls as it takes to find every upstream comment, not a full
+    scan.
 
     :param jira.client.JIRA client: JIRA client
     :param jira.resource.Issue existing: Existing JIRA issue
     :param sync2jira.intermediary.Issue issue: Upstream issue
     :returns: Nothing
     """
-    # Get all existing comments
-    comments = _get_all_comments(client, existing)
-    # Remove any comments that have already been added
-    comments_d = _comment_matching(issue.comments, comments, issue.url)
-    # Loop through the comments that remain
-    for comment in comments_d:
-        # Format and add them
+    page_size = 100
+    start = 0
+    # All upstream comments that still need to be checked / added
+    pending = list(issue.comments)
+
+    while pending:
+        batch = client.comments(existing, start_at=start, max_results=page_size)
+        # Remove upstream comments already present in this page of Jira comments
+        pending = _comment_matching(pending, batch, issue.url)
+        if len(batch) < page_size:
+            break  # last page reached; no more Jira comments to check
+        start += page_size
+
+    for comment in pending:
         comment_body = _truncate_jira_text(_comment_format(comment), issue.url)
         client.add_comment(existing, comment_body)
-    if len(comments_d) > 0:
-        log.info("Comments synchronization done on %i comments.", len(comments_d))
+    if pending:
+        log.info("Comments synchronization done on %i comments.", len(pending))
 
 
 def _update_fixVersion(updates, existing, issue, client):

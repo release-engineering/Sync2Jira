@@ -285,39 +285,69 @@ class TestDownstreamPR(unittest.TestCase):
 
     def test_comment_exists_false(self):
         """
-        This function tests 'comment_exists' where the comment does not exists
+        Single-page case: comment not found → returns False.
         """
-        # Set up return values
         mock_comment = MagicMock()
         mock_comment.body = "not_mock_new_comment"
-        self.mock_client.comments.return_value = [mock_comment]
+        self.mock_client.comments.return_value = [
+            mock_comment
+        ]  # 1 item < 100 → last page
 
-        # Call the function
         response = d.comment_exists(
             self.mock_client, "mock_existing", "mock_new_comment"
         )
 
-        # Assert Everything was called correctly
-        self.mock_client.comments.assert_called_with("mock_existing")
-        self.assertEqual(response, False)
+        self.mock_client.comments.assert_called_once_with(
+            "mock_existing", start_at=0, max_results=100
+        )
+        self.assertFalse(response)
 
     def test_comment_exists_true(self):
         """
-        This function tests 'comment_exists' where the comment exists
+        Single-page case: comment found → returns True immediately.
         """
-        # Set up return values
         mock_comment = MagicMock()
         mock_comment.body = "mock_new_comment"
-        self.mock_client.comments.return_value = [mock_comment]
+        self.mock_client.comments.return_value = [
+            mock_comment
+        ]  # 1 item < 100 → last page
 
-        # Call the function
         response = d.comment_exists(
             self.mock_client, "mock_existing", "mock_new_comment"
         )
 
-        # Assert Everything was called correctly
-        self.mock_client.comments.assert_called_with("mock_existing")
-        self.assertEqual(response, True)
+        self.mock_client.comments.assert_called_once_with(
+            "mock_existing", start_at=0, max_results=100
+        )
+        self.assertTrue(response)
+
+    def test_comment_exists_multi_page(self):
+        """
+        Multi-page case: comment sits on page 2. Verifies start_at
+        advances and function returns True as soon as the match is found.
+        """
+        unrelated = MagicMock()
+        unrelated.body = "other comment"
+        target = MagicMock()
+        target.body = "mock_new_comment"
+
+        self.mock_client.comments.side_effect = [
+            [unrelated] * 100,  # page 1: full, no match
+            [target],  # page 2: match found → return True
+        ]
+
+        response = d.comment_exists(
+            self.mock_client, "mock_existing", "mock_new_comment"
+        )
+
+        self.assertTrue(response)
+        self.assertEqual(self.mock_client.comments.call_count, 2)
+        self.mock_client.comments.assert_any_call(
+            "mock_existing", start_at=0, max_results=100
+        )
+        self.mock_client.comments.assert_any_call(
+            "mock_existing", start_at=100, max_results=100
+        )
 
     def test_format_comment_closed(self):
         """

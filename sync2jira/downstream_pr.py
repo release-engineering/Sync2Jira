@@ -92,11 +92,16 @@ def comment_exists(client, existing: JIRAIssue, new_comment):
     :param String new_comment: Formatted comment we're looking for
     :returns: Nothing
     """
-    # Grab and loop over comments
-    comments = client.comments(existing)
-    for comment in comments:
-        if new_comment == comment.body:
-            return True
+    page_size = 100
+    start = 0
+    while True:
+        batch = client.comments(existing, start_at=start, max_results=page_size)
+        for comment in batch:
+            if new_comment == comment.body:
+                return True
+        if len(batch) < page_size:
+            break  # last page; comment not found
+        start += page_size
     return False
 
 
