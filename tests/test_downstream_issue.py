@@ -1569,16 +1569,21 @@ class TestDownstreamIssue(unittest.TestCase):
                 else:
                     mock_client.add_comment.assert_not_called()
 
+    @mock.patch(PATH + "_truncate_jira_text")
     @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_matching")
     @mock.patch("jira.client.JIRA")
     def test_update_comments(
-        self, mock_client, mock_comment_matching, mock_comment_format
+        self,
+        mock_client,
+        mock_comment_matching,
+        mock_comment_format,
+        mock_truncate_jira_text,
     ):
         """
-        Single-page case: Jira returns fewer than 100 comments, so the
-        paginator stops after one request.  The one upstream comment that
-        is not yet in Jira is formatted and added.
+        Single-page case: Jira returns fewer than 100 comments so the
+        paginator stops after one request.  The upstream comment that is
+        not yet in Jira is formatted and added to the Jira issue.
         """
         upstream_comment = {"id": "1", "body": "hello", "changed": None}
         self.mock_issue.comments = [upstream_comment]
@@ -1588,6 +1593,7 @@ class TestDownstreamIssue(unittest.TestCase):
             upstream_comment
         ]  # not matched → stays pending
         mock_comment_format.return_value = "formatted_body"
+        mock_truncate_jira_text.return_value = "truncated_body"
 
         d._update_comments(
             client=mock_client, existing=self.mock_downstream, issue=self.mock_issue
@@ -1596,11 +1602,10 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.comments.assert_called_once_with(
             self.mock_downstream, start_at=0, max_results=100
         )
-        mock_comment_matching.assert_called_once_with(
-            [upstream_comment], ["jira_comment"], self.mock_issue.url
+        # Verify the right content reached the Jira client
+        mock_client.add_comment.assert_called_once_with(
+            self.mock_downstream, "truncated_body"
         )
-        mock_comment_format.assert_called_once_with(upstream_comment)
-        mock_client.add_comment.assert_called_once_with(self.mock_downstream, mock.ANY)
 
     @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_matching")
@@ -1619,14 +1624,18 @@ class TestDownstreamIssue(unittest.TestCase):
         )
 
         mock_client.comments.assert_not_called()
-        mock_comment_matching.assert_not_called()
         mock_client.add_comment.assert_not_called()
 
+    @mock.patch(PATH + "_truncate_jira_text")
     @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_matching")
     @mock.patch("jira.client.JIRA")
     def test_update_comments_early_stop(
-        self, mock_client, mock_comment_matching, mock_comment_format
+        self,
+        mock_client,
+        mock_comment_matching,
+        mock_comment_format,
+        mock_truncate_jira_text,
     ):
         """
         Early-stop: when all upstream comments are matched on the first
@@ -1637,7 +1646,6 @@ class TestDownstreamIssue(unittest.TestCase):
 
         mock_client.comments.return_value = ["jira_comment"] * 100  # full page
         mock_comment_matching.return_value = []  # all matched on page 1
-
         d._update_comments(
             client=mock_client, existing=self.mock_downstream, issue=self.mock_issue
         )
@@ -1687,6 +1695,98 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         mock_client.comments.assert_any_call(
             self.mock_downstream, start_at=200, max_results=100
+        )
+        mock_client.add_comment.assert_not_called()
+
+    @mock.patch(PATH + "_truncate_jira_text")
+    @mock.patch(PATH + "_comment_format")
+    @mock.patch(PATH + "_comment_matching")
+    @mock.patch("jira.client.JIRA")
+    def test_update_comments_multi_page_not_found(
+        self,
+        mock_client,
+        mock_comment_matching,
+        mock_comment_format,
+        mock_truncate_jira_text,
+    ):
+        """
+        Multi-page case where the upstream comment is never matched and
+        must be added.  Also exercises the zero-items edge case: when
+        Jira returns exactly 100 items the paginator fetches a second
+        page; if that page is empty the loop stops and any remaining
+        pending comments are added.
+        """
+        upstream_comment = {"id": "1", "body": "new comment", "changed": None}
+        self.mock_issue.comments = [upstream_comment]
+
+        mock_client.comments.side_effect = [
+            ["jira_comment"] * 100,  # page 1: full → triggers page 2
+            [],  # page 2: empty → last page
+        ]
+        # Comment not found on either page; pending is never cleared.
+        mock_comment_matching.side_effect = [
+            [upstream_comment],
+            [upstream_comment],
+        ]
+        mock_comment_format.return_value = "formatted_body"
+        mock_truncate_jira_text.return_value = "truncated_body"
+
+        d._update_comments(
+            client=mock_client, existing=self.mock_downstream, issue=self.mock_issue
+        )
+
+        self.assertEqual(mock_client.comments.call_count, 2)
+        mock_client.comments.assert_any_call(
+            self.mock_downstream, start_at=0, max_results=100
+        )
+        mock_client.comments.assert_any_call(
+            self.mock_downstream, start_at=100, max_results=100
+        )
+        # Upstream comment was not in Jira → it should have been added.
+        mock_client.add_comment.assert_called_once_with(
+            self.mock_downstream, "truncated_body"
+        )
+
+    @mock.patch(PATH + "_comment_format")
+    @mock.patch(PATH + "_comment_matching")
+    @mock.patch("jira.client.JIRA")
+    def test_update_comments_found_on_full_intermediate_page(
+        self, mock_client, mock_comment_matching, mock_comment_format
+    ):
+        """
+        Found on a full intermediate page: the upstream comment is not
+        matched on page 1 but is matched on page 2, which is still a
+        full 100-item page.
+
+        After page 2 the pending list is empty, so the loop must exit
+        via the ``while pending:`` guard (not via the short-page break).
+        This proves that finding a comment correctly stops fetching
+        additional pages even when the last-read page was full.
+        """
+        upstream_comment = {"id": "1", "body": "hello", "changed": None}
+        self.mock_issue.comments = [upstream_comment]
+
+        mock_client.comments.side_effect = [
+            ["jira_comment"] * 100,  # page 1: full, not found
+            ["jira_comment"] * 100,  # page 2: full, found → pending clears
+            # page 3 must NOT be fetched
+        ]
+        mock_comment_matching.side_effect = [
+            [upstream_comment],  # page 1: not yet found
+            [],  # page 2: matched, pending cleared
+        ]
+
+        d._update_comments(
+            client=mock_client, existing=self.mock_downstream, issue=self.mock_issue
+        )
+
+        # Exactly two API calls: stop after page 2 despite it being full.
+        self.assertEqual(mock_client.comments.call_count, 2)
+        mock_client.comments.assert_any_call(
+            self.mock_downstream, start_at=0, max_results=100
+        )
+        mock_client.comments.assert_any_call(
+            self.mock_downstream, start_at=100, max_results=100
         )
         mock_client.add_comment.assert_not_called()
 

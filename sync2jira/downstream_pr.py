@@ -32,6 +32,7 @@ from sync2jira.intermediary import Issue, matcher
 log = logging.getLogger("sync2jira")
 
 UPDATES_KEY = "pr_updates"
+PAGE_SIZE = 100
 
 
 def format_comment(pr, pr_suffix, client):
@@ -92,16 +93,15 @@ def comment_exists(client, existing: JIRAIssue, new_comment):
     :param String new_comment: Formatted comment we're looking for
     :returns: Nothing
     """
-    page_size = 100
     start = 0
     while True:
-        batch = client.comments(existing, start_at=start, max_results=page_size)
+        batch = client.comments(existing, start_at=start, max_results=PAGE_SIZE)
         for comment in batch:
             if new_comment == comment.body:
                 return True
-        if len(batch) < page_size:
+        if len(batch) < PAGE_SIZE:
             break  # last page; comment not found
-        start += page_size
+        start += PAGE_SIZE
     return False
 
 

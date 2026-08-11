@@ -52,6 +52,7 @@ JIRA_TEXT_BODY_MAX_CHARS = 32750
 # If the hyperlink(s) wouldn't leave this much room, drop the hyperlink instead.
 JIRA_TEXT_BODY_MIN_CHARS = 1024
 
+PAGE_SIZE = 100
 log = logging.getLogger("sync2jira")
 logging.getLogger("snowflake.connector").setLevel(logging.WARNING)
 
@@ -511,19 +512,18 @@ def check_comments_for_duplicate(client, result, username):
     :returns: duplicate JIRA issue or None
     :rtype: jira.resource.Issue or None
     """
-    page_size = 100
     start = 0
     while True:
-        batch = client.comments(result, start_at=start, max_results=page_size)
+        batch = client.comments(result, start_at=start, max_results=PAGE_SIZE)
         for comment in batch:
             search = re.search(r"Marking as duplicate of (\w*)-(\d*)", comment.body)
             author_label = _jira_user_display_label(comment.author)
             if search and author_label == username:
                 issue_id = search.groups()[0] + "-" + search.groups()[1]
                 return client.issue(issue_id)
-        if len(batch) < page_size:
+        if len(batch) < PAGE_SIZE:
             break  # last page; duplicate marker not found
-        start += page_size
+        start += PAGE_SIZE
     return None
 
 
@@ -1165,18 +1165,17 @@ def _update_comments(client, existing, issue):
     :param sync2jira.intermediary.Issue issue: Upstream issue
     :returns: Nothing
     """
-    page_size = 100
     start = 0
     # All upstream comments that still need to be checked / added
     pending = list(issue.comments)
 
     while pending:
-        batch = client.comments(existing, start_at=start, max_results=page_size)
+        batch = client.comments(existing, start_at=start, max_results=PAGE_SIZE)
         # Remove upstream comments already present in this page of Jira comments
         pending = _comment_matching(pending, batch, issue.url)
-        if len(batch) < page_size:
+        if len(batch) < PAGE_SIZE:
             break  # last page reached; no more Jira comments to check
-        start += page_size
+        start += PAGE_SIZE
 
     for comment in pending:
         comment_body = _truncate_jira_text(_comment_format(comment), issue.url)

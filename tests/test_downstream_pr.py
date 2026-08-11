@@ -304,22 +304,50 @@ class TestDownstreamPR(unittest.TestCase):
 
     def test_comment_exists_true(self):
         """
-        Single-page case: comment found → returns True immediately.
+        Single-page case: comment found → returns True.
         """
         mock_comment = MagicMock()
         mock_comment.body = "mock_new_comment"
-        self.mock_client.comments.return_value = [
-            mock_comment
-        ]  # 1 item < 100 → last page
+        other_comment = MagicMock()
+        other_comment.body = "something else"
+        self.mock_client.comments.return_value = [mock_comment] + [
+            other_comment
+        ] * 99  # 1 item passes other items
 
         response = d.comment_exists(
             self.mock_client, "mock_existing", "mock_new_comment"
         )
 
+        self.assertTrue(response)
+        # Only one page was fetched despite it being full — early exit worked.
         self.mock_client.comments.assert_called_once_with(
             "mock_existing", start_at=0, max_results=100
         )
-        self.assertTrue(response)
+
+    def test_comment_exists_false_zero_batch(self):
+        """
+        Zero-items edge case: Jira has exactly 100 comments so the
+        paginator fetches a second page which returns empty.  The target
+        comment is not present anywhere so the function returns False.
+        """
+        unrelated = MagicMock()
+        unrelated.body = "some other comment"
+
+        self.mock_client.comments.side_effect = [
+            [unrelated] * 100,  # page 1: full → triggers page 2
+            [],  # page 2: empty → last page
+        ]
+
+        response = d.comment_exists(self.mock_client, "mock_existing", "target comment")
+
+        self.assertFalse(response)
+        self.assertEqual(self.mock_client.comments.call_count, 2)
+        self.mock_client.comments.assert_any_call(
+            "mock_existing", start_at=0, max_results=100
+        )
+        self.mock_client.comments.assert_any_call(
+            "mock_existing", start_at=100, max_results=100
+        )
 
     def test_comment_exists_multi_page(self):
         """
