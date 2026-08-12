@@ -1569,34 +1569,210 @@ class TestDownstreamIssue(unittest.TestCase):
                 else:
                     mock_client.add_comment.assert_not_called()
 
+    @mock.patch(PATH + "_truncate_jira_text")
     @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_matching")
     @mock.patch("jira.client.JIRA")
     def test_update_comments(
-        self, mock_client, mock_comment_matching, mock_comment_format
+        self,
+        mock_client,
+        mock_comment_matching,
+        mock_comment_format,
+        mock_truncate_jira_text,
     ):
         """
-        This function tests the 'update_comments' function
+        Single-page case: Jira returns fewer than 100 comments so the
+        paginator stops after one request.  The upstream comment that is
+        not yet in Jira is formatted and added to the Jira issue.
         """
-        # Set up return values
-        mock_client.comments.return_value = "mock_comments"
-        mock_comment_matching.return_value = ["mock_comments_d"]
-        mock_comment_format.return_value = "mock_comment_body"
+        upstream_comment = {"id": "1", "body": "hello", "changed": None}
+        self.mock_issue.comments = [upstream_comment]
 
-        # Call the function
+        mock_client.comments.return_value = ["jira_comment"]  # 1 item < 100 → last page
+        mock_comment_matching.return_value = [
+            upstream_comment
+        ]  # not matched → stays pending
+        mock_comment_format.return_value = "formatted_body"
+        mock_truncate_jira_text.return_value = "truncated_body"
+
         d._update_comments(
             client=mock_client, existing=self.mock_downstream, issue=self.mock_issue
         )
 
-        # Assert all calls were made correctly
-        mock_client.comments.assert_called_with(self.mock_downstream)
-        mock_comment_matching.assert_called_with(
-            self.mock_issue.comments, "mock_comments", self.mock_issue.url
+        mock_client.comments.assert_called_once_with(
+            self.mock_downstream, start_at=0, max_results=100
         )
-        mock_comment_format.assert_called_with("mock_comments_d")
-        mock_client.add_comment.assert_called_with(
-            self.mock_downstream, "mock_comment_body"
+        # Verify the right content reached the Jira client
+        mock_client.add_comment.assert_called_once_with(
+            self.mock_downstream, "truncated_body"
         )
+
+    @mock.patch("jira.client.JIRA")
+    def test_update_comments_no_upstream_comments(self, mock_client):
+        """
+        When there are no upstream comments, the pending list starts empty
+        so the while-loop never enters and Jira is never queried.
+        """
+        self.mock_issue.comments = []
+
+        d._update_comments(
+            client=mock_client, existing=self.mock_downstream, issue=self.mock_issue
+        )
+
+        mock_client.comments.assert_not_called()
+        mock_client.add_comment.assert_not_called()
+
+    @mock.patch(PATH + "_comment_matching")
+    @mock.patch("jira.client.JIRA")
+    def test_update_comments_early_stop(self, mock_client, mock_comment_matching):
+        """
+        Early-stop: when all upstream comments are matched on the first
+        full Jira page (100 items), no further pages are requested.
+        """
+        upstream_comment = {"id": "1", "body": "hello", "changed": None}
+        self.mock_issue.comments = [upstream_comment]
+
+        mock_client.comments.return_value = ["jira_comment"] * 100  # full page
+        mock_comment_matching.return_value = []  # all matched on page 1
+        d._update_comments(
+            client=mock_client, existing=self.mock_downstream, issue=self.mock_issue
+        )
+
+        mock_client.comments.assert_called_once_with(
+            self.mock_downstream, start_at=0, max_results=100
+        )
+        mock_client.add_comment.assert_not_called()
+
+    @mock.patch(PATH + "_comment_matching")
+    @mock.patch("jira.client.JIRA")
+    def test_update_comments_multi_page(self, mock_client, mock_comment_matching):
+        """
+        Multi-page case: upstream comment is not found on the first two
+        full pages but is found on the third (short) page.
+        Verifies that start_at advances correctly and add_comment is not
+        called when the comment is eventually matched.
+        """
+        upstream_comment = {"id": "1", "body": "hello", "changed": None}
+        self.mock_issue.comments = [upstream_comment]
+
+        full_page = ["jira_comment"] * 100
+        mock_client.comments.side_effect = [
+            full_page,  # page 1: 100 items → keep going
+            full_page,  # page 2: 100 items → keep going
+            ["jira_comment"],  # page 3: 1 item  → last page
+        ]
+        mock_comment_matching.side_effect = [
+            [upstream_comment],  # page 1: not found, still pending
+            [upstream_comment],  # page 2: not found, still pending
+            [],  # page 3: found, pending cleared
+        ]
+
+        d._update_comments(
+            client=mock_client, existing=self.mock_downstream, issue=self.mock_issue
+        )
+
+        self.assertEqual(mock_client.comments.call_count, 3)
+        mock_client.comments.assert_any_call(
+            self.mock_downstream, start_at=0, max_results=100
+        )
+        mock_client.comments.assert_any_call(
+            self.mock_downstream, start_at=100, max_results=100
+        )
+        mock_client.comments.assert_any_call(
+            self.mock_downstream, start_at=200, max_results=100
+        )
+        mock_client.add_comment.assert_not_called()
+
+    @mock.patch(PATH + "_truncate_jira_text")
+    @mock.patch(PATH + "_comment_format")
+    @mock.patch(PATH + "_comment_matching")
+    @mock.patch("jira.client.JIRA")
+    def test_update_comments_multi_page_not_found(
+        self,
+        mock_client,
+        mock_comment_matching,
+        mock_comment_format,
+        mock_truncate_jira_text,
+    ):
+        """
+        Multi-page case where the upstream comment is never matched and
+        must be added.  Also exercises the zero-items edge case: when
+        Jira returns exactly 100 items the paginator fetches a second
+        page; if that page is empty the loop stops and any remaining
+        pending comments are added.
+        """
+        upstream_comment = {"id": "1", "body": "new comment", "changed": None}
+        self.mock_issue.comments = [upstream_comment]
+
+        mock_client.comments.side_effect = [
+            ["jira_comment"] * 100,  # page 1: full → triggers page 2
+            [],  # page 2: empty → last page
+        ]
+        # Comment not found on either page; pending is never cleared.
+        mock_comment_matching.side_effect = [
+            [upstream_comment],
+            [upstream_comment],
+        ]
+        mock_comment_format.return_value = "formatted_body"
+        mock_truncate_jira_text.return_value = "truncated_body"
+
+        d._update_comments(
+            client=mock_client, existing=self.mock_downstream, issue=self.mock_issue
+        )
+
+        self.assertEqual(mock_client.comments.call_count, 2)
+        mock_client.comments.assert_any_call(
+            self.mock_downstream, start_at=0, max_results=100
+        )
+        mock_client.comments.assert_any_call(
+            self.mock_downstream, start_at=100, max_results=100
+        )
+        # Upstream comment was not in Jira → it should have been added.
+        mock_client.add_comment.assert_called_once_with(
+            self.mock_downstream, "truncated_body"
+        )
+
+    @mock.patch(PATH + "_comment_matching")
+    @mock.patch("jira.client.JIRA")
+    def test_update_comments_found_on_full_intermediate_page(
+        self, mock_client, mock_comment_matching
+    ):
+        """
+        Found on a full intermediate page: the upstream comment is not
+        matched on page 1 but is matched on page 2, which is still a
+        full 100-item page.
+
+        After page 2 the pending list is empty, so the loop must exit
+        via the ``while pending:`` guard (not via the short-page break).
+        This proves that finding a comment correctly stops fetching
+        additional pages even when the last-read page was full.
+        """
+        upstream_comment = {"id": "1", "body": "hello", "changed": None}
+        self.mock_issue.comments = [upstream_comment]
+
+        mock_client.comments.side_effect = [
+            ["jira_comment"] * 100,  # page 1: full, not found
+            ["jira_comment"] * 100,  # page 2: full, found → pending clears
+            # page 3 must NOT be fetched
+        ]
+        mock_comment_matching.side_effect = [
+            [upstream_comment],  # page 1: not yet found
+            [],  # page 2: matched, pending cleared
+        ]
+
+        d._update_comments(
+            client=mock_client, existing=self.mock_downstream, issue=self.mock_issue
+        )
+
+        # Exactly two API calls: stop after page 2 despite it being full.
+        self.assertEqual(mock_client.comments.call_count, 2)
+        mock_client.comments.assert_any_call(
+            self.mock_downstream, start_at=0, max_results=100
+        )
+        mock_client.comments.assert_any_call(
+            self.mock_downstream, start_at=100, max_results=100
+        )
+        mock_client.add_comment.assert_not_called()
 
     def test_update_fixVersion_JIRAError(self):
         """
@@ -2105,24 +2281,79 @@ class TestDownstreamIssue(unittest.TestCase):
     @mock.patch("jira.client.JIRA")
     def test_check_comments_for_duplicates(self, mock_client):
         """
-        Tests 'check_comments_for_duplicates' function
+        Single-page case: duplicate marker is found on the first (short)
+        page; only one Jira API call is made and the duplicate issue is
+        returned immediately.
         """
-        # Set up return values
         mock_comment = MagicMock()
         mock_comment.body = "Marking as duplicate of TEST-1234"
         mock_comment.author.displayName = "mock_user"
-        mock_client.comments.return_value = [mock_comment]
+        mock_client.comments.return_value = [mock_comment]  # 1 item < 100 → last page
         mock_client.issue.return_value = "Successful Call!"
 
-        # Call the function
         response = d.check_comments_for_duplicate(
             client=mock_client, result=self.mock_downstream, username="mock_user"
         )
 
-        # Assert everything was called correctly
         self.assertEqual(response, "Successful Call!")
-        mock_client.comments.assert_called_with(self.mock_downstream)
-        mock_client.issue.assert_called_with("TEST-1234")
+        mock_client.comments.assert_called_once_with(
+            self.mock_downstream, start_at=0, max_results=100
+        )
+        mock_client.issue.assert_called_once_with("TEST-1234")
+
+    @mock.patch("jira.client.JIRA")
+    def test_check_comments_for_duplicates_multi_page(self, mock_client):
+        """
+        Multi-page case: duplicate marker sits on page 2.  Verifies that
+        start_at advances to 100 and that the function returns as soon as
+        the match is found (not after exhausting all pages).
+        """
+        irrelevant = MagicMock()
+        irrelevant.body = "some other comment"
+        irrelevant.author.displayName = "mock_user"
+
+        duplicate_comment = MagicMock()
+        duplicate_comment.body = "Marking as duplicate of TEST-5678"
+        duplicate_comment.author.displayName = "mock_user"
+
+        mock_client.comments.side_effect = [
+            [irrelevant] * 100,  # page 1: full, no match
+            [duplicate_comment],  # page 2: match found → return early
+        ]
+        mock_client.issue.return_value = "duplicate_issue"
+
+        response = d.check_comments_for_duplicate(
+            client=mock_client, result=self.mock_downstream, username="mock_user"
+        )
+
+        self.assertEqual(response, "duplicate_issue")
+        self.assertEqual(mock_client.comments.call_count, 2)
+        mock_client.comments.assert_any_call(
+            self.mock_downstream, start_at=0, max_results=100
+        )
+        mock_client.comments.assert_any_call(
+            self.mock_downstream, start_at=100, max_results=100
+        )
+        mock_client.issue.assert_called_once_with("TEST-5678")
+
+    @mock.patch("jira.client.JIRA")
+    def test_check_comments_for_duplicates_not_found(self, mock_client):
+        """
+        No duplicate marker exists anywhere: all pages are scanned and
+        None is returned.
+        """
+        irrelevant = MagicMock()
+        irrelevant.body = "just a normal comment"
+        irrelevant.author.displayName = "mock_user"
+
+        mock_client.comments.return_value = [irrelevant]  # single page, no match
+
+        response = d.check_comments_for_duplicate(
+            client=mock_client, result=self.mock_downstream, username="mock_user"
+        )
+
+        self.assertIsNone(response)
+        mock_client.issue.assert_not_called()
 
     @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_format_legacy")
