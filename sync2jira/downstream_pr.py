@@ -27,12 +27,12 @@ from jira.client import ResultList
 
 # Local Modules
 import sync2jira.downstream_issue as d_issue
+from sync2jira.downstream_issue import JIRA_COMMENTS_PAGE_SIZE
 from sync2jira.intermediary import Issue, matcher
 
 log = logging.getLogger("sync2jira")
 
 UPDATES_KEY = "pr_updates"
-PAGE_SIZE = 100
 
 
 def format_comment(pr, pr_suffix, client):
@@ -95,13 +95,15 @@ def comment_exists(client, existing: JIRAIssue, new_comment):
     """
     start = 0
     while True:
-        batch = client.comments(existing, start_at=start, max_results=PAGE_SIZE)
+        batch = client.comments(
+            existing, start_at=start, max_results=JIRA_COMMENTS_PAGE_SIZE
+        )
         for comment in batch:
             if new_comment == comment.body:
                 return True
-        if len(batch) < PAGE_SIZE:
+        if len(batch) < JIRA_COMMENTS_PAGE_SIZE:
             break  # last page; comment not found
-        start += PAGE_SIZE
+        start += JIRA_COMMENTS_PAGE_SIZE
     return False
 
 

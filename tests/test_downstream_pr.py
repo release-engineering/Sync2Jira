@@ -310,9 +310,9 @@ class TestDownstreamPR(unittest.TestCase):
         mock_comment.body = "mock_new_comment"
         other_comment = MagicMock()
         other_comment.body = "something else"
-        self.mock_client.comments.return_value = [mock_comment] + [
-            other_comment
-        ] * 99  # 1 item passes other items
+        self.mock_client.comments.return_value = [other_comment] * 99 + [
+            mock_comment
+        ]  # 1 item passes other items
 
         response = d.comment_exists(
             self.mock_client, "mock_existing", "mock_new_comment"

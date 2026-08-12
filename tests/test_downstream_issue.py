@@ -1607,12 +1607,8 @@ class TestDownstreamIssue(unittest.TestCase):
             self.mock_downstream, "truncated_body"
         )
 
-    @mock.patch(PATH + "_comment_format")
-    @mock.patch(PATH + "_comment_matching")
     @mock.patch("jira.client.JIRA")
-    def test_update_comments_no_upstream_comments(
-        self, mock_client, mock_comment_matching, mock_comment_format
-    ):
+    def test_update_comments_no_upstream_comments(self, mock_client):
         """
         When there are no upstream comments, the pending list starts empty
         so the while-loop never enters and Jira is never queried.
@@ -1626,17 +1622,9 @@ class TestDownstreamIssue(unittest.TestCase):
         mock_client.comments.assert_not_called()
         mock_client.add_comment.assert_not_called()
 
-    @mock.patch(PATH + "_truncate_jira_text")
-    @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_matching")
     @mock.patch("jira.client.JIRA")
-    def test_update_comments_early_stop(
-        self,
-        mock_client,
-        mock_comment_matching,
-        mock_comment_format,
-        mock_truncate_jira_text,
-    ):
+    def test_update_comments_early_stop(self, mock_client, mock_comment_matching):
         """
         Early-stop: when all upstream comments are matched on the first
         full Jira page (100 items), no further pages are requested.
@@ -1655,12 +1643,9 @@ class TestDownstreamIssue(unittest.TestCase):
         )
         mock_client.add_comment.assert_not_called()
 
-    @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_matching")
     @mock.patch("jira.client.JIRA")
-    def test_update_comments_multi_page(
-        self, mock_client, mock_comment_matching, mock_comment_format
-    ):
+    def test_update_comments_multi_page(self, mock_client, mock_comment_matching):
         """
         Multi-page case: upstream comment is not found on the first two
         full pages but is found on the third (short) page.
@@ -1747,11 +1732,10 @@ class TestDownstreamIssue(unittest.TestCase):
             self.mock_downstream, "truncated_body"
         )
 
-    @mock.patch(PATH + "_comment_format")
     @mock.patch(PATH + "_comment_matching")
     @mock.patch("jira.client.JIRA")
     def test_update_comments_found_on_full_intermediate_page(
-        self, mock_client, mock_comment_matching, mock_comment_format
+        self, mock_client, mock_comment_matching
     ):
         """
         Found on a full intermediate page: the upstream comment is not
