@@ -27,6 +27,7 @@ from jira.client import ResultList
 
 # Local Modules
 import sync2jira.downstream_issue as d_issue
+from sync2jira.downstream_issue import JIRA_COMMENTS_PAGE_SIZE
 from sync2jira.intermediary import Issue, matcher
 
 log = logging.getLogger("sync2jira")
@@ -92,11 +93,17 @@ def comment_exists(client, existing: JIRAIssue, new_comment):
     :param String new_comment: Formatted comment we're looking for
     :returns: Nothing
     """
-    # Grab and loop over comments
-    comments = client.comments(existing)
-    for comment in comments:
-        if new_comment == comment.body:
-            return True
+    start = 0
+    while True:
+        batch = client.comments(
+            existing, start_at=start, max_results=JIRA_COMMENTS_PAGE_SIZE
+        )
+        for comment in batch:
+            if new_comment == comment.body:
+                return True
+        if len(batch) < JIRA_COMMENTS_PAGE_SIZE:
+            break  # last page; comment not found
+        start += JIRA_COMMENTS_PAGE_SIZE
     return False
 
 
