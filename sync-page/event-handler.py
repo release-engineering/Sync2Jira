@@ -1,9 +1,11 @@
 # Build-In Modules
 import logging
 import os
+import threading
+import uuid
 
 # 3rd Party Modules
-from flask import Flask, redirect, render_template, request
+from flask import Flask, jsonify, redirect, render_template, request
 
 # Local Modules
 from sync2jira.main import initialize_issues, initialize_pr, load_config
@@ -14,6 +16,12 @@ BASE_URL = os.environ["BASE_URL"]
 REDIRECT_URL = os.environ["REDIRECT_URL"]
 config = load_config()
 
+# In-memory job tracker: {job_id: {"status": str, "repos": list, "error": str|None}}
+_jobs: dict = {}
+_jobs_repo = set()
+_jobs_repo_lock = threading.Lock()
+_jobs_lock = threading.Lock()
+
 # Set up our logging
 FORMAT = "[%(asctime)s] %(levelname)s: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
@@ -22,28 +30,76 @@ logging.basicConfig(format=FORMAT, level=logging.WARNING)
 log = logging.getLogger("sync2jira-sync-page")
 
 
+def _run_sync(job_id: str, repos: list):
+    """Run initialize_issues and initialize_pr for each repo in a background thread."""
+    try:
+        for repo_name in repos:
+            log.info(f"[job:{job_id}] Syncing repo: {repo_name}")
+            initialize_issues(config, repo_name=repo_name)
+            initialize_pr(config, repo_name=repo_name)
+            log.info(f"[job:{job_id}] Finished repo: {repo_name}")
+        with _jobs_lock:
+            _jobs[job_id]["status"] = "completed"
+    except Exception as e:
+        log.exception(f"[job:{job_id}] Sync failed")
+        with _jobs_lock:
+            _jobs[job_id]["status"] = "failed"
+            _jobs[job_id]["error"] = str(e)
+    finally:
+        # Release the repo lock only after sync completes (success or failure)
+        with _jobs_repo_lock:
+            _jobs_repo.difference_update(repos)
+
+
 @app.route("/handle-event", methods=["POST"])
 def handle_event():
     """
-    Handler for when a user wants to sync a repo
+    Handler for when a user wants to sync a repo.
+    Kicks off sync in a background thread and immediately returns an
+    in-progress page so the gateway never times out.
     """
     response = request.form
-    synced_repos = []
-    for repo_name, switch in response.items():
-        if switch == "on":
-            # Sync repo_name
-            log.info(f"Starting sync for repo: {repo_name}")
-            initialize_issues(config, repo_name=repo_name)
-            initialize_pr(config, repo_name=repo_name)
-            synced_repos.append(repo_name)
-    if synced_repos:
-        return render_template(
-            "sync-page-success.jinja",
-            synced_repos=synced_repos,
-            url=f"https://{REDIRECT_URL}",
-        )
-    else:
+    repos_to_sync = [repo for repo, switch in response.items() if switch == "on"]
+
+    if not repos_to_sync:
         return render_template("sync-page-failure.jinja", url=f"https://{REDIRECT_URL}")
+
+    with _jobs_repo_lock:
+        already_syncing = set(repos_to_sync) & _jobs_repo
+        if already_syncing:
+            return render_template(
+                "sync-page-failure.jinja",
+                url=f"https://{REDIRECT_URL}",
+                error=f"Already syncing: {', '.join(already_syncing)}",
+            )
+        _jobs_repo.update(repos_to_sync)
+
+    job_id = str(uuid.uuid4())
+    with _jobs_lock:
+        _jobs[job_id] = {"status": "in_progress", "repos": repos_to_sync, "error": None}
+
+    thread = threading.Thread(
+        target=_run_sync, args=(job_id, repos_to_sync), daemon=True
+    )
+    thread.start()
+
+    log.info(f"Started background sync job {job_id} for repos: {repos_to_sync}")
+    return render_template(
+        "sync-page-in-progress.jinja",
+        job_id=job_id,
+        synced_repos=repos_to_sync,
+        url=f"https://{REDIRECT_URL}",
+    )
+
+
+@app.route("/status/<job_id>", methods=["GET"])
+def job_status(job_id: str):
+    """Return JSON status for a background sync job."""
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+    if job is None:
+        return jsonify({"status": "not_found"}), 404
+    return jsonify(job)
 
 
 @app.route("/", methods=["GET"])

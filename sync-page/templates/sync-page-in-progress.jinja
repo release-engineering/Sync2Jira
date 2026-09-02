@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" class="pf-m-redhat-font">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="icon" type="image/ico" href="{{ url_for('static', filename = 'redhat-favicon.ico') }}"/>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/@patternfly/patternfly/patternfly.css"
+    crossorigin="anonymous"
+  >
+  <link rel="stylesheet" href="{{ url_for('static', filename = 'font.css') }}" />
+  <title>Sync2Jira - Sync in Progress</title>
+  <style>
+    .sync-status-icon { font-size: 2rem; margin-right: 0.5rem; vertical-align: middle; }
+    .repo-row { display: flex; align-items: center; padding: 0.4rem 0; gap: 0.75rem; }
+    .repo-spinner {
+      display: inline-block;
+      width: 1.1rem; height: 1.1rem;
+      border: 3px solid #ccc;
+      border-top-color: #06c;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    .repo-done   { color: #3e8635; font-size: 1.1rem; flex-shrink: 0; }
+    .repo-failed { color: #c9190b; font-size: 1.1rem; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #overall-status { margin-top: 1.5rem; }
+  </style>
+</head>
+<body>
+  <div class="pf-c-page" id="page-layout-table-simple">
+  <header role="banner" class="pf-c-page__header">
+    <div class="pf-c-page__header-brand">
+        <h1>Sync2Jira - Sync Page</h1>
+    </div>
+  </header>
+  <div class="pf-c-page__sidebar pf-m-dark">
+    <div class="pf-c-page__sidebar-body">
+      <nav class="pf-c-nav pf-m-dark" aria-label="Global">
+        <ul class="pf-c-nav__list">
+          <li class="pf-c-nav__item pf-m-expandable">
+            <a href="{{ url }}/github" class="pf-c-nav__link" aria-expanded="false">GitHub
+              <span class="pf-c-nav__toggle">
+                <i class="fas fa-angle-right" aria-hidden="true"></i>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+  <main role="main" class="pf-c-page__main" tabindex="-1" id="main-content-page-layout-table-simple">
+    <section class="pf-c-page__main-section pf-m-light">
+      <div class="pf-c-content">
+        <h1 id="page-title">Sync in Progress&hellip;</h1>
+        <p>The following repos are being synced. This may take a few minutes for large repos. You can safely leave this page &mdash; the sync will continue in the background.</p>
+      </div>
+    </section>
+
+    <section class="pf-c-page__main-section pf-m-no-padding-mobile">
+      <div class="pf-c-content" style="padding: 1rem 1.5rem;">
+        <ul style="list-style: none; padding: 0;" id="repo-list">
+          {% for repo_name in synced_repos %}
+          <li class="repo-row" id="repo-{{ loop.index }}">
+            <span class="repo-spinner" id="spinner-{{ loop.index }}"></span>
+            <span>{{ repo_name }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+
+        <div id="overall-status"></div>
+
+        <div class="pf-c-form__group pf-m-action" style="margin-top:1.5rem;" id="action-buttons" hidden>
+          <div class="pf-c-form__horizontal-group">
+            <div class="pf-c-form__actions">
+              <a href="{{ url }}/github" class="pf-c-button pf-m-primary">Back to Sync Page</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  </div>
+
+  <script>
+    const jobId   = "{{ job_id }}";
+    const numRepos = {{ synced_repos | length }};
+    let pollInterval;
+
+    function markAllSpinners(iconClass, iconChar) {
+      for (let i = 1; i <= numRepos; i++) {
+        const spinner = document.getElementById("spinner-" + i);
+        if (spinner && spinner.classList.contains("repo-spinner")) {
+          spinner.outerHTML = `<span class="${iconClass}" id="spinner-${i}">${iconChar}</span>`;
+        }
+      }
+    }
+
+    function poll() {
+      fetch("/status/" + jobId)
+        .then(r => r.json())
+        .then(data => {
+          if (data.status === "completed") {
+            clearInterval(pollInterval);
+            markAllSpinners("repo-done", "✓");
+            document.getElementById("page-title").textContent = "Sync Completed Successfully";
+            document.getElementById("overall-status").innerHTML =
+              '<div class="pf-c-alert pf-m-success pf-m-inline" aria-label="Success alert">' +
+              '<div class="pf-c-alert__icon"><i class="fas fa-fw fa-check-circle" aria-hidden="true"></i></div>' +
+              '<p class="pf-c-alert__title">All selected repos have been synced to JIRA.</p>' +
+              '</div>';
+            document.getElementById("action-buttons").hidden = false;
+          } else if (data.status === "failed") {
+            clearInterval(pollInterval);
+            markAllSpinners("repo-failed", "✗");
+            document.getElementById("page-title").textContent = "Sync Failed";
+            document.getElementById("overall-status").innerHTML =
+              '<div class="pf-c-alert pf-m-danger pf-m-inline" aria-label="Danger alert">' +
+              '<div class="pf-c-alert__icon"><i class="fas fa-fw fa-exclamation-circle" aria-hidden="true"></i></div>' +
+              '<p class="pf-c-alert__title">Sync failed: ' + (data.error || "Unknown error") + '</p>' +
+              '</div>';
+            document.getElementById("action-buttons").hidden = false;
+          }
+          // status === "in_progress": keep polling
+        })
+        .catch(() => { /* network blip — keep polling */ });
+    }
+
+    pollInterval = setInterval(poll, 3000);
+    poll(); // fire immediately on load
+  </script>
+</body>
+</html>

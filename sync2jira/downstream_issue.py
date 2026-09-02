@@ -1485,7 +1485,11 @@ def _update_description(existing, issue, updates_key="issue_updates"):
         # This logging is temporary and will be used to debug an
         # issue regarding phantom updates
         # Get the diff between new_description and existing
-        diff = difflib.unified_diff(existing.fields.description, new_description)
+        old_description = existing.fields.description or ""
+        diff = difflib.unified_diff(
+            old_description.splitlines(keepends=True),
+            new_description.splitlines(keepends=True),
+        )
         log.debug("Issue %s", issue.title)
         log.debug("Diff: %s", "".join(diff))
         log.debug("Old: %s", existing.fields.description)

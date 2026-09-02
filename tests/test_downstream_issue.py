@@ -2061,6 +2061,18 @@ class TestDownstreamIssue(unittest.TestCase):
             }
         )
 
+    def test_update_description_none_existing(self):
+        """
+        Tests '_update_description' where existing JIRA description is None (not yet set).
+        This should not raise a TypeError from difflib.
+        """
+        self.mock_downstream.fields.description = None
+
+        # Should not raise — previously crashed with TypeError: NoneType has no len()
+        d._update_description(existing=self.mock_downstream, issue=self.mock_issue)
+
+        self.mock_downstream.update.assert_called_once()
+
     def test_update_description_add_field(self):
         """
         This function tests '_update_description' where we just have to add a description field
