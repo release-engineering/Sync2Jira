@@ -94,11 +94,16 @@ def handle_event():
 
 @app.route("/status/<job_id>", methods=["GET"])
 def job_status(job_id: str):
-    """Return JSON status for a background sync job."""
+    """Return JSON status for a background sync job.
+    Cleans up the job from memory once the browser reads a terminal status.
+    """
     with _jobs_lock:
         job = _jobs.get(job_id)
     if job is None:
         return jsonify({"status": "not_found"}), 404
+    if job["status"] in ("completed", "failed"):
+        with _jobs_lock:
+            _jobs.pop(job_id, None)
     return jsonify(job)
 
 
