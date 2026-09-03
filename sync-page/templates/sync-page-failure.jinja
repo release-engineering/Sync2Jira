@@ -46,7 +46,7 @@
       <div class="pf-c-content">
         <h1>Failed to start syncing</h1>
         {% if error %}
-        <p>{{ error }}</p>
+        <p>{{ error | e }}</p>
         {% else %}
         <p>Make sure you selected at least one repo!</p>
         {% endif %}

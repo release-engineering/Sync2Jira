@@ -99,6 +99,27 @@
       }
     }
 
+    function buildAlert(modifier, ariaLabel, iconClass, message) {
+      const wrapper = document.createElement("div");
+      wrapper.className = `pf-c-alert ${modifier} pf-m-inline`;
+      wrapper.setAttribute("aria-label", ariaLabel);
+
+      const iconDiv = document.createElement("div");
+      iconDiv.className = "pf-c-alert__icon";
+      const icon = document.createElement("i");
+      icon.className = `fas fa-fw ${iconClass}`;
+      icon.setAttribute("aria-hidden", "true");
+      iconDiv.appendChild(icon);
+
+      const msgP = document.createElement("p");
+      msgP.className = "pf-c-alert__title";
+      msgP.textContent = message;
+
+      wrapper.appendChild(iconDiv);
+      wrapper.appendChild(msgP);
+      return wrapper;
+    }
+
     function poll() {
       fetch("/status/" + jobId)
         .then(r => r.json())
@@ -107,21 +128,17 @@
             clearInterval(pollInterval);
             markAllSpinners("repo-done", "✓");
             document.getElementById("page-title").textContent = "Sync Completed Successfully";
-            document.getElementById("overall-status").innerHTML =
-              '<div class="pf-c-alert pf-m-success pf-m-inline" aria-label="Success alert">' +
-              '<div class="pf-c-alert__icon"><i class="fas fa-fw fa-check-circle" aria-hidden="true"></i></div>' +
-              '<p class="pf-c-alert__title">All selected repos have been synced to JIRA.</p>' +
-              '</div>';
+            document.getElementById("overall-status").replaceChildren(
+              buildAlert("pf-m-success", "Success alert", "fa-check-circle", "All selected repos have been synced to JIRA.")
+            );
             document.getElementById("action-buttons").hidden = false;
           } else if (data.status === "failed") {
             clearInterval(pollInterval);
             markAllSpinners("repo-failed", "✗");
             document.getElementById("page-title").textContent = "Sync Failed";
-            document.getElementById("overall-status").innerHTML =
-              '<div class="pf-c-alert pf-m-danger pf-m-inline" aria-label="Danger alert">' +
-              '<div class="pf-c-alert__icon"><i class="fas fa-fw fa-exclamation-circle" aria-hidden="true"></i></div>' +
-              '<p class="pf-c-alert__title">Sync failed: ' + (data.error || "Unknown error") + '</p>' +
-              '</div>';
+            document.getElementById("overall-status").replaceChildren(
+              buildAlert("pf-m-danger", "Danger alert", "fa-exclamation-circle", "Sync failed: " + (data.error || "Unknown error"))
+            );
             document.getElementById("action-buttons").hidden = false;
           }
           // status === "in_progress": keep polling
