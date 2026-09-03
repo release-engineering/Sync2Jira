@@ -44,8 +44,12 @@
   <main role="main" class="pf-c-page__main" tabindex="-1" id="main-content-page-layout-table-simple">
     <section class="pf-c-page__main-section pf-m-light">
       <div class="pf-c-content">
-        <h1>Failed to started syncing</h1>
+        <h1>Failed to start syncing</h1>
+        {% if error %}
+        <p>{{ error | e }}</p>
+        {% else %}
         <p>Make sure you selected at least one repo!</p>
+        {% endif %}
       </div>
     </section>
     <section class="pf-c-page__main-section pf-m-no-padding-mobile">
