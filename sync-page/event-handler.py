@@ -34,25 +34,22 @@ log = logging.getLogger("sync2jira-sync-page")
 
 
 def _cleanup_expired_jobs():
-    """Daemon thread: remove terminal jobs older than JOB_TTL_SECONDS."""
-    while True:
-        time.sleep(120)  # check every 2 minutes
-        cutoff = time.monotonic() - JOB_TTL_SECONDS
-        with _jobs_lock:
-            if not _jobs:
-                continue
-            expired = [
-                jid
-                for jid, job in _jobs.items()
-                if job["status"] in ("completed", "failed")
-                and job["finished_at"] < cutoff
-            ]
-            for jid in expired:
-                _jobs.pop(jid)
-                log.debug("Expired sync job %s from memory", jid)
-
-
-threading.Thread(target=_cleanup_expired_jobs, daemon=True, name="job-cleanup").start()
+    """Remove terminal jobs older than JOB_TTL_SECONDS."""
+    cutoff = time.monotonic() - JOB_TTL_SECONDS
+    with _jobs_lock:
+        if not _jobs:
+            log.debug("No jobs to cleanup")
+            return
+        expired = [
+            jid
+            for jid, job in _jobs.items()
+            if job["status"] in ("completed", "failed")
+            and job.get("finished_at") is not None
+            and job["finished_at"] < cutoff
+        ]
+        for jid in expired:
+            _jobs.pop(jid)
+            log.debug("Expired sync job %s from memory", jid)
 
 
 def _run_sync(job_id: str, repos: list):
@@ -85,6 +82,7 @@ def handle_event():
     Kicks off sync in a background thread and immediately returns an
     in-progress page so the gateway never times out.
     """
+    _cleanup_expired_jobs()
     response = request.form
     repos_to_sync = [repo for repo, switch in response.items() if switch == "on"]
 
