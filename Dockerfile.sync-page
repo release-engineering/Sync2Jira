@@ -55,4 +55,4 @@ RUN pip3 install --no-deps -v /usr/local/src/sync2jira
 
 USER 1001
 
-CMD ["python3", "/usr/local/src/sync2jira/sync-page/event-handler.py"]
+CMD ["python3", "/usr/local/src/sync2jira/sync-page/event_handler.py"]

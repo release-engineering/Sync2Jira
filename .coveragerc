@@ -1,6 +1,8 @@
 [run]
 branch = True
-source = sync2jira/
+source =
+    sync2jira/
+    sync-page/
 
 [report]
 omit =

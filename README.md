@@ -193,7 +193,7 @@ A web interface for manually triggering synchronization of specific repositories
 cd sync-page
 
 # Run the Flask application
-python event-handler.py
+python event_handler.py
 ```
 
 #### Container Deployment
