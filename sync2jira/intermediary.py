@@ -45,7 +45,7 @@ class Issue(object):
         downstream=None,
     ):
         self.source = source
-        self._title = title[:254]
+        self._title = sanitize_jira_summary(title)[:254]
         self.url = url
         self.upstream = upstream
         self.comments = comments
@@ -163,7 +163,7 @@ class PR(object):
     ):
         self.source = source
         self.jira_key = jira_key
-        self._title = title[:254]
+        self._title = sanitize_jira_summary(title)[:254]
         self.url = url
         self.upstream = upstream
         self.comments = comments
@@ -332,6 +332,19 @@ def matcher(content: Optional[str], comments: list[dict[str, str]]) -> str:
     else:
         match_str = find_it(content)
     return match_str
+
+
+def sanitize_jira_summary(title: str) -> str:
+    """Replace newline characters in a title so Jira accepts it as a summary.
+
+    Jira rejects summaries containing newline characters (``\\n``, ``\\r``).
+    Consecutive newlines (including ``\\r\\n``) are collapsed into a single space.
+
+    :param str title: Upstream title or proposed Jira summary
+    :returns: Title with newlines replaced by spaces
+    :rtype: str
+    """
+    return re.sub(r"[\r\n]+", " ", title)
 
 
 def trim_string(content):
