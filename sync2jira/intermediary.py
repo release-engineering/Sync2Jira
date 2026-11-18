@@ -344,7 +344,7 @@ def sanitize_jira_summary(title: str) -> str:
     :returns: Title with newlines replaced by spaces
     :rtype: str
     """
-    return re.sub(r"[\r\n]+", " ", title)
+    return re.sub(r" *[\r\n]+ *", " ", title)
 
 
 def trim_string(content):
