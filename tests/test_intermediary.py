@@ -430,3 +430,35 @@ class TestIntermediary(unittest.TestCase):
 
         self.checkResponseFields(response)
         self.assertEqual(response.fixVersion, ["Mapped Version 1.0"])
+
+    def test_sanitize_jira_summary(self):
+        """Newline characters in titles are replaced with a single space."""
+        scenarios = (
+            ("plain title", "plain title"),
+            ("line\nbreak", "line break"),
+            ("line\r\nbreak", "line break"),
+            ("line\rbreak", "line break"),
+            ("multi\n\nbreak", "multi break"),
+            ("mixed\r\n\nbreak", "mixed break"),
+        )
+        for raw, expected in scenarios:
+            with self.subTest(raw=raw):
+                self.assertEqual(i.sanitize_jira_summary(raw), expected)
+
+    def test_issue_title_strips_newlines(self):
+        """Issue titles with newlines are sanitized before use as Jira summaries."""
+        self.mock_github_issue["title"] = "FSENDAI title\nwith newline"
+        response = i.Issue.from_github(
+            upstream="github", issue=self.mock_github_issue, config=self.mock_config
+        )
+        self.assertEqual(response.title, "[github] FSENDAI title with newline")
+        self.assertNotIn("\n", response.title)
+        self.assertNotIn("\r", response.title)
+
+        self.mock_github_issue["title"] = "FSENDAI title\r\nwith CRLF"
+        response = i.Issue.from_github(
+            upstream="github", issue=self.mock_github_issue, config=self.mock_config
+        )
+        self.assertEqual(response.title, "[github] FSENDAI title with CRLF")
+        self.assertNotIn("\n", response.title)
+        self.assertNotIn("\r", response.title)
